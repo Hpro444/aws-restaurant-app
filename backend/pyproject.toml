@@ -1,0 +1,15 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "aws-syndicate>=1.19.1",
+    "ruff>=0.15.12",
+]
+[tool.ruff.lint]
+select = ["E", "F", "I", "D"]  # D = pydocstyle rules
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"  # or "numpy" or "pep257"
