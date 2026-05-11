@@ -101,7 +101,7 @@ class CognitoService:
         except ClientError as exc:
             code = exc.response["Error"]["Code"]
             if code == "UsernameExistsException":
-                raise ApplicationException(code=409, content="User with this email already exists") from exc
+                raise ApplicationException(code=409, content="Registration failed") from exc
             _LOG.error("admin_create_user failed: %s", exc)
             raise ApplicationException(code=500, content="Failed to create user") from exc
 

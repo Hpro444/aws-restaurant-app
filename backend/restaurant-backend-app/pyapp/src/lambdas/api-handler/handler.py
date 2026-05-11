@@ -4,7 +4,7 @@ import json
 
 from pydantic import ValidationError
 
-from commons import build_response
+from commons import build_response, raise_error_response
 from commons.abstract_lambda import AbstractLambda
 from commons.log_helper import get_logger
 from dto.sign_up_request import SignUpRequest
@@ -22,16 +22,14 @@ class ApiHandler(AbstractLambda):
         self._cognito_service = CognitoService()
 
     def validate_request(self, event) -> dict:
-        """Check that a request body is present before processing.
+        """Return empty dict; all validation is handled in route methods via Pydantic.
 
         Args:
             event: The Lambda event dict from API Gateway.
 
         Returns:
-            A dict with an error message if the body is absent, otherwise empty.
+            An empty dict — validation errors surface as 422 responses instead.
         """
-        if event.get("body") is None:
-            return {"body": "Request body is required"}
         return {}
 
     def handle_request(self, event, context):
@@ -42,7 +40,7 @@ class ApiHandler(AbstractLambda):
             context: The Lambda context object.
 
         Returns:
-            A dict with 'code' and 'body' keys representing the HTTP response.
+            A Lambda proxy response dict.
         """
         path = event.get("path", "")
         method = event.get("httpMethod", "")
@@ -55,18 +53,33 @@ class ApiHandler(AbstractLambda):
     def _sign_up(self, event):
         """Process a user registration request and return a 201 response.
 
+        Validates input via Pydantic (422 on failure), creates the user in
+        Cognito, and returns the new userId on success.
+
         Args:
             event: The Lambda event dict from API Gateway.
 
         Returns:
-            A dict with 'code' 201 and 'body' containing userId and message.
+            A Lambda proxy response dict with statusCode 201 on success.
         """
-        raw_body = event.get("body", "{}")
+        raw_body = event.get("body") or "{}"
+
         try:
             payload = json.loads(raw_body) if isinstance(raw_body, str) else raw_body
+        except json.JSONDecodeError:
+            raise_error_response(422, [{"field": "body", "message": "Invalid JSON"}])
+
+        try:
             request = SignUpRequest(**payload)
-        except (json.JSONDecodeError, ValidationError) as exc:
-            return build_response(str(exc), code=400)
+        except ValidationError as exc:
+            errors = [
+                {
+                    "field": str(err["loc"][0]) if err["loc"] else "unknown",
+                    "message": err["msg"],
+                }
+                for err in exc.errors()
+            ]
+            raise_error_response(422, errors)
 
         user_id = self._cognito_service.register_user(
             first_name=request.firstName,
@@ -75,11 +88,10 @@ class ApiHandler(AbstractLambda):
             password=request.password,
         )
 
-        response = SignUpResponse(
-            userId=user_id,
-            message="User registered successfully",
+        return build_response(
+            SignUpResponse(userId=user_id, message="User registered successfully").model_dump(),
+            code=201,
         )
-        return build_response(response.model_dump(), code=201)
 
 
 HANDLER = ApiHandler()
