@@ -10,7 +10,9 @@
   "lambda_path": "lambdas\\api-handler",
   "dependencies": [],
   "event_sources": [],
-  "env_variables": {},
+  "env_variables": {
+    "USER_POOL_NAME": "restaurant-userpool"
+  },
   "publish_version": true,
   "alias": "${lambdas_alias_name}",
   "url_config": {},

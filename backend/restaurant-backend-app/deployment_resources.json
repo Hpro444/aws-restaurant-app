@@ -14,7 +14,10 @@
             "dynamodb:DeleteItem",
             "ssm:PutParameter",
             "ssm:GetParameter",
-            "kms:Decrypt"
+            "kms:Decrypt",
+            "cognito-idp:AdminCreateUser",
+            "cognito-idp:AdminSetUserPassword",
+            "cognito-idp:ListUserPools"
           ],
           "Effect": "Allow",
           "Resource": "*"
@@ -64,7 +67,12 @@
     "auto_verified_attributes": [],
     "sms_configuration": {},
     "username_attributes": [],
-    "custom_attributes": [],
+    "custom_attributes": [
+      {"name": "first_name", "attribute_data_type": "String", "mutable": true, "required": false},
+      {"name": "last_name", "attribute_data_type": "String", "mutable": true, "required": false},
+      {"name": "role", "attribute_data_type": "String", "mutable": true, "required": false},
+      {"name": "password", "attribute_data_type": "String", "mutable": true, "required": false}
+    ],
     "client": {},
     "tags": {}
   }
