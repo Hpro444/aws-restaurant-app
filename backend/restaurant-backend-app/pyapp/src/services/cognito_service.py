@@ -19,9 +19,12 @@ class CognitoService:
     _USER_POOL_NAME_ENV = "USER_POOL_NAME"
     _MAX_RESULTS = 60
 
+    _DEFAULT_REGION = "eu-west-3"
+
     def __init__(self):
         """Initialise the boto3 Cognito client and prepare pool ID cache."""
-        self._client = boto3.client("cognito-idp")
+        region = os.environ.get("AWS_REGION", self._DEFAULT_REGION)
+        self._client = boto3.client("cognito-idp", region_name=region)
         self._pool_id: str | None = None
 
     def _resolve_pool_id(self) -> str:

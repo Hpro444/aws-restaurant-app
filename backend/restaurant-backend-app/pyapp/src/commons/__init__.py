@@ -1,5 +1,7 @@
 """Shared response-building utilities and HTTP status code constants."""
 
+import json
+
 from commons.exceptions import ApplicationException
 
 RESPONSE_OK_CODE = 200
@@ -28,8 +30,9 @@ def build_response(content, code=200):
     """
     if RESPONSE_OK_CODE <= code < 300:
         return {
-            'code': code,
-            'body': content,
+            'statusCode': code,
+            'headers': {'Content-Type': 'application/json'},
+            'body': json.dumps(content),
         }
     raise ApplicationException(code=code, content=content)
 

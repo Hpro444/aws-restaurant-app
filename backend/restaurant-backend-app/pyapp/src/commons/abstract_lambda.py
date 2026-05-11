@@ -1,3 +1,4 @@
+import json
 from abc import abstractmethod
 
 from commons import ApplicationException, build_response
@@ -42,10 +43,16 @@ class AbstractLambda:
             return execution_result
         except ApplicationException as e:
             _LOG.error(f'Error occurred; Event: {event}; Error: {e}')
-            return build_response(code=e.code,
-                                  content=e.content)
+            return {
+                'statusCode': e.code,
+                'headers': {'Content-Type': 'application/json'},
+                'body': json.dumps(e.content),
+            }
         except Exception as e:
             _LOG.error(
                 f'Unexpected error occurred; Event: {event}; Error: {e}')
-            return build_response(code=500,
-                                  content='Internal server error')
+            return {
+                'statusCode': 500,
+                'headers': {'Content-Type': 'application/json'},
+                'body': json.dumps('Internal server error'),
+            }
