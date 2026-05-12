@@ -5,17 +5,33 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "aws-syndicate>=1.19.1",
-    "pydantic[email]>=2.13.4",
-    "argon2-cffi>=23.1.0",
-    "boto3>=1.38.12",
-    "ruff>=0.15.12",
+    "aws-syndicate",
 ]
 
+[dependency-groups]
+dev = [
+    "pre-commit",
+    "pydantic[email]==2.13.4",
+    "argon2-cffi==23.1.0",
+    "boto3==1.38.12",
+    "ruff",
+]
+
+
+[tool.ruff]
+line-length = 88
+target-version = "py314"
+exclude = [".venv", "__pycache__"]
+
+[tool.ruff.format]
+line-ending = "auto"
+#line-ending = "auto"
+
 [tool.ruff.lint]
-select = ["E", "F", "I", "D"]  # D = pydocstyle rules
+select = ["E", "F", "I"]
+# D = pydocstyle rules
 ignore = ["E501"]  # line length not enforced
+#select = ["E", "F", "I", "D"]
 
-[tool.ruff.lint.pydocstyle]
-convention = "google"  # or "numpy" or "pep257"
-
+# [tool.ruff.lint.pydocstyle]
+# convention = "google"  # or "numpy" or "pep257"

@@ -59,9 +59,18 @@ class CognitoService:
             if not paginator_token:
                 break
 
-        raise ApplicationException(code=500, content=f"Cognito user pool containing '{pool_name}' not found")
+        raise ApplicationException(
+            code=500, content=f"Cognito user pool containing '{pool_name}' not found"
+        )
 
-    def register_user(self, first_name: str, last_name: str, email: str, password: str, role: UserRole = UserRole.USER) -> str:
+    def register_user(
+        self,
+        first_name: str,
+        last_name: str,
+        email: str,
+        password: str,
+        role: UserRole = UserRole.USER,
+    ) -> str:
         """Create a confirmed user in Cognito and return their sub (userId).
 
         Hashes the password with Argon2id and stores the hash as a custom
@@ -101,16 +110,28 @@ class CognitoService:
         except ClientError as exc:
             code = exc.response["Error"]["Code"]
             if code == "UsernameExistsException":
-                raise ApplicationException(code=409, content="Registration failed") from exc
+                raise ApplicationException(
+                    code=409, content="Registration failed"
+                ) from exc
             _LOG.error("admin_create_user failed: %s", exc)
-            raise ApplicationException(code=500, content="Failed to create user") from exc
+            raise ApplicationException(
+                code=500, content="Failed to create user"
+            ) from exc
 
-        user_id = next(attr["Value"] for attr in response["User"]["Attributes"] if attr["Name"] == "sub")
+        user_id = next(
+            attr["Value"]
+            for attr in response["User"]["Attributes"]
+            if attr["Name"] == "sub"
+        )
 
         try:
-            self._client.admin_set_user_password(UserPoolId=pool_id, Username=email, Password=password, Permanent=True)
+            self._client.admin_set_user_password(
+                UserPoolId=pool_id, Username=email, Password=password, Permanent=True
+            )
         except ClientError as exc:
             _LOG.error("admin_set_user_password failed: %s", exc)
-            raise ApplicationException(code=500, content="Failed to confirm user account") from exc
+            raise ApplicationException(
+                code=500, content="Failed to confirm user account"
+            ) from exc
 
         return user_id

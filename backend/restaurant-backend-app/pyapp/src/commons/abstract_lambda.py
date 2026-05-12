@@ -51,29 +51,28 @@ class AbstractLambda:
             A Lambda proxy response dict, or None for warm-up events.
         """
         try:
-            _LOG.debug(f'Request: {event}')
-            if event.get('warm_up'):
+            _LOG.debug(f"Request: {event}")
+            if event.get("warm_up"):
                 return None
             errors = self.validate_request(event=event)
             if errors:
-                return build_response(code=HttpStatusCode.RESPONSE_BAD_REQUEST_CODE,
-                                      content=errors)
-            execution_result = self.handle_request(event=event,
-                                                   context=context)
-            _LOG.debug(f'Response: {execution_result}')
+                return build_response(
+                    code=HttpStatusCode.RESPONSE_BAD_REQUEST_CODE, content=errors
+                )
+            execution_result = self.handle_request(event=event, context=context)
+            _LOG.debug(f"Response: {execution_result}")
             return execution_result
         except ApplicationException as e:
-            _LOG.error(f'Error occurred; Event: {event}; Error: {e}')
+            _LOG.error(f"Error occurred; Event: {event}; Error: {e}")
             return {
-                'statusCode': e.code,
-                'headers': {'Content-Type': 'application/json'},
-                'body': json.dumps(e.content),
+                "statusCode": e.code,
+                "headers": {"Content-Type": "application/json"},
+                "body": json.dumps(e.content),
             }
         except Exception as e:
-            _LOG.error(
-                f'Unexpected error occurred; Event: {event}; Error: {e}')
+            _LOG.error(f"Unexpected error occurred; Event: {event}; Error: {e}")
             return {
-                'statusCode': HttpStatusCode.RESPONSE_INTERNAL_SERVER_ERROR,
-                'headers': {'Content-Type': 'application/json'},
-                'body': json.dumps('Internal server error'),
+                "statusCode": HttpStatusCode.RESPONSE_INTERNAL_SERVER_ERROR,
+                "headers": {"Content-Type": "application/json"},
+                "body": json.dumps("Internal server error"),
             }

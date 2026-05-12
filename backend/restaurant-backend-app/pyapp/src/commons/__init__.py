@@ -3,13 +3,21 @@
 import json
 from typing import Any, NoReturn
 
-from commons.exceptions import ApplicationException
 from enums.http_status_code import HttpStatusCode
 
-__all__ = ["ApplicationException", "HttpStatusCode", "build_response", "raise_error_response"]
+from commons.exceptions import ApplicationException
+
+__all__ = [
+    "ApplicationException",
+    "HttpStatusCode",
+    "build_response",
+    "raise_error_response",
+]
 
 
-def build_response(content: Any, code: int = HttpStatusCode.RESPONSE_OK_CODE) -> dict[str, Any]:
+def build_response(
+    content: Any, code: int = HttpStatusCode.RESPONSE_OK_CODE
+) -> dict[str, Any]:
     """Return a Lambda-compatible response dict for 2xx codes, or raise for errors.
 
     Args:
@@ -24,9 +32,9 @@ def build_response(content: Any, code: int = HttpStatusCode.RESPONSE_OK_CODE) ->
     """
     if HttpStatusCode.RESPONSE_OK_CODE <= code < 300:
         return {
-            'statusCode': code,
-            'headers': {'Content-Type': 'application/json'},
-            'body': json.dumps(content),
+            "statusCode": code,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps(content),
         }
     raise ApplicationException(code=code, content=content)
 

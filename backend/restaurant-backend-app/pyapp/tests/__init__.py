@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 from types import TracebackType
 
-SOURCE_FOLDER = 'src'
+SOURCE_FOLDER = "src"
 
 
 class ImportFromSourceContext:
@@ -33,8 +33,7 @@ class ImportFromSourceContext:
         """Exit with an error message if the source path does not exist."""
         source_path = self.source_path
         if not source_path.exists():
-            print(f'Source path "{source_path}" does not exist.',
-                  file=sys.stderr)
+            print(f'Source path "{source_path}" does not exist.', file=sys.stderr)
             sys.exit(1)
 
     def _add_source_to_path(self) -> None:

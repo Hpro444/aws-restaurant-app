@@ -13,4 +13,4 @@ class ApplicationException(Exception):
 
     def __str__(self) -> str:
         """Return a human-readable representation of the error."""
-        return f'{self.code}:{self.content}'
+        return f"{self.code}:{self.content}"
