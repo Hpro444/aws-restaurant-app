@@ -6,7 +6,7 @@ import unittest
 from pyapp.tests import ImportFromSourceContext
 
 with ImportFromSourceContext():
-    LAMBDA_HANDLER = importlib.import_module('lambdas.api-handler.handler')
+    LAMBDA_HANDLER = importlib.import_module("lambdas.api-handler.handler")
 
 
 class ApiHandlerLambdaTestCase(unittest.TestCase):
@@ -15,4 +15,3 @@ class ApiHandlerLambdaTestCase(unittest.TestCase):
     def setUp(self) -> None:
         """Instantiate a fresh ApiHandler before each test."""
         self.HANDLER = LAMBDA_HANDLER.ApiHandler()
-

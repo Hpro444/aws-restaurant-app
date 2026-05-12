@@ -49,7 +49,9 @@ class ApiHandler(AbstractLambda):
         if path == "/auth/sign-up" and method == "POST":
             return self._sign_up(event)
 
-        return build_response("Route not found", code=HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE)
+        return build_response(
+            "Route not found", code=HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE
+        )
 
     def _sign_up(self, event: dict) -> dict:
         """Process a user registration request and return a 201 response.
@@ -68,7 +70,10 @@ class ApiHandler(AbstractLambda):
         try:
             payload = json.loads(raw_body) if isinstance(raw_body, str) else raw_body
         except json.JSONDecodeError:
-            raise_error_response(HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY, [{"field": "body", "message": "Invalid JSON"}])
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                [{"field": "body", "message": "Invalid JSON"}],
+            )
 
         try:
             request = SignUpRequest(**payload)
@@ -90,7 +95,9 @@ class ApiHandler(AbstractLambda):
         )
 
         return build_response(
-            SignUpResponse(userId=user_id, message="User registered successfully").model_dump(),
+            SignUpResponse(
+                userId=user_id, message="User registered successfully"
+            ).model_dump(),
             code=HttpStatusCode.RESPONSE_CREATED_CODE,
         )
 

@@ -50,11 +50,15 @@ class TestSignUp(ApiHandlerLambdaTestCase):
     def setUp(self) -> None:
         """Set up handler with a mocked Cognito service."""
         super().setUp()
-        self.HANDLER._cognito_service.register_user = MagicMock(return_value="test-sub-123")
+        self.HANDLER._cognito_service.register_user = MagicMock(
+            return_value="test-sub-123"
+        )
 
     def test_success_returns_201_with_user_id(self) -> None:
         """A valid registration request should return 201 with userId and message."""
-        result = self.HANDLER.lambda_handler(_make_event(_SIGN_UP_PATH, "POST", _VALID_BODY), {})
+        result = self.HANDLER.lambda_handler(
+            _make_event(_SIGN_UP_PATH, "POST", _VALID_BODY), {}
+        )
         self.assertEqual(_status(result), 201)
         self.assertEqual(_body(result)["userId"], "test-sub-123")
         self.assertEqual(_body(result)["message"], "User registered successfully")
@@ -62,13 +66,18 @@ class TestSignUp(ApiHandlerLambdaTestCase):
     def test_missing_field_returns_422(self) -> None:
         """A request missing a required field should return 422."""
         body = {k: v for k, v in _VALID_BODY.items() if k != "email"}
-        result = self.HANDLER.lambda_handler(_make_event(_SIGN_UP_PATH, "POST", body), {})
+        result = self.HANDLER.lambda_handler(
+            _make_event(_SIGN_UP_PATH, "POST", body), {}
+        )
         self.assertEqual(_status(result), 422)
 
     def test_invalid_email_returns_422(self) -> None:
         """A request with a malformed email should return 422."""
         result = self.HANDLER.lambda_handler(
-            _make_event(_SIGN_UP_PATH, "POST", {**_VALID_BODY, "email": "not-an-email"}), {}
+            _make_event(
+                _SIGN_UP_PATH, "POST", {**_VALID_BODY, "email": "not-an-email"}
+            ),
+            {},
         )
         self.assertEqual(_status(result), 422)
 
