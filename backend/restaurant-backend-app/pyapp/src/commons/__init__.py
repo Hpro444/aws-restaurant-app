@@ -1,23 +1,15 @@
 """Shared response-building utilities and HTTP status code constants."""
 
 import json
+from typing import Any, NoReturn
 
 from commons.exceptions import ApplicationException
+from enums.http_status_code import HttpStatusCode
 
-RESPONSE_OK_CODE = 200
-RESPONSE_CREATED_CODE = 201
-RESPONSE_BAD_REQUEST_CODE = 400
-RESPONSE_UNAUTHORIZED = 401
-RESPONSE_FORBIDDEN_CODE = 403
-RESPONSE_RESOURCE_NOT_FOUND_CODE = 404
-RESPONSE_CONFLICT_CODE = 409
-RESPONSE_UNPROCESSABLE_ENTITY = 422
-RESPONSE_INTERNAL_SERVER_ERROR = 500
-RESPONSE_NOT_IMPLEMENTED = 501
-RESPONSE_SERVICE_UNAVAILABLE_CODE = 503
+__all__ = ["ApplicationException", "HttpStatusCode", "build_response", "raise_error_response"]
 
 
-def build_response(content, code=200):
+def build_response(content: Any, code: int = HttpStatusCode.RESPONSE_OK_CODE) -> dict[str, Any]:
     """Return a Lambda-compatible response dict for 2xx codes, or raise for errors.
 
     Args:
@@ -25,12 +17,12 @@ def build_response(content, code=200):
         code: HTTP status code; any 2xx value returns normally, others raise.
 
     Returns:
-        Dict with 'code' and 'body' keys for successful responses.
+        Dict with 'statusCode', 'headers', and 'body' keys for successful responses.
 
     Raises:
         ApplicationException: For any non-2xx status code.
     """
-    if RESPONSE_OK_CODE <= code < 300:
+    if HttpStatusCode.RESPONSE_OK_CODE <= code < 300:
         return {
             'statusCode': code,
             'headers': {'Content-Type': 'application/json'},
@@ -39,7 +31,7 @@ def build_response(content, code=200):
     raise ApplicationException(code=code, content=content)
 
 
-def raise_error_response(code, content):
+def raise_error_response(code: int, content: Any) -> NoReturn:
     """Raise an ApplicationException with the given code and content.
 
     Args:
