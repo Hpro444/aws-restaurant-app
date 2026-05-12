@@ -1,3 +1,5 @@
+"""Logging utilities for the restaurant backend Lambda functions."""
+
 import logging
 import os
 from sys import stdout
@@ -25,7 +27,16 @@ if not log_level:
 logging.captureWarnings(True)
 
 
-def get_logger(log_name, level=log_level):
+def get_logger(log_name: str, level: int | None = log_level) -> logging.Logger:
+    """Return a child logger configured at the given level.
+
+    Args:
+        log_name: Dotted name used to identify the child logger.
+        level: Logging level; if None the logger inherits its parent's level.
+
+    Returns:
+        A configured :class:`logging.Logger` instance.
+    """
     module_logger = logger.getChild(log_name)
     if level:
         module_logger.setLevel(level)

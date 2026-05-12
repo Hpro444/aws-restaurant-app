@@ -1,5 +1,8 @@
-import unittest
+"""Base test case setup for the api-handler Lambda."""
+
 import importlib
+import unittest
+
 from pyapp.tests import ImportFromSourceContext
 
 with ImportFromSourceContext():
@@ -7,8 +10,9 @@ with ImportFromSourceContext():
 
 
 class ApiHandlerLambdaTestCase(unittest.TestCase):
-    """Common setups for this lambda"""
+    """Common setup for api-handler Lambda test cases."""
 
     def setUp(self) -> None:
+        """Instantiate a fresh ApiHandler before each test."""
         self.HANDLER = LAMBDA_HANDLER.ApiHandler()
 
