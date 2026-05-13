@@ -1,18 +1,17 @@
 """Abstract base class defining the Lambda handler contract."""
 
 import json
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from typing import Any
 
 from enums.http_status_code import HttpStatusCode
 
 from commons import ApplicationException, build_response
-from commons.log_helper import get_logger
+from commons.log_helper import logger
+from commons.response import LambdaResponse
 
-_LOG = get_logger(__name__)
 
-
-class AbstractLambda:
+class AbstractLambda(ABC):
     """Base class for all Lambda handlers; provides routing and error-handling scaffolding."""
 
     @abstractmethod
@@ -24,11 +23,11 @@ class AbstractLambda:
 
         Returns:
             A dict mapping field names to error messages; empty if valid.
+
         """
-        pass
 
     @abstractmethod
-    def handle_request(self, event: dict, context: Any) -> dict:
+    def handle_request(self, event: dict, context: Any) -> LambdaResponse:
         """Execute the Lambda function logic for a validated request.
 
         Args:
@@ -36,9 +35,9 @@ class AbstractLambda:
             context: Lambda context object.
 
         Returns:
-            A Lambda proxy response dict.
+            A :class:`LambdaResponse` instance.
+
         """
-        pass
 
     def lambda_handler(self, event: dict, context: Any) -> dict | None:
         """Entry point that validates, dispatches, and catches exceptions.
@@ -49,31 +48,35 @@ class AbstractLambda:
 
         Returns:
             A Lambda proxy response dict, or None for warm-up events.
+
         """
         try:
-            _LOG.debug(f"Request: {event}")
+            logger.debug("Request", request=event)
             if event.get("warm_up"):
                 return None
             errors = self.validate_request(event=event)
             if errors:
                 return build_response(
                     code=HttpStatusCode.RESPONSE_BAD_REQUEST_CODE, content=errors
-                )
+                ).model_dump()
             execution_result = self.handle_request(event=event, context=context)
-            _LOG.debug(f"Response: {execution_result}")
-            return execution_result
+            logger.debug("Response", response=execution_result.model_dump())
+            return execution_result.model_dump()
         except ApplicationException as e:
-            log = _LOG.error if e.code >= 500 else _LOG.warning
-            log(f"Error occurred; Event: {event}; Error: {e}")
-            return {
-                "statusCode": e.code,
-                "headers": {"Content-Type": "application/json"},
-                "body": json.dumps(e.content),
-            }
+            if e.code >= 500:
+                logger.error(
+                    "Application error", request=event, status_code=e.code, error=str(e)
+                )
+            else:
+                logger.info(
+                    "Client error", request=event, status_code=e.code, error=str(e)
+                )
+            return LambdaResponse(
+                statusCode=e.code, body=json.dumps(e.content)
+            ).model_dump()
         except Exception as e:
-            _LOG.error(f"Unexpected error occurred; Event: {event}; Error: {e}")
-            return {
-                "statusCode": HttpStatusCode.RESPONSE_INTERNAL_SERVER_ERROR,
-                "headers": {"Content-Type": "application/json"},
-                "body": json.dumps("Internal server error"),
-            }
+            logger.error("Unexpected error", request=event, error=str(e))
+            return LambdaResponse(
+                statusCode=HttpStatusCode.RESPONSE_INTERNAL_SERVER_ERROR,
+                body=json.dumps("Internal server error"),
+            ).model_dump()

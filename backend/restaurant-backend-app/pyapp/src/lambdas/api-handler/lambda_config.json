@@ -12,7 +12,8 @@
   "event_sources": [],
   "env_variables": {
     "USER_POOL_NAME": "${user_pool_name}",
-    "COGNITO_MAX_RESULTS": "${cognito_max_results}"
+    "COGNITO_MAX_RESULTS": "${cognito_max_results}",
+    "LOGIN_ATTEMPTS_TABLE": "${login_attempts_table}"
   },
   "publish_version": true,
   "alias": "${lambdas_alias_name}",

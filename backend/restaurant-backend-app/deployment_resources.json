@@ -10,8 +10,10 @@
             "dynamodb:GetItem",
             "dynamodb:Query",
             "dynamodb:PutItem",
+            "dynamodb:UpdateItem",
             "dynamodb:Batch*",
             "dynamodb:DeleteItem",
+            "dynamodb:ListTables",
             "ssm:PutParameter",
             "ssm:GetParameter",
             "kms:Decrypt",
@@ -122,6 +124,17 @@
         }
       }
     },
+    "tags": {}
+  },
+  "${login_attempts_table}": {
+    "resource_type": "dynamodb_table",
+    "hash_key_name": "email",
+    "hash_key_type": "S",
+    "read_capacity": 1,
+    "write_capacity": 1,
+    "ttl_attribute_name": "lockout_until",
+    "global_indexes": [],
+    "autoscaling": [],
     "tags": {}
   },
   "${user_pool_name}": {

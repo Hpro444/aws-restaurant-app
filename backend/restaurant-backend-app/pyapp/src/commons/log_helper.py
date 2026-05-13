@@ -2,43 +2,47 @@
 
 import logging
 import os
-from sys import stdout
+from collections import OrderedDict
 
-_name_to_level = {
-    "CRITICAL": logging.CRITICAL,
-    "FATAL": logging.FATAL,
-    "ERROR": logging.ERROR,
-    "WARNING": logging.WARNING,
-    "INFO": logging.INFO,
-    "DEBUG": logging.DEBUG,
-}
+import structlog
 
-logger = logging.getLogger(__name__)
-logger.propagate = False
-console_handler = logging.StreamHandler(stream=stdout)
-console_handler.setFormatter(
-    logging.Formatter("%(asctime)s - %(levelname)s - %(name)s - %(message)s")
+_log_level_name = os.environ.get("log_level", "INFO").upper()
+_log_level = getattr(logging, _log_level_name, logging.INFO)
+
+structlog.configure(
+    processors=[
+        structlog.processors.EventRenamer("message"),
+        structlog.processors.TimeStamper(fmt="ISO"),
+        structlog.processors.add_log_level,
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.CallsiteParameterAdder(
+            parameters=[
+                structlog.processors.CallsiteParameter.FILENAME,
+                structlog.processors.CallsiteParameter.FUNC_NAME,
+                structlog.processors.CallsiteParameter.LINENO,
+            ],
+        ),
+        structlog.contextvars.merge_contextvars,
+        structlog.processors.JSONRenderer(),
+    ],
+    context_class=OrderedDict,
+    logger_factory=structlog.PrintLoggerFactory(),
+    wrapper_class=structlog.make_filtering_bound_logger("debug"),
+    cache_logger_on_first_use=True,
 )
-logger.addHandler(console_handler)
+
+logger = structlog.get_logger()
 
 
-log_level = _name_to_level.get(os.environ.get("log_level"))
-if not log_level:
-    log_level = logging.INFO
-logging.captureWarnings(True)
-
-
-def get_logger(log_name: str, level: int | None = log_level) -> logging.Logger:
-    """Return a child logger configured at the given level.
+def get_logger(name: str) -> structlog.BoundLogger:
+    """Return a structlog bound logger for the given name.
 
     Args:
-        log_name: Dotted name used to identify the child logger.
-        level: Logging level; if None the logger inherits its parent's level.
+        name: Logger name, typically ``__name__`` of the calling module.
 
     Returns:
-        A configured :class:`logging.Logger` instance.
+        A structlog :class:`BoundLogger` instance.
+
     """
-    module_logger = logger.getChild(log_name)
-    if level:
-        module_logger.setLevel(level)
-    return module_logger
+    return structlog.get_logger(name)
