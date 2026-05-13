@@ -6,8 +6,10 @@ from typing import Any
 from commons import build_response, raise_error_response
 from commons.abstract_lambda import AbstractLambda
 from commons.log_helper import get_logger
-from dto.sign_up_request import SignUpRequest
-from dto.sign_up_response import SignUpResponse
+from dto.logout import LogoutRequest, LogoutResponse
+from dto.refresh import RefreshRequest, RefreshResponse
+from dto.sign_in import SignInRequest, SignInResponse
+from dto.sign_up import SignUpRequest, SignUpResponse
 from enums.http_status_code import HttpStatusCode
 from pydantic import ValidationError
 from services.cognito_service import CognitoService
@@ -30,6 +32,7 @@ class ApiHandler(AbstractLambda):
 
         Returns:
             An empty dict — validation errors surface as 422 responses instead.
+
         """
         return {}
 
@@ -42,6 +45,7 @@ class ApiHandler(AbstractLambda):
 
         Returns:
             A Lambda proxy response dict.
+
         """
         path = event.get("path", "")
         method = event.get("httpMethod", "")
@@ -49,34 +53,51 @@ class ApiHandler(AbstractLambda):
         if path == "/auth/sign-up" and method == "POST":
             return self._sign_up(event)
 
+        if path == "/auth/sign-in" and method == "POST":
+            return self._sign_in(event)
+
+        if path == "/auth/refresh" and method == "POST":
+            return self._refresh(event)
+
+        if path == "/auth/logout" and method == "POST":
+            return self._logout(event)
+
         return build_response(
             "Route not found", code=HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE
         )
 
-    def _sign_up(self, event: dict) -> dict:
-        """Process a user registration request and return a 201 response.
-
-        Validates input via Pydantic (422 on failure), creates the user in
-        Cognito, and returns the new userId on success.
+    def _parse_body(self, event: dict) -> dict:
+        """Parse and return the JSON request body.
 
         Args:
             event: The Lambda event dict from API Gateway.
 
         Returns:
-            A Lambda proxy response dict with statusCode 201 on success.
+            Parsed body as a dict.
+
         """
         raw_body = event.get("body") or "{}"
-
         try:
-            payload = json.loads(raw_body) if isinstance(raw_body, str) else raw_body
+            return json.loads(raw_body) if isinstance(raw_body, str) else raw_body
         except json.JSONDecodeError:
             raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
                 [{"field": "body", "message": "Invalid JSON"}],
             )
 
+    def _validate(self, model_cls, payload: dict):
+        """Validate a payload dict against a Pydantic model, raising 422 on failure.
+
+        Args:
+            model_cls: The Pydantic model class to validate against.
+            payload: Raw dict from the request body.
+
+        Returns:
+            A validated model instance.
+
+        """
         try:
-            request = SignUpRequest(**payload)
+            return model_cls(**payload)
         except ValidationError as exc:
             errors = [
                 {
@@ -87,18 +108,100 @@ class ApiHandler(AbstractLambda):
             ]
             raise_error_response(HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY, errors)
 
+    def _sign_up(self, event: dict) -> dict:
+        """Process a user registration request and return a 201 response.
+
+        Args:
+            event: The Lambda event dict from API Gateway.
+
+        Returns:
+            A Lambda proxy response dict with statusCode 201 on success.
+
+        """
+        request: SignUpRequest = self._validate(SignUpRequest, self._parse_body(event))
+
         user_id = self._cognito_service.register_user(
-            first_name=request.firstName,
-            last_name=request.lastName,
+            first_name=request.first_name,
+            last_name=request.last_name,
             email=request.email,
             password=request.password,
         )
 
         return build_response(
             SignUpResponse(
-                userId=user_id, message="User registered successfully"
+                user_id=user_id, message="User registered successfully"
             ).model_dump(),
             code=HttpStatusCode.RESPONSE_CREATED_CODE,
+        )
+
+    def _sign_in(self, event: dict) -> dict:
+        """Process a login request and return tokens on success.
+
+        Both bad email and bad password return 401 with the same generic message
+        to prevent user enumeration.
+
+        Args:
+            event: The Lambda event dict from API Gateway.
+
+        Returns:
+            A Lambda proxy response dict with statusCode 200 on success.
+
+        """
+        request: SignInRequest = self._validate(SignInRequest, self._parse_body(event))
+
+        auth = self._cognito_service.authenticate_user(
+            email=request.email,
+            password=request.password,
+        )
+
+        return build_response(
+            SignInResponse(
+                access_token=auth.access_token,
+                refresh_token=auth.refresh_token,
+                username=auth.username,
+                role=auth.role,
+            ).model_dump(),
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    def _refresh(self, event: dict) -> dict:
+        """Exchange a refresh token for a new access token.
+
+        Args:
+            event: The Lambda event dict from API Gateway.
+
+        Returns:
+            A Lambda proxy response dict with statusCode 200 and a new access token.
+
+        """
+        request: RefreshRequest = self._validate(
+            RefreshRequest, self._parse_body(event)
+        )
+
+        access_token = self._cognito_service.refresh_tokens(
+            refresh_token=request.refresh_token,
+        )
+
+        return build_response(
+            RefreshResponse(access_token=access_token).model_dump(),
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    def _logout(self, event: dict) -> dict:
+        """Revoke the user's refresh token, invalidating their session.
+
+        Args:
+            event: The Lambda event dict from API Gateway.
+
+        Returns:
+            A Lambda proxy response dict with statusCode 200 on success.
+
+        """
+        request: LogoutRequest = self._validate(LogoutRequest, self._parse_body(event))
+        self._cognito_service.logout_user(refresh_token=request.refresh_token)
+        return build_response(
+            LogoutResponse(message="Logged out successfully").model_dump(),
+            code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 
 

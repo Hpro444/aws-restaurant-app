@@ -63,7 +63,8 @@ class AbstractLambda:
             _LOG.debug(f"Response: {execution_result}")
             return execution_result
         except ApplicationException as e:
-            _LOG.error(f"Error occurred; Event: {event}; Error: {e}")
+            log = _LOG.error if e.code >= 500 else _LOG.warning
+            log(f"Error occurred; Event: {event}; Error: {e}")
             return {
                 "statusCode": e.code,
                 "headers": {"Content-Type": "application/json"},

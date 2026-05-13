@@ -11,7 +11,8 @@
   "dependencies": [],
   "event_sources": [],
   "env_variables": {
-    "USER_POOL_NAME": "restaurant-userpool"
+    "USER_POOL_NAME": "${user_pool_name}",
+    "COGNITO_MAX_RESULTS": "${cognito_max_results}"
   },
   "publish_version": true,
   "alias": "${lambdas_alias_name}",
