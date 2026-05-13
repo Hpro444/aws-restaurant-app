@@ -4,25 +4,27 @@ import boto3
 from botocore.exceptions import ClientError
 from commons.app_config import AppConfig
 from commons.exceptions import ApplicationException
-from commons.log_helper import get_logger
+from commons.log_helper import logger
 from domain.auth_result import AuthResult
+from enums.http_status_code import HttpStatusCode
 from enums.user_role import UserRole
 from pydantic import SecretStr
 
-_LOG = get_logger(__name__)
+from services.login_attempts_service import LoginAttemptsService
 
 
 class CognitoService:
     """Wraps boto3 Cognito IdP calls for user registration and authentication."""
 
     def __init__(self) -> None:
-        """Initialise settings, boto3 Cognito client, pool ID cache, and JWT service."""
+        """Initialise settings, boto3 Cognito client, pool ID cache, and login-attempts service."""
         self._settings = AppConfig()
         self._client = boto3.client(
             "cognito-idp", region_name=self._settings.aws_region
         )
         self._pool_id: str | None = None
         self._client_id: str | None = None
+        self._login_attempts_service = LoginAttemptsService(self._settings)
 
     def _resolve_pool_id(self) -> str:
         """Return the Cognito User Pool ID, resolving it by name on first call.
@@ -36,24 +38,26 @@ class CognitoService:
 
         """
         if self._pool_id:
-            _LOG.debug("Pool ID cache hit: %s", self._pool_id)
+            logger.debug("Pool ID cache hit", pool_id=self._pool_id)
             return self._pool_id
 
         pool_name = self._settings.user_pool_name
-        _LOG.info("Resolving pool ID for name containing '%s'", pool_name)
+        logger.info("Resolving pool ID", pool_name=pool_name)
         paginator_token = None
 
         while True:
-            kwargs = {"MaxResults": self._settings.cognito_max_results}
+            params = {"MaxResults": self._settings.cognito_max_results}
             if paginator_token:
-                kwargs["NextToken"] = paginator_token
+                params["NextToken"] = paginator_token
 
-            response = self._client.list_user_pools(**kwargs)
+            response = self._client.list_user_pools(**params)
 
             for pool in response.get("UserPools", []):
                 if pool_name in pool["Name"]:
                     self._pool_id = pool["Id"]
-                    _LOG.info("Resolved pool '%s' -> %s", pool["Name"], self._pool_id)
+                    logger.info(
+                        "Resolved pool", name=pool["Name"], pool_id=self._pool_id
+                    )
                     self._ensure_groups(self._pool_id)
                     return self._pool_id
 
@@ -61,7 +65,7 @@ class CognitoService:
             if not paginator_token:
                 break
 
-        _LOG.error("No user pool found containing '%s'", pool_name)
+        logger.error("No user pool found", pool_name=pool_name)
         raise ApplicationException(
             code=500, content=f"Cognito user pool containing '{pool_name}' not found"
         )
@@ -77,20 +81,20 @@ class CognitoService:
 
         Idempotent — existing groups are left untouched.
         """
-        _LOG.info("Ensuring groups exist for pool %s", pool_id)
+        logger.info("Ensuring groups exist", pool_id=pool_id)
         try:
             existing = {
                 g["GroupName"]
                 for g in self._client.list_groups(UserPoolId=pool_id).get("Groups", [])
             }
         except ClientError as exc:
-            _LOG.error("list_groups failed: %s", exc)
+            logger.error("list_groups failed", error=str(exc))
             return
 
-        _LOG.debug("Existing groups: %s", existing)
+        logger.debug("Existing groups", groups=existing)
         for name, description, precedence in self._GROUP_DEFINITIONS:
             if name in existing:
-                _LOG.debug("Group '%s' already exists, skipping", name)
+                logger.debug("Group already exists, skipping", group=name)
                 continue
             try:
                 self._client.create_group(
@@ -99,9 +103,9 @@ class CognitoService:
                     Description=description,
                     Precedence=precedence,
                 )
-                _LOG.info("Created Cognito group '%s'", name)
+                logger.info("Created Cognito group", group=name)
             except ClientError as exc:
-                _LOG.error("create_group '%s' failed: %s", name, exc)
+                logger.error("create_group failed", group=name, error=str(exc))
 
     def _resolve_client_id(self, pool_id: str) -> str:
         """Return the app client ID for the given pool, resolving it on first call.
@@ -111,29 +115,31 @@ class CognitoService:
 
         """
         if self._client_id:
-            _LOG.debug("Client ID cache hit: %s", self._client_id)
+            logger.debug("Client ID cache hit", client_id=self._client_id)
             return self._client_id
 
-        _LOG.info("Resolving app client ID for pool %s", pool_id)
+        logger.info("Resolving app client ID", pool_id=pool_id)
         try:
             response = self._client.list_user_pool_clients(
                 UserPoolId=pool_id, MaxResults=10
             )
         except ClientError as exc:
-            _LOG.error("list_user_pool_clients failed: %s", exc)
+            logger.error("list_user_pool_clients failed", error=str(exc))
             raise ApplicationException(
                 code=500, content="Failed to resolve Cognito app client"
             ) from exc
 
         clients = response.get("UserPoolClients", [])
         if not clients:
-            _LOG.error("No app clients found for pool %s", pool_id)
+            logger.error("No app clients found", pool_id=pool_id)
             raise ApplicationException(
                 code=500, content="No Cognito app client found for pool"
             )
         self._client_id = clients[0]["ClientId"]
-        _LOG.info(
-            "Resolved client '%s' -> %s", clients[0].get("ClientName"), self._client_id
+        logger.info(
+            "Resolved client",
+            name=clients[0].get("ClientName"),
+            client_id=self._client_id,
         )
         return self._client_id
 
@@ -166,7 +172,7 @@ class CognitoService:
                 500 for any other Cognito error.
 
         """
-        _LOG.info("Registering user email=%s role=%s", email, role.value)
+        logger.info("Registering user", email=email, role=role.value)
         pool_id = self._resolve_pool_id()
 
         try:
@@ -184,11 +190,11 @@ class CognitoService:
         except ClientError as exc:
             code = exc.response["Error"]["Code"]
             if code == "UsernameExistsException":
-                _LOG.warning("Registration rejected — email already exists: %s", email)
+                logger.info("Registration rejected, email already exists", email=email)
                 raise ApplicationException(
                     code=409, content="Registration failed"
                 ) from exc
-            _LOG.error("admin_create_user failed [%s]: %s", code, exc)
+            logger.error("admin_create_user failed", error_code=code, error=str(exc))
             raise ApplicationException(
                 code=500, content="Failed to create user"
             ) from exc
@@ -198,9 +204,7 @@ class CognitoService:
             for attr in response["User"]["Attributes"]
             if attr["Name"] == "sub"
         )
-        _LOG.info(
-            "User created sub=%s status=%s", user_id, response["User"]["UserStatus"]
-        )
+        logger.info("User created", sub=user_id, status=response["User"]["UserStatus"])
 
         try:
             self._client.admin_set_user_password(
@@ -209,12 +213,12 @@ class CognitoService:
                 Password=password.get_secret_value(),
                 Permanent=True,
             )
-            _LOG.info("Password set permanently for %s", email)
+            logger.info("Password set permanently", email=email)
         except ClientError as exc:
-            _LOG.error(
-                "admin_set_user_password failed [%s]: %s",
-                exc.response["Error"]["Code"],
-                exc,
+            logger.error(
+                "admin_set_user_password failed",
+                error_code=exc.response["Error"]["Code"],
+                error=str(exc),
             )
             raise ApplicationException(
                 code=500, content="Failed to confirm user account"
@@ -224,12 +228,12 @@ class CognitoService:
             self._client.admin_add_user_to_group(
                 UserPoolId=pool_id, Username=email, GroupName=role.value
             )
-            _LOG.info("Assigned user %s to group '%s'", email, role.value)
+            logger.info("Assigned user to group", email=email, group=role.value)
         except ClientError as exc:
-            _LOG.error(
-                "admin_add_user_to_group failed [%s]: %s",
-                exc.response["Error"]["Code"],
-                exc,
+            logger.error(
+                "admin_add_user_to_group failed",
+                error_code=exc.response["Error"]["Code"],
+                error=str(exc),
             )
             raise ApplicationException(
                 code=500, content="Failed to assign user role"
@@ -238,12 +242,13 @@ class CognitoService:
         return user_id
 
     def authenticate_user(self, email: str, password: SecretStr) -> AuthResult:
-        """Authenticate a user via Cognito and return the issued access token.
+        """Authenticate a user via Cognito, enforcing per-email lockout, and return tokens.
 
-        Delegates credential verification entirely to Cognito using the
-        ADMIN_USER_PASSWORD_AUTH flow. Both "user not found" and "wrong password"
-        surface as NotAuthorizedException, which is mapped to 401 to prevent
-        user enumeration.
+        Checks the login-attempts table before calling Cognito. On failure, increments
+        the attempt counter; the 4th failure adds ``remaining_attempts`` to the error,
+        and the 5th locks the account for 15 minutes (423). Both "user not found" and
+        "wrong password" are intentionally indistinguishable to prevent user enumeration.
+        A successful login resets the attempt counter.
 
         Args:
             email: Normalised user email (already lowercased/trimmed by the DTO).
@@ -253,11 +258,23 @@ class CognitoService:
             AuthResult with Cognito's AccessToken, the user's full name, and role.
 
         Raises:
-            ApplicationException: 401 for invalid credentials; 500 for unexpected
-                Cognito errors.
+            ApplicationException: 401 for invalid credentials, 423 when the account is
+                locked, 500 for unexpected Cognito errors.
 
         """
-        _LOG.info("Authenticating user email=%s", email)
+        logger.info("Authenticating user", email=email)
+
+        lockout_until = self._login_attempts_service.get_lockout_until(email)
+        if lockout_until is not None:
+            logger.info("Account is locked", email=email, lockout_until=lockout_until)
+            raise ApplicationException(
+                code=HttpStatusCode.RESPONSE_LOCKED_CODE,
+                content={
+                    "message": "Account locked due to too many failed login attempts.",
+                    "lockout_until": lockout_until,
+                },
+            )
+
         pool_id = self._resolve_pool_id()
         client_id = self._resolve_client_id(pool_id)
 
@@ -273,26 +290,49 @@ class CognitoService:
         except ClientError as exc:
             error_code = exc.response["Error"]["Code"]
             if error_code in ("NotAuthorizedException", "UserNotFoundException"):
-                _LOG.warning("initiate_auth rejected [%s]: %s", error_code, exc)
+                logger.info("Auth rejected, invalid credentials", error_code=error_code)
+                new_count, lockout_until = (
+                    self._login_attempts_service.increment_failed_attempts(email)
+                )
+                remaining = self._login_attempts_service.max_attempts - new_count
+                if lockout_until is not None:
+                    raise ApplicationException(
+                        code=HttpStatusCode.RESPONSE_LOCKED_CODE,
+                        content={
+                            "message": "Account locked due to too many failed login attempts.",
+                            "lockout_until": lockout_until,
+                        },
+                    ) from exc
+                if remaining == 1:
+                    raise ApplicationException(
+                        code=HttpStatusCode.RESPONSE_UNAUTHORIZED,
+                        content={
+                            "message": "Invalid credentials",
+                            "remaining_attempts": 1,
+                        },
+                    ) from exc
                 raise ApplicationException(
-                    code=401, content="Invalid credentials"
+                    code=HttpStatusCode.RESPONSE_UNAUTHORIZED,
+                    content="Invalid credentials",
                 ) from exc
-            _LOG.error("initiate_auth failed [%s]: %s", error_code, exc)
+            logger.error("initiate_auth failed", error_code=error_code, error=str(exc))
             raise ApplicationException(
                 code=500, content="Authentication failed"
             ) from exc
 
         access_token = auth_response["AuthenticationResult"]["AccessToken"]
         refresh_token = auth_response["AuthenticationResult"]["RefreshToken"]
-        _LOG.info("Cognito auth successful for %s", email)
+        logger.info("Cognito auth successful", email=email)
 
         try:
             user_response = self._client.admin_get_user(
                 UserPoolId=pool_id, Username=email
             )
         except ClientError as exc:
-            _LOG.error(
-                "admin_get_user failed [%s]: %s", exc.response["Error"]["Code"], exc
+            logger.error(
+                "admin_get_user failed",
+                error_code=exc.response["Error"]["Code"],
+                error=str(exc),
             )
             raise ApplicationException(
                 code=500, content="Authentication failed"
@@ -303,11 +343,11 @@ class CognitoService:
         }
         first_name = attrs.get("custom:first_name", "")
         last_name = attrs.get("custom:last_name", "")
-        _LOG.debug(
-            "Fetched user attributes for %s: first_name=%s last_name=%s",
-            email,
-            first_name,
-            last_name,
+        logger.debug(
+            "Fetched user attributes",
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
         )
 
         try:
@@ -315,10 +355,10 @@ class CognitoService:
                 UserPoolId=pool_id, Username=email
             )
         except ClientError as exc:
-            _LOG.error(
-                "admin_list_groups_for_user failed [%s]: %s",
-                exc.response["Error"]["Code"],
-                exc,
+            logger.error(
+                "admin_list_groups_for_user failed",
+                error_code=exc.response["Error"]["Code"],
+                error=str(exc),
             )
             raise ApplicationException(
                 code=500, content="Authentication failed"
@@ -326,7 +366,9 @@ class CognitoService:
 
         groups = groups_response.get("Groups", [])
         role = groups[0]["GroupName"] if groups else ""
-        _LOG.info("User %s authenticated with role='%s'", email, role)
+        logger.info("User authenticated", email=email, role=role)
+
+        self._login_attempts_service.reset_attempts(email)
 
         return AuthResult(
             access_token=access_token,
@@ -349,7 +391,7 @@ class CognitoService:
                 500 for unexpected Cognito errors.
 
         """
-        _LOG.info("Refreshing tokens")
+        logger.info("Refreshing tokens")
         pool_id = self._resolve_pool_id()
         client_id = self._resolve_client_id(pool_id)
 
@@ -362,17 +404,17 @@ class CognitoService:
         except ClientError as exc:
             error_code = exc.response["Error"]["Code"]
             if error_code in ("NotAuthorizedException", "UserNotFoundException"):
-                _LOG.warning("Token refresh rejected [%s]: %s", error_code, exc)
+                logger.info("Token refresh rejected", error_code=error_code)
                 raise ApplicationException(
                     code=401, content="Invalid or expired refresh token"
                 ) from exc
-            _LOG.error("Token refresh failed [%s]: %s", error_code, exc)
+            logger.error("Token refresh failed", error_code=error_code, error=str(exc))
             raise ApplicationException(
                 code=500, content="Token refresh failed"
             ) from exc
 
         access_token = response["AuthenticationResult"]["AccessToken"]
-        _LOG.info("Token refresh successful")
+        logger.info("Token refresh successful")
         return access_token
 
     def logout_user(self, refresh_token: str) -> None:
@@ -389,19 +431,19 @@ class CognitoService:
                 500 for unexpected Cognito errors.
 
         """
-        _LOG.info("Revoking refresh token")
+        logger.info("Revoking refresh token")
         pool_id = self._resolve_pool_id()
         client_id = self._resolve_client_id(pool_id)
 
         try:
             self._client.revoke_token(Token=refresh_token, ClientId=client_id)
-            _LOG.info("Token revoked successfully")
+            logger.info("Token revoked successfully")
         except ClientError as exc:
             error_code = exc.response["Error"]["Code"]
             if error_code in ("NotAuthorizedException", "TokenExpiredException"):
-                _LOG.warning("Token revocation rejected [%s]: %s", error_code, exc)
+                logger.info("Token revocation rejected", error_code=error_code)
                 raise ApplicationException(
                     code=401, content="Invalid or expired token"
                 ) from exc
-            _LOG.error("revoke_token failed [%s]: %s", error_code, exc)
+            logger.error("revoke_token failed", error_code=error_code, error=str(exc))
             raise ApplicationException(code=500, content="Logout failed") from exc

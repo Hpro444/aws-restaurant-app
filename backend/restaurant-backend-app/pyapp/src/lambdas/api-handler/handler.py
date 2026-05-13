@@ -3,9 +3,8 @@
 import json
 from typing import Any
 
-from commons import build_response, raise_error_response
+from commons import LambdaResponse, build_response, raise_error_response
 from commons.abstract_lambda import AbstractLambda
-from commons.log_helper import get_logger
 from dto.logout import LogoutRequest, LogoutResponse
 from dto.refresh import RefreshRequest, RefreshResponse
 from dto.sign_in import SignInRequest, SignInResponse
@@ -13,8 +12,6 @@ from dto.sign_up import SignUpRequest, SignUpResponse
 from enums.http_status_code import HttpStatusCode
 from pydantic import ValidationError
 from services.cognito_service import CognitoService
-
-_LOG = get_logger(__name__)
 
 
 class ApiHandler(AbstractLambda):
@@ -36,7 +33,7 @@ class ApiHandler(AbstractLambda):
         """
         return {}
 
-    def handle_request(self, event: dict, context: Any) -> dict:
+    def handle_request(self, event: dict, context: Any) -> LambdaResponse:
         """Route the event by path and method, then dispatch to the correct handler.
 
         Args:
@@ -108,7 +105,7 @@ class ApiHandler(AbstractLambda):
             ]
             raise_error_response(HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY, errors)
 
-    def _sign_up(self, event: dict) -> dict:
+    def _sign_up(self, event: dict) -> LambdaResponse:
         """Process a user registration request and return a 201 response.
 
         Args:
@@ -134,11 +131,12 @@ class ApiHandler(AbstractLambda):
             code=HttpStatusCode.RESPONSE_CREATED_CODE,
         )
 
-    def _sign_in(self, event: dict) -> dict:
+    def _sign_in(self, event: dict) -> LambdaResponse:
         """Process a login request and return tokens on success.
 
         Both bad email and bad password return 401 with the same generic message
-        to prevent user enumeration.
+        to prevent user enumeration. Lockout enforcement (attempt tracking, 423
+        responses) is handled inside CognitoService.authenticate_user.
 
         Args:
             event: The Lambda event dict from API Gateway.
@@ -164,7 +162,7 @@ class ApiHandler(AbstractLambda):
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 
-    def _refresh(self, event: dict) -> dict:
+    def _refresh(self, event: dict) -> LambdaResponse:
         """Exchange a refresh token for a new access token.
 
         Args:
@@ -187,7 +185,7 @@ class ApiHandler(AbstractLambda):
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 
-    def _logout(self, event: dict) -> dict:
+    def _logout(self, event: dict) -> LambdaResponse:
         """Revoke the user's refresh token, invalidating their session.
 
         Args:

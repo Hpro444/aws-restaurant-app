@@ -6,10 +6,12 @@ from typing import Any, NoReturn
 from enums.http_status_code import HttpStatusCode
 
 from commons.exceptions import ApplicationException
+from commons.response import LambdaResponse
 
 __all__ = [
     "ApplicationException",
     "HttpStatusCode",
+    "LambdaResponse",
     "build_response",
     "raise_error_response",
 ]
@@ -17,25 +19,22 @@ __all__ = [
 
 def build_response(
     content: Any, code: int = HttpStatusCode.RESPONSE_OK_CODE
-) -> dict[str, Any]:
-    """Return a Lambda-compatible response dict for 2xx codes, or raise for errors.
+) -> LambdaResponse:
+    """Return a Lambda-compatible response for 2xx codes, or raise for errors.
 
     Args:
         content: Response body (any JSON-serialisable value).
         code: HTTP status code; any 2xx value returns normally, others raise.
 
     Returns:
-        Dict with 'statusCode', 'headers', and 'body' keys for successful responses.
+        :class:`LambdaResponse` for successful responses.
 
     Raises:
         ApplicationException: For any non-2xx status code.
+
     """
     if HttpStatusCode.RESPONSE_OK_CODE <= code < 300:
-        return {
-            "statusCode": code,
-            "headers": {"Content-Type": "application/json"},
-            "body": json.dumps(content),
-        }
+        return LambdaResponse(statusCode=code, body=json.dumps(content))
     raise ApplicationException(code=code, content=content)
 
 
@@ -48,5 +47,6 @@ def raise_error_response(code: int, content: Any) -> NoReturn:
 
     Raises:
         ApplicationException: Always.
+
     """
     raise ApplicationException(code=code, content=content)

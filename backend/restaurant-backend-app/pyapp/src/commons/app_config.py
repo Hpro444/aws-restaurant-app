@@ -14,6 +14,11 @@ class AppConfig(BaseSettings):
     aws_region: str = "eu-west-3"
     cognito_max_results: int = 60
 
+    # Login attempt tracking
+    login_attempts_table: str = "login-attempts"
+    max_login_attempts: int = 5
+    lockout_seconds: int = 900
+
     model_config = SettingsConfigDict(
         extra="ignore",
         env_file=".env",
