@@ -14,8 +14,20 @@ class AppConfig(BaseSettings):
     aws_region: str = "eu-west-3"
     cognito_max_results: int = 60
 
-    # Login attempt tracking
+    # DynamoDB table aliases (resolved to full names at runtime)
     login_attempts_table: str = "login-attempts"
+    waiters_table: str = "waiters"
+    customers_table: str = "customers"
+    locations_table: str = "locations"
+    tables_table: str = "tables"
+    dishes_table: str = "dishes"
+    shifts_table: str = "shifts"
+    slots_table: str = "slots"
+    reservations_table: str = "reservations"
+    feedback_culinary_table: str = "feedback-culinary"
+    feedback_service_table: str = "feedback-service"
+
+    # Login attempt tracking
     max_login_attempts: int = 5
     lockout_seconds: int = 900
 

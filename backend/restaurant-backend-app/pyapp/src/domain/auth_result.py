@@ -1,10 +1,9 @@
-"""Dataclass carrying the result of a successful authentication."""
+"""Pydantic model carrying the result of a successful authentication."""
 
-from dataclasses import dataclass
+from pydantic import BaseModel
 
 
-@dataclass
-class AuthResult:
+class AuthResult(BaseModel):
     """Returned by CognitoService.authenticate_user; carries all fields needed for the sign-in response."""
 
     access_token: str
