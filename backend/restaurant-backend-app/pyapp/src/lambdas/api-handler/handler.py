@@ -12,6 +12,7 @@ from dto.sign_up import SignUpRequest, SignUpResponse
 from enums.http_status_code import HttpStatusCode
 from pydantic import ValidationError
 from services.cognito_service import CognitoService
+from services.registration_service import RegistrationService
 
 
 class ApiHandler(AbstractLambda):
@@ -20,6 +21,9 @@ class ApiHandler(AbstractLambda):
     def __init__(self) -> None:
         """Initialize service dependencies."""
         self._cognito_service = CognitoService()
+        self._registration_service = RegistrationService(
+            cognito_service=self._cognito_service
+        )
 
     def validate_request(self, event: dict) -> dict:
         """Return empty dict; all validation is handled in route methods via Pydantic.
@@ -108,6 +112,10 @@ class ApiHandler(AbstractLambda):
     def _sign_up(self, event: dict) -> LambdaResponse:
         """Process a user registration request and return a 201 response.
 
+        Automatically determines the user's role (Waiter or Customer) by checking
+        the waiter-emails list (role-assignment table). Persists the user profile to the appropriate
+        DynamoDB table after Cognito registration.
+
         Args:
             event: The Lambda event dict from API Gateway.
 
@@ -117,12 +125,7 @@ class ApiHandler(AbstractLambda):
         """
         request: SignUpRequest = self._validate(SignUpRequest, self._parse_body(event))
 
-        user_id = self._cognito_service.register_user(
-            first_name=request.first_name,
-            last_name=request.last_name,
-            email=request.email,
-            password=request.password,
-        )
+        user_id = self._registration_service.register_user(request)
 
         return build_response(
             SignUpResponse(

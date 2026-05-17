@@ -24,7 +24,7 @@ class TestSignUp(ApiHandlerLambdaTestCase):
     def setUp(self) -> None:
         """Set up handler with a mocked Cognito service."""
         super().setUp()
-        self.HANDLER._cognito_service.register_user = MagicMock(
+        self.HANDLER._registration_service.register_user = MagicMock(
             return_value="test-sub-123"
         )
 

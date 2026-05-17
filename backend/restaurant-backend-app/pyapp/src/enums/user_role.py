@@ -7,5 +7,6 @@ class UserRole(str, Enum):
     """Roles assignable to a restaurant application user."""
 
     ADMIN = "Admin"
-    USER = "User"
+    CUSTOMER = "Customer"
     WAITER = "Waiter"
+    VISITOR = "Visitor"

@@ -73,7 +73,7 @@ class CognitoService:
     _GROUP_DEFINITIONS: tuple[tuple[str, str, int], ...] = (
         ("Admin", "Administrators group", 1),
         ("Waiter", "Waiters group", 5),
-        ("User", "Regular users group", 10),
+        ("Customer", "Regular users group", 10),
     )
 
     def _ensure_groups(self, pool_id: str) -> None:
@@ -149,7 +149,7 @@ class CognitoService:
         last_name: str,
         email: str,
         password: SecretStr,
-        role: UserRole = UserRole.USER,
+        role: UserRole = UserRole.CUSTOMER,
     ) -> str:
         """Create a confirmed user in Cognito, assign them to a group, and return their sub.
 
@@ -162,7 +162,7 @@ class CognitoService:
             last_name: User's family name.
             email: User's email address, used as the Cognito username.
             password: Plaintext password wrapped in SecretStr; hashed by Cognito on storage.
-            role: Role to assign via group membership; defaults to UserRole.USER.
+            role: Role to assign via group membership; defaults to UserRole.CUSTOMER.
 
         Returns:
             The Cognito `sub` UUID for the newly created user.
