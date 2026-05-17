@@ -23,7 +23,8 @@
     "SLOTS_TABLE": "${slots_table}",
     "RESERVATIONS_TABLE": "${reservations_table}",
     "FEEDBACK_CULINARY_TABLE": "${feedback_culinary_table}",
-    "FEEDBACK_SERVICE_TABLE": "${feedback_service_table}"
+    "FEEDBACK_SERVICE_TABLE": "${feedback_service_table}",
+    "WAITER_EMAILS_TABLE": "${waiter_emails_table}"
   },
   "publish_version": true,
   "alias": "${lambdas_alias_name}",

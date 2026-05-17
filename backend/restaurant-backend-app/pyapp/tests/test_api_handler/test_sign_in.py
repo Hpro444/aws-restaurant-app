@@ -20,7 +20,7 @@ _MOCK_AUTH_RESULT = AuthResult(
     access_token="mock-access-token",
     refresh_token="mock-refresh-token",
     username="Jane Doe",
-    role="User",
+    role="Customer",
 )
 
 
@@ -41,7 +41,7 @@ class TestSignIn(ApiHandlerLambdaTestCase):
         self.assertEqual(body(result)["access_token"], "mock-access-token")
         self.assertEqual(body(result)["refresh_token"], "mock-refresh-token")
         self.assertEqual(body(result)["username"], "Jane Doe")
-        self.assertEqual(body(result)["role"], "User")
+        self.assertEqual(body(result)["role"], "Customer")
 
     def test_invalid_credentials_returns_401(self) -> None:
         """Both wrong email and wrong password must return 401 with a generic message."""
