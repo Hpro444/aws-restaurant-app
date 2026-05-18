@@ -25,4 +25,4 @@ class Customer(User):
 class Waiter(User):
     """Represents a logged-in waiter profile linked to a restaurant."""
 
-    restaurant_id: UUID
+    location_id: UUID

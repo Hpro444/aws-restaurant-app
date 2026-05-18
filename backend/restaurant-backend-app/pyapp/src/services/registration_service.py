@@ -102,7 +102,7 @@ class RegistrationService:
                     lname=request.last_name,
                     email=request.email,
                     image_url="",
-                    restaurant_id=location_id,
+                    location_id=location_id,
                 )
                 self._waiter_repo.create(waiter)
                 logger.info("Waiter persisted to DynamoDB", sub=user_id)

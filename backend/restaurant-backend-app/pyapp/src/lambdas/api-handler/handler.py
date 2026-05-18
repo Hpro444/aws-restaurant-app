@@ -5,6 +5,7 @@ from typing import Any
 
 from commons import LambdaResponse, build_response, raise_error_response
 from commons.abstract_lambda import AbstractLambda
+from dto.available_tables import AvailableTablesRequest
 from dto.logout import LogoutRequest, LogoutResponse
 from dto.refresh import RefreshRequest, RefreshResponse
 from dto.sign_in import SignInRequest, SignInResponse
@@ -13,6 +14,7 @@ from enums.http_status_code import HttpStatusCode
 from pydantic import ValidationError
 from services.cognito_service import CognitoService
 from services.registration_service import RegistrationService
+from services.table_availability_service import TableAvailabilityService
 
 
 class ApiHandler(AbstractLambda):
@@ -24,6 +26,7 @@ class ApiHandler(AbstractLambda):
         self._registration_service = RegistrationService(
             cognito_service=self._cognito_service
         )
+        self._table_availability_service = TableAvailabilityService()
 
     def validate_request(self, event: dict) -> dict:
         """Return empty dict; all validation is handled in route methods via Pydantic.
@@ -62,6 +65,9 @@ class ApiHandler(AbstractLambda):
 
         if path == "/auth/logout" and method == "POST":
             return self._logout(event)
+
+        if path == "/bookings/tables" and method == "GET":
+            return self._get_available_tables(event)
 
         return build_response(
             "Route not found", code=HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE
@@ -202,6 +208,94 @@ class ApiHandler(AbstractLambda):
         self._cognito_service.logout_user(refresh_token=request.refresh_token)
         return build_response(
             LogoutResponse(message="Logged out successfully").model_dump(),
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    @staticmethod
+    def _parse_query_params(event: dict) -> dict:
+        """Extract query string parameters from API Gateway event."""
+        return event.get("queryStringParameters") or {}
+
+    def _get_available_tables(self, event: dict):
+        """Handle GET /bookings/tables.
+
+        Query params:
+            - location_id (required): UUID of the restaurant location.
+            - date (required): Booking date in YYYY-MM-DD format.
+            - guests_number (required): Minimum number of guests (1-10).
+            - from_time (optional): Start time filter in HH:MM format.
+            - to_time (optional): End time filter in HH:MM format.
+
+        Filtering logic (AND):
+            1. Location — only tables at the specified location.
+            2. Guest count — only tables with capacity >= guests_number.
+            3. Timeslot — only slots on the given date that are not reserved;
+               optionally narrowed to a from_time/to_time window.
+
+        Returns available tables with their free time slots,
+        or an empty list when no tables match.
+
+        """
+        params = self._parse_query_params(event)
+
+        # Safe conversion of guests_number from string to int
+        raw_guests = params.get("guests_number", "")
+        try:
+            guests_number = int(raw_guests) if raw_guests else None
+        except ValueError:
+            return raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                [{"field": "guests_number", "message": "Must be a valid integer"}],
+            )
+        except TypeError:
+            return raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                [{"field": "guests_number", "message": "Must be a valid integer"}],
+            )
+
+        # Check for missing required parameters before Pydantic validation
+        missing_fields = []
+        if not params.get("location_id"):
+            missing_fields.append(
+                {"field": "location_id", "message": "This field is required"}
+            )
+        if not params.get("date"):
+            missing_fields.append(
+                {"field": "date", "message": "This field is required"}
+            )
+        if guests_number is None:
+            missing_fields.append(
+                {"field": "guests_number", "message": "This field is required"}
+            )
+
+        if missing_fields:
+            return raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY, missing_fields
+            )
+
+        # Validate all params through Pydantic (date format, UUID, range, time)
+        request = self._validate(
+            AvailableTablesRequest,
+            {
+                "location_id": params.get("location_id", ""),
+                "date": params.get("date", ""),
+                "guests_number": guests_number,
+                "from_time": params.get("from_time") or params.get("from"),
+                "to_time": params.get("to_time") or params.get("to"),
+            },
+        )
+
+        # Compute availability with all filters applied
+        response = self._table_availability_service.get_available_tables(
+            location_id=request.location_id,
+            booking_date=request.date,
+            guests_number=request.guests_number,
+            from_time=request.from_time,
+            to_time=request.to_time,
+        )
+
+        return build_response(
+            response.model_dump(),
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 

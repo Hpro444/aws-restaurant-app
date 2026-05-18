@@ -8,9 +8,11 @@ from botocore.exceptions import ClientError
 from pyapp.tests import ImportFromSourceContext
 
 with ImportFromSourceContext():
-    from commons.exceptions import ApplicationException
-    from domain.dish import Dish
-    from repositories.dish_repository import DishRepository
+    from commons.exceptions import ApplicationException  # type: ignore[import-untyped]
+    from domain.dish import Dish  # type: ignore[import-untyped]
+    from repositories.dish_repository import (
+        DishRepository,  # type: ignore[import-untyped]
+    )
 
 _DISH_ID = uuid.UUID("12345678-1234-5678-1234-567812345678")
 _LOCATION_ID = uuid.UUID("87654321-4321-8765-4321-876543218765")
