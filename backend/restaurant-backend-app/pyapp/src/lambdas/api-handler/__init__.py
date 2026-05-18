@@ -1,1 +1,0 @@
-"""API handler Lambda package."""
