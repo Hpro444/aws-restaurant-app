@@ -37,7 +37,7 @@ class TestUserProfile(ApiHandlerLambdaTestCase):
             lname="Smith",
             email="john@example.com",
             image_url="",
-            restaurant_id=uuid4(),
+            location_id=uuid4(),
         )
 
     def test_customer_profile_success(self):
@@ -45,7 +45,7 @@ class TestUserProfile(ApiHandlerLambdaTestCase):
         self.HANDLER._cognito_service.get_identity_from_access_token = MagicMock(
             return_value=(str(self.mock_customer.id), UserRole.CUSTOMER.value)
         )
-        self.HANDLER._customer_repository.get = MagicMock(
+        self.HANDLER._user_profile_service.get_user_profile = MagicMock(
             return_value=self.mock_customer
         )
         event = make_event(_PATH, "GET", headers=_HEADERS)
@@ -59,7 +59,9 @@ class TestUserProfile(ApiHandlerLambdaTestCase):
         self.HANDLER._cognito_service.get_identity_from_access_token = MagicMock(
             return_value=(str(self.mock_waiter.id), UserRole.WAITER.value)
         )
-        self.HANDLER._waiter_repository.get = MagicMock(return_value=self.mock_waiter)
+        self.HANDLER._user_profile_service.get_user_profile = MagicMock(
+            return_value=self.mock_waiter
+        )
         event = make_event(_PATH, "GET", headers=_HEADERS)
         result = self.HANDLER.lambda_handler(event, {})
         self.assertEqual(status(result), 200)
@@ -83,7 +85,9 @@ class TestUserProfile(ApiHandlerLambdaTestCase):
         self.HANDLER._cognito_service.get_identity_from_access_token = MagicMock(
             return_value=(str(self.mock_customer.id), UserRole.CUSTOMER.value)
         )
-        self.HANDLER._customer_repository.get = MagicMock(return_value=None)
+        self.HANDLER._user_profile_service.get_user_profile = MagicMock(
+            side_effect=ApplicationException(code=404, content="Profile not found")
+        )
         event = make_event(_PATH, "GET", headers=_HEADERS)
         result = self.HANDLER.lambda_handler(event, {})
         self.assertEqual(status(result), 404)
@@ -93,6 +97,11 @@ class TestUserProfile(ApiHandlerLambdaTestCase):
         """Return 403 when token contains a role unsupported by profile endpoint."""
         self.HANDLER._cognito_service.get_identity_from_access_token = MagicMock(
             return_value=(str(uuid4()), "Admin")
+        )
+        self.HANDLER._user_profile_service.get_user_profile = MagicMock(
+            side_effect=ApplicationException(
+                code=403, content="Role is not supported for this endpoint"
+            )
         )
         event = make_event(_PATH, "GET", headers=_HEADERS)
         result = self.HANDLER.lambda_handler(event, {})
