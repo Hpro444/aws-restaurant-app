@@ -3,10 +3,10 @@
 from uuid import UUID
 
 import boto3
-import jwt
 from botocore.exceptions import ClientError
 from commons.app_config import AppConfig
 from commons.exceptions import ApplicationException
+from commons.jwt_decoder import decode_access_token_payload
 from commons.log_helper import logger
 from domain.auth_result import AuthResult
 from enums.http_status_code import HttpStatusCode
@@ -451,21 +451,6 @@ class CognitoService:
             logger.error("revoke_token failed", error_code=error_code, error=str(exc))
             raise ApplicationException(code=500, content="Logout failed") from exc
 
-    def _decode_access_token_payload(self, access_token: str) -> dict:
-        """Decode the JWT payload without signature verification.
-
-        The token validity itself is verified by Cognito's get_user call before this
-        helper is used.
-        """
-        try:
-            # Decode without verification since Cognito's get_user already validated it
-            return jwt.decode(access_token, options={"verify_signature": False})
-        except Exception as exc:
-            raise ApplicationException(
-                code=HttpStatusCode.RESPONSE_UNAUTHORIZED,
-                content="Invalid or expired access token",
-            ) from exc
-
     def get_identity_from_access_token(self, access_token: str) -> tuple[str, UserRole]:
         """Validate the access token and return (user_id, role) extracted from claims."""
         try:
@@ -487,7 +472,7 @@ class CognitoService:
                 content="Failed to validate access token",
             ) from exc
 
-        claims = self._decode_access_token_payload(access_token)
+        claims = decode_access_token_payload(access_token)
         if claims.get("token_use") != "access":
             raise ApplicationException(
                 code=HttpStatusCode.RESPONSE_UNAUTHORIZED,
