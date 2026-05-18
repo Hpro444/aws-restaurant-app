@@ -29,21 +29,27 @@ class RegistrationService:
 
     def __init__(
         self,
-        settings: AppConfig | None = None,
         cognito_service: CognitoService | None = None,
+        waiter_repository: WaiterRepository | None = None,
+        customer_repository: CustomerRepository | None = None,
+        waiter_emails_repository: WaiterEmailsRepository | None = None,
+        settings: AppConfig | None = None,
     ) -> None:
-        """Initialise dependencies.
+        """Initialize dependencies.
 
         Args:
-            settings: Application config; a fresh instance is created when omitted.
-            cognito_service: Optional injected Cognito service instance.
+            cognito_service: Cognito service for user management.
+            waiter_repository: Repository for waiter profiles.
+            customer_repository: Repository for customer profiles.
+            waiter_emails_repository: Repository for waiter email allow-list.
+            settings: Application configuration; a fresh instance is created when omitted.
 
         """
         self._settings = settings or AppConfig()
         self._cognito_service = cognito_service or CognitoService()
-        self._waiter_emails_repo = WaiterEmailsRepository(self._settings)
-        self._waiter_repo = WaiterRepository(self._settings)
-        self._customer_repo = CustomerRepository(self._settings)
+        self._waiter_repo = waiter_repository or WaiterRepository()
+        self._customer_repo = customer_repository or CustomerRepository()
+        self._waiter_emails_repo = waiter_emails_repository or WaiterEmailsRepository()
 
     def register_user(self, request: SignUpRequest) -> str:
         """Register a user with automatic role assignment and persistence.
