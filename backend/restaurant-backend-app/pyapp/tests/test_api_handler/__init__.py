@@ -29,14 +29,14 @@ class ApiHandlerLambdaTestCase(unittest.TestCase):
         self.mock_cognito_service._login_attempts_service.max_attempts = 5
 
         self.mock_table_availability_service = MagicMock()
-
-        # Create a mock RegistrationService
         self.mock_registration_service = MagicMock()
+        self.mock_user_profile_service = MagicMock()
 
         self.HANDLER = LAMBDA_HANDLER.ApiHandler.__new__(LAMBDA_HANDLER.ApiHandler)
         self.HANDLER._cognito_service = self.mock_cognito_service
         self.HANDLER._registration_service = self.mock_registration_service
         self.HANDLER._table_availability_service = self.mock_table_availability_service
+        self.HANDLER._user_profile_service = self.mock_user_profile_service
 
 
 def make_event(

@@ -40,7 +40,7 @@ class TestUserProfileService(TestCase):
             lname="Smith",
             email="john@example.com",
             image_url="",
-            restaurant_id=uuid4(),
+            location_id=uuid4(),
         )
 
     def test_get_customer_profile_success(self):
