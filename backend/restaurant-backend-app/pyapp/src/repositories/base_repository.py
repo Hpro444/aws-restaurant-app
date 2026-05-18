@@ -15,6 +15,9 @@ from commons.log_helper import logger
 
 T = TypeVar("T", bound=DynamoModel)
 
+# Defensive limit: prevent infinite pagination in case of unexpected API behavior
+_MAX_PAGES = 100
+
 
 class DynamoRepository(ABC, Generic[T]):
     """Abstract CRUD repository for a single DynamoDB table.
@@ -165,25 +168,39 @@ class DynamoRepository(ABC, Generic[T]):
         except ClientError as exc:
             logger.error("DynamoDB delete_item failed", id=str(item_id), error=str(exc))
 
-    def scan(self) -> list[T]:
-        """Return all items in the table, paginating automatically.
+    def _paginated_query(
+        self,
+        operation_name: str,
+        query_func,
+        **kwargs,
+    ) -> list[T]:
+        """Execute a paginated DynamoDB query or scan operation.
+
+        Automatically handles pagination across multiple pages, with a safety
+        limit to prevent infinite loops. Logs warning if max pages is reached.
+
+        Args:
+            operation_name: Name for logging (e.g., "location_id-index query").
+            query_func: The DynamoDB client method (e.g., query, scan).
+            **kwargs: Parameters to pass to query_func (TableName, IndexName, etc).
 
         Returns:
-            A list of deserialized domain model instances.
+            Combined list of deserialized items across all pages.
 
         """
-        table = self._resolve_table_name()
         items: list[T] = []
-        params: dict[str, Any] = {"TableName": table}
+        page_count = 0
 
-        while True:
+        while page_count < _MAX_PAGES:
             try:
-                response = self._client.scan(**params)
+                response = query_func(**kwargs)
             except ClientError as exc:
                 logger.error(
-                    "DynamoDB scan failed", table=self._table_alias, error=str(exc)
+                    f"{operation_name} failed",
+                    table=self._table_alias,
+                    error=str(exc),
                 )
-                return items
+                break
 
             items.extend(
                 self._model_class.from_dynamodb_item(raw)
@@ -193,6 +210,29 @@ class DynamoRepository(ABC, Generic[T]):
             last_key = response.get("LastEvaluatedKey")
             if not last_key:
                 break
-            params["ExclusiveStartKey"] = last_key
+
+            kwargs["ExclusiveStartKey"] = last_key
+            page_count += 1
+
+        if page_count >= _MAX_PAGES:
+            logger.warning(
+                f"{operation_name} pagination limit reached",
+                table=self._table_alias,
+                max_pages=_MAX_PAGES,
+            )
 
         return items
+
+    def scan(self) -> list[T]:
+        """Return all items in the table, paginating automatically.
+
+        Returns:
+            A list of deserialized domain model instances.
+
+        """
+        table = self._resolve_table_name()
+        return self._paginated_query(
+            "scan",
+            self._client.scan,
+            TableName=table,
+        )

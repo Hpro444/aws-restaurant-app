@@ -7,7 +7,9 @@ from botocore.exceptions import ClientError
 from pyapp.tests import ImportFromSourceContext
 
 with ImportFromSourceContext():
-    from repositories.login_attempts_repository import LoginAttemptsRepository
+    from repositories.login_attempts_repository import (
+        LoginAttemptsRepository,  # type: ignore[import-untyped]
+    )
 
 _EMAIL = "jane@example.com"
 _LOCKOUT_TS = 9_999_999_999

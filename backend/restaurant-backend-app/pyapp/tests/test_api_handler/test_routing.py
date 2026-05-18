@@ -6,6 +6,7 @@ _SIGN_UP_PATH = "/auth/sign-up"
 _SIGN_IN_PATH = "/auth/sign-in"
 _REFRESH_PATH = "/auth/refresh"
 _LOGOUT_PATH = "/auth/logout"
+_BOOKINGS_TABLES_PATH = "/bookings/tables"
 
 _DUMMY_BODY = {
     "firstName": "Jane",
@@ -52,6 +53,17 @@ class TestRouting(ApiHandlerLambdaTestCase):
         self.assertEqual(
             status(
                 self.HANDLER.lambda_handler(make_event(_REFRESH_PATH, "GET", {}), {})
+            ),
+            404,
+        )
+
+    def test_wrong_method_on_bookings_tables_returns_404(self) -> None:
+        """A POST to the bookings/tables path should return 404."""
+        self.assertEqual(
+            status(
+                self.HANDLER.lambda_handler(
+                    make_event(_BOOKINGS_TABLES_PATH, "POST", {}), {}
+                )
             ),
             404,
         )

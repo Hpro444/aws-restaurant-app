@@ -106,7 +106,7 @@ class TestDynamoDBPersistence(_ServiceTestCase):
         self.service.register_user(_REQUEST)
 
         waiter: Waiter = self.service._waiter_repo.create.call_args.args[0]
-        self.assertEqual(waiter.restaurant_id, _LOCATION_ID)
+        self.assertEqual(waiter.location_id, _LOCATION_ID)
 
     def test_waiter_record_carries_correct_user_fields(self) -> None:
         """The Waiter model must reflect the name, email, and sub from the request/Cognito."""

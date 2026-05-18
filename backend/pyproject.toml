@@ -39,3 +39,7 @@ line-ending = "auto"
 [tool.ruff.lint]
 select = ["E", "F", "I", "D"]
 ignore = ["E501"]  # line length not enforced
+
+[tool.ruff.lint.per-file-ignores]
+"quick_seed.py" = ["E402"]
+"backend/quick_seed.py" = ["E402"]

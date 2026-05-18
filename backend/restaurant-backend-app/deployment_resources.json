@@ -122,6 +122,26 @@
           "default_error_pattern": true,
           "enable_proxy": true
         }
+      },
+      "/bookings/tables": {
+        "enable_cors": {
+          "state": false,
+          "custom_headers": [],
+          "custom_methods": [],
+          "custom_origins": []
+        },
+        "GET": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
+        }
       }
     },
     "tags": {}
@@ -215,7 +235,14 @@
     "billing_mode": "PAY_PER_REQUEST",
     "read_capacity": 1,
     "write_capacity": 1,
-    "global_indexes": [],
+    "global_indexes": [
+      {
+        "name": "location_id_index",
+        "index_key_name": "location_id",
+        "index_key_type": "S",
+        "projection_type": "ALL"
+      }
+    ],
     "autoscaling": [],
     "tags": {}
   },
@@ -248,7 +275,16 @@
     "billing_mode": "PAY_PER_REQUEST",
     "read_capacity": 1,
     "write_capacity": 1,
-    "global_indexes": [],
+    "global_indexes": [
+      {
+        "name": "table_id_date_index",
+        "index_key_name": "table_id",
+        "index_key_type": "S",
+        "index_sort_key_name": "date",
+        "index_sort_key_type": "S",
+        "projection_type": "ALL"
+      }
+    ],
     "autoscaling": [],
     "tags": {}
   },
@@ -259,7 +295,14 @@
     "billing_mode": "PAY_PER_REQUEST",
     "read_capacity": 1,
     "write_capacity": 1,
-    "global_indexes": [],
+    "global_indexes": [
+      {
+        "name": "slot-index",
+        "index_key_name": "slot",
+        "index_key_type": "S",
+        "projection_type": "ALL"
+      }
+    ],
     "autoscaling": [],
     "tags": {}
   },

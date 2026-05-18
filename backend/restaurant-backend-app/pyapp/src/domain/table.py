@@ -13,4 +13,4 @@ class Table(DynamoModel):
     id: UUID
     table_number: int
     capacity: int
-    restaurant_id: UUID
+    location_id: UUID
