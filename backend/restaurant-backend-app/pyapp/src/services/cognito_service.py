@@ -1,5 +1,9 @@
 """Service layer for AWS Cognito user management."""
 
+import base64
+import json
+from uuid import UUID
+
 import boto3
 from botocore.exceptions import ClientError
 from commons.app_config import AppConfig
@@ -447,3 +451,83 @@ class CognitoService:
                 ) from exc
             logger.error("revoke_token failed", error_code=error_code, error=str(exc))
             raise ApplicationException(code=500, content="Logout failed") from exc
+
+    def _decode_access_token_payload(self, access_token: str) -> dict:
+        """Decode the JWT payload without signature verification.
+
+        The token validity itself is verified by Cognito's get_user call before this
+        helper is used.
+        """
+        try:
+            parts = access_token.split(".")
+            if len(parts) != 3:
+                raise ValueError("Invalid JWT format")
+
+            payload = parts[1]
+            payload += "=" * (-len(payload) % 4)
+            decoded = base64.urlsafe_b64decode(payload.encode("utf-8"))
+            return json.loads(decoded.decode("utf-8"))
+        except Exception as exc:
+            raise ApplicationException(
+                code=HttpStatusCode.RESPONSE_UNAUTHORIZED,
+                content="Invalid or expired access token",
+            ) from exc
+
+    def get_identity_from_access_token(self, access_token: str) -> tuple[str, str]:
+        """Validate the access token and return (user_id, role) extracted from claims."""
+        try:
+            self._client.get_user(AccessToken=access_token)
+        except ClientError as exc:
+            error_code = exc.response["Error"]["Code"]
+            if error_code in (
+                "NotAuthorizedException",
+                "InvalidParameterException",
+                "ResourceNotFoundException",
+            ):
+                raise ApplicationException(
+                    code=HttpStatusCode.RESPONSE_UNAUTHORIZED,
+                    content="Invalid or expired access token",
+                ) from exc
+            logger.error("get_user failed", error_code=error_code, error=str(exc))
+            raise ApplicationException(
+                code=HttpStatusCode.RESPONSE_INTERNAL_SERVER_ERROR,
+                content="Failed to validate access token",
+            ) from exc
+
+        claims = self._decode_access_token_payload(access_token)
+        if claims.get("token_use") != "access":
+            raise ApplicationException(
+                code=HttpStatusCode.RESPONSE_UNAUTHORIZED,
+                content="Invalid or expired access token",
+            )
+
+        sub = claims.get("sub")
+        if not isinstance(sub, str):
+            raise ApplicationException(
+                code=HttpStatusCode.RESPONSE_UNAUTHORIZED,
+                content="Invalid or expired access token",
+            )
+
+        try:
+            UUID(sub)
+        except ValueError as exc:
+            raise ApplicationException(
+                code=HttpStatusCode.RESPONSE_UNAUTHORIZED,
+                content="Invalid or expired access token",
+            ) from exc
+
+        groups = claims.get("cognito:groups", [])
+        if not isinstance(groups, list):
+            groups = [groups] if isinstance(groups, str) else []
+
+        if UserRole.WAITER.value in groups:
+            return sub, UserRole.WAITER.value
+        if UserRole.CUSTOMER.value in groups:
+            return sub, UserRole.CUSTOMER.value
+        if UserRole.ADMIN.value in groups:
+            return sub, UserRole.ADMIN.value
+
+        raise ApplicationException(
+            code=HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
+            content="Role is not supported for this endpoint",
+        )

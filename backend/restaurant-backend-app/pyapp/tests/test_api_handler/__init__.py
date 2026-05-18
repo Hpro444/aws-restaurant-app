@@ -39,9 +39,19 @@ class ApiHandlerLambdaTestCase(unittest.TestCase):
         self.HANDLER._table_availability_service = self.mock_table_availability_service
 
 
-def make_event(path: str, method: str, body: dict) -> dict:
+def make_event(
+    path: str,
+    method: str,
+    body: dict | None = None,
+    headers: dict[str, str] | None = None,
+) -> dict:
     """Build a minimal API Gateway-style Lambda event."""
-    return {"path": path, "httpMethod": method, "body": json.dumps(body)}
+    event = {"path": path, "httpMethod": method}
+    if body is not None:
+        event["body"] = json.dumps(body)
+    if headers is not None:
+        event["headers"] = headers
+    return event
 
 
 def make_get_event(path: str, params: dict | None) -> dict:

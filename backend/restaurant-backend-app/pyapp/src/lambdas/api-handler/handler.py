@@ -10,21 +10,37 @@ from dto.logout import LogoutRequest, LogoutResponse
 from dto.refresh import RefreshRequest, RefreshResponse
 from dto.sign_in import SignInRequest, SignInResponse
 from dto.sign_up import SignUpRequest, SignUpResponse
+from dto.user_profile import ProfileResponse
 from enums.http_status_code import HttpStatusCode
 from pydantic import ValidationError
+from repositories.customer_repository import CustomerRepository
+from repositories.waiter_repository import WaiterRepository
 from services.cognito_service import CognitoService
 from services.registration_service import RegistrationService
 from services.table_availability_service import TableAvailabilityService
+from services.user_profile_service import UserProfileService
 
 
 class ApiHandler(AbstractLambda):
     """Handles all routed requests from API Gateway for the restaurant backend."""
 
     def __init__(self) -> None:
-        """Initialize service dependencies."""
+        """Initialize shared dependencies and services."""
+        # Shared dependencies
         self._cognito_service = CognitoService()
+        self._customer_repository = CustomerRepository()
+        self._waiter_repository = WaiterRepository()
+
+        # Services (reuse shared dependencies)
         self._registration_service = RegistrationService(
-            cognito_service=self._cognito_service
+            cognito_service=self._cognito_service,
+            waiter_repository=self._waiter_repository,
+            customer_repository=self._customer_repository,
+        )
+        self._user_profile_service = UserProfileService(
+            cognito_service=self._cognito_service,
+            customer_repository=self._customer_repository,
+            waiter_repository=self._waiter_repository,
         )
         self._table_availability_service = TableAvailabilityService()
 
@@ -66,12 +82,33 @@ class ApiHandler(AbstractLambda):
         if path == "/auth/logout" and method == "POST":
             return self._logout(event)
 
+        if path == "/users/profile" and method == "GET":
+            return self._get_user_profile(event)
+
         if path == "/bookings/tables" and method == "GET":
             return self._get_available_tables(event)
 
         return build_response(
             "Route not found", code=HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE
         )
+
+    def _extract_access_token(self, event: dict) -> str:
+        """Extract and return the access token from the Authorization header."""
+        headers = event.get("headers") or {}
+        authorization = headers.get("Authorization") or headers.get("authorization")
+        if not isinstance(authorization, str):
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNAUTHORIZED,
+                "Missing or invalid Authorization header",
+            )
+
+        scheme, _, token = authorization.partition(" ")
+        if scheme.lower() != "bearer" or not token:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNAUTHORIZED,
+                "Missing or invalid Authorization header",
+            )
+        return token
 
     def _parse_body(self, event: dict) -> dict:
         """Parse and return the JSON request body.
@@ -208,6 +245,23 @@ class ApiHandler(AbstractLambda):
         self._cognito_service.logout_user(refresh_token=request.refresh_token)
         return build_response(
             LogoutResponse(message="Logged out successfully").model_dump(),
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    def _get_user_profile(self, event: dict) -> LambdaResponse:
+        """Return the authenticated user's profile from the role-specific table."""
+        access_token = self._extract_access_token(event)
+        _, role = self._cognito_service.get_identity_from_access_token(access_token)
+        user = self._user_profile_service.get_user_profile(access_token)
+
+        return build_response(
+            ProfileResponse(
+                first_name=user.fname,
+                last_name=user.lname,
+                image_url=user.image_url,
+                email=user.email,
+                role=role,
+            ).model_dump(),
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 

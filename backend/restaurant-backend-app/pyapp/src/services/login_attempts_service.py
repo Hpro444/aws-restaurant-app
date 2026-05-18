@@ -20,17 +20,22 @@ class LoginAttemptsService:
     contains only the business logic (time comparisons, threshold checks).
     """
 
-    def __init__(self, settings: AppConfig | None = None) -> None:
+    def __init__(
+        self,
+        settings: AppConfig | None = None,
+        login_attempts_repository: LoginAttemptsRepository | None = None,
+    ) -> None:
         """Initialise the service with lockout config and a login-attempts repository.
 
         Args:
             settings: Application config; a fresh instance is created when omitted.
+            login_attempts_repository: Optional LoginAttemptsRepository instance.
 
         """
         cfg = settings or AppConfig()
         self._max_attempts = cfg.max_login_attempts
         self._lockout_seconds = cfg.lockout_seconds
-        self._repo = LoginAttemptsRepository(cfg)
+        self._repo = login_attempts_repository or LoginAttemptsRepository(cfg)
 
     @property
     def max_attempts(self) -> int:
