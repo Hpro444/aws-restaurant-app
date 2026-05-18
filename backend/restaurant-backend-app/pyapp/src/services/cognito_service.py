@@ -1,10 +1,9 @@
 """Service layer for AWS Cognito user management."""
 
-import base64
-import json
 from uuid import UUID
 
 import boto3
+import jwt
 from botocore.exceptions import ClientError
 from commons.app_config import AppConfig
 from commons.exceptions import ApplicationException
@@ -459,21 +458,15 @@ class CognitoService:
         helper is used.
         """
         try:
-            parts = access_token.split(".")
-            if len(parts) != 3:
-                raise ValueError("Invalid JWT format")
-
-            payload = parts[1]
-            payload += "=" * (-len(payload) % 4)
-            decoded = base64.urlsafe_b64decode(payload.encode("utf-8"))
-            return json.loads(decoded.decode("utf-8"))
+            # Decode without verification since Cognito's get_user already validated it
+            return jwt.decode(access_token, options={"verify_signature": False})
         except Exception as exc:
             raise ApplicationException(
                 code=HttpStatusCode.RESPONSE_UNAUTHORIZED,
                 content="Invalid or expired access token",
             ) from exc
 
-    def get_identity_from_access_token(self, access_token: str) -> tuple[str, str]:
+    def get_identity_from_access_token(self, access_token: str) -> tuple[str, UserRole]:
         """Validate the access token and return (user_id, role) extracted from claims."""
         try:
             self._client.get_user(AccessToken=access_token)
@@ -520,12 +513,9 @@ class CognitoService:
         if not isinstance(groups, list):
             groups = [groups] if isinstance(groups, str) else []
 
-        if UserRole.WAITER.value in groups:
-            return sub, UserRole.WAITER.value
-        if UserRole.CUSTOMER.value in groups:
-            return sub, UserRole.CUSTOMER.value
-        if UserRole.ADMIN.value in groups:
-            return sub, UserRole.ADMIN.value
+        for role in UserRole:
+            if role.value in groups:
+                return sub, role
 
         raise ApplicationException(
             code=HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
