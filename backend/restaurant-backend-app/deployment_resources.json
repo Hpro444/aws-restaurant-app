@@ -175,6 +175,26 @@
           "default_error_pattern": true,
           "enable_proxy": true
         }
+      },
+      "/bookings/client": {
+        "enable_cors": {
+          "state": false,
+          "custom_headers": [],
+          "custom_methods": [],
+          "custom_origins": []
+        },
+        "POST": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
+        }
       }
     },
     "tags": {}

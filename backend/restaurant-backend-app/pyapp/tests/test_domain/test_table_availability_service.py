@@ -10,6 +10,7 @@ from pyapp.tests import ImportFromSourceContext
 with ImportFromSourceContext():
     from domain.slot import Slot
     from domain.table import Table
+    from enums.slot_status import SlotStatus
     from services.table_availability_service import TableAvailabilityService
 
 _LOCATION_ID = uuid.UUID("11111111-1111-1111-1111-111111111111")
@@ -36,7 +37,13 @@ def _table(table_id: uuid.UUID, number: int, cap: int) -> Table:
     )
 
 
-def _slot(slot_id: uuid.UUID, table_id: uuid.UUID, start_h: int, start_m: int) -> Slot:
+def _slot(
+    slot_id: uuid.UUID,
+    table_id: uuid.UUID,
+    start_h: int,
+    start_m: int,
+    status: SlotStatus = SlotStatus.FREE,
+) -> Slot:
     """Build a Slot model for tests."""
     start = _aware(start_h, start_m)
     return Slot(
@@ -45,6 +52,7 @@ def _slot(slot_id: uuid.UUID, table_id: uuid.UUID, start_h: int, start_m: int) -
         start_time=start,
         end_time=start.replace(hour=start.hour + 1, minute=(start.minute + 30) % 60),
         date=_aware(0, 0),
+        status=status,
     )
 
 
@@ -57,25 +65,18 @@ class TestTableAvailabilityService(unittest.TestCase):
             "services.table_availability_service.TableRepository"
         )
         slot_repo_patcher = patch("services.table_availability_service.SlotRepository")
-        reservation_repo_patcher = patch(
-            "services.table_availability_service.ReservationRepository"
-        )
 
         self.mock_table_repo_cls = table_repo_patcher.start()
         self.mock_slot_repo_cls = slot_repo_patcher.start()
-        self.mock_reservation_repo_cls = reservation_repo_patcher.start()
 
         self.addCleanup(table_repo_patcher.stop)
         self.addCleanup(slot_repo_patcher.stop)
-        self.addCleanup(reservation_repo_patcher.stop)
 
         self.mock_table_repo = MagicMock()
         self.mock_slot_repo = MagicMock()
-        self.mock_reservation_repo = MagicMock()
 
         self.mock_table_repo_cls.return_value = self.mock_table_repo
         self.mock_slot_repo_cls.return_value = self.mock_slot_repo
-        self.mock_reservation_repo_cls.return_value = self.mock_reservation_repo
 
         self.service = TableAvailabilityService()
 
@@ -85,7 +86,6 @@ class TestTableAvailabilityService(unittest.TestCase):
         self.assertEqual(response.tables, [])
         self.mock_table_repo.find_by_location_id.assert_not_called()
         self.mock_slot_repo.find_by_table_ids_and_date.assert_not_called()
-        self.mock_reservation_repo.find_booked_slot_ids.assert_not_called()
 
     def test_no_tables_with_required_capacity_returns_empty_response(self) -> None:
         """When no table capacity fits guests_number, result must be empty."""
@@ -113,16 +113,17 @@ class TestTableAvailabilityService(unittest.TestCase):
         )
 
         self.assertEqual(response.tables, [])
-        self.mock_reservation_repo.find_booked_slot_ids.assert_not_called()
 
-    def test_excludes_booked_slots_and_sorts_result(self) -> None:
-        """Booked slots must be excluded; tables/slots must be sorted in output."""
+    def test_excludes_reserved_slots_and_sorts_result(self) -> None:
+        """Slots with non-FREE status must be excluded; output is sorted."""
         table_2 = _table(_TABLE_2_ID, 2, 6)
         table_1 = _table(_TABLE_1_ID, 1, 4)
 
         slot_late = _slot(_SLOT_2_ID, _TABLE_1_ID, 12, 0)
         slot_early = _slot(_SLOT_1_ID, _TABLE_1_ID, 10, 0)
-        slot_other_table = _slot(_SLOT_3_ID, _TABLE_2_ID, 11, 0)
+        slot_other_table = _slot(
+            _SLOT_3_ID, _TABLE_2_ID, 11, 0, status=SlotStatus.RESERVED
+        )
 
         self.mock_table_repo.find_by_location_id.return_value = [table_2, table_1]
         self.mock_slot_repo.find_by_table_ids_and_date.return_value = [
@@ -130,13 +131,12 @@ class TestTableAvailabilityService(unittest.TestCase):
             slot_other_table,
             slot_early,
         ]
-        self.mock_reservation_repo.find_booked_slot_ids.return_value = {_SLOT_3_ID}
 
         response = self.service.get_available_tables(
             str(_LOCATION_ID), _BOOKING_DATE, 4
         )
 
-        # table 2 had only a booked slot, so only table 1 remains
+        # table 2 had only a reserved slot, so only table 1 remains
         self.assertEqual(len(response.tables), 1)
         self.assertEqual(response.tables[0].table_number, 1)
         self.assertEqual(len(response.tables[0].available_slots), 2)
@@ -153,4 +153,3 @@ class TestTableAvailabilityService(unittest.TestCase):
 
         self.mock_table_repo.find_by_location_id.assert_called_once_with(_LOCATION_ID)
         self.mock_slot_repo.find_by_table_ids_and_date.assert_called_once()
-        self.mock_reservation_repo.find_booked_slot_ids.assert_called_once()

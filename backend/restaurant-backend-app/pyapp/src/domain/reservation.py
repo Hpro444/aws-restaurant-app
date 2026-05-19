@@ -10,12 +10,17 @@ from pydantic import AwareDatetime
 
 
 class Reservation(DynamoModel):
-    """Represents a reservation made by a customer."""
+    """Represents a reservation made by a customer.
+
+    ``slot_ids`` holds every 90-minute slot booked under this reservation;
+    a single-slot booking still uses a one-element list so the schema is
+    uniform.
+    """
 
     id: UUID
     customer_id: UUID | None
     waiter_id: UUID | None
     created_at: AwareDatetime
-    slot: UUID
+    slot_ids: list[UUID]
     status: ReservationStatus
     number_of_guests: int
