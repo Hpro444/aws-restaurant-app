@@ -6,10 +6,13 @@ from uuid import UUID
 
 from commons.app_config import AppConfig
 from commons.log_helper import logger
+from domain.admin import Admin
 from domain.user import Customer, Waiter
 from dto.sign_up import SignUpRequest
 from enums.user_role import UserRole
 from pydantic import SecretStr
+from repositories.admin_emails_repository import AdminEmailsRepository
+from repositories.admin_repository import AdminRepository
 from repositories.customer_repository import CustomerRepository
 from repositories.waiter_emails_repository import WaiterEmailsRepository
 from repositories.waiter_repository import WaiterRepository
@@ -20,9 +23,10 @@ from services.cognito_service import CognitoService
 class RegistrationService:
     """Orchestrates user registration with automatic role determination.
 
-    Checks the waiter-emails allow-list for waiter role assignment: if the
-    email exists in that table, the user is registered as a Waiter with the
-    associated restaurant_id; otherwise, they are registered as a Customer.
+    Checks the admin-emails allow-list first, then the waiter-emails allow-list.
+    If the email exists in admin-emails, the user is registered as an Admin.
+    If the email exists in waiter-emails, the user is registered as a Waiter
+    with the associated location_id. Otherwise, they are registered as a Customer.
 
     Persists the user to the appropriate DynamoDB table after Cognito registration.
     """
@@ -33,6 +37,8 @@ class RegistrationService:
         waiter_repository: WaiterRepository | None = None,
         customer_repository: CustomerRepository | None = None,
         waiter_emails_repository: WaiterEmailsRepository | None = None,
+        admin_repository: AdminRepository | None = None,
+        admin_emails_repository: AdminEmailsRepository | None = None,
         settings: AppConfig | None = None,
     ) -> None:
         """Initialize dependencies.
@@ -42,6 +48,8 @@ class RegistrationService:
             waiter_repository: Repository for waiter profiles.
             customer_repository: Repository for customer profiles.
             waiter_emails_repository: Repository for waiter email allow-list.
+            admin_repository: Repository for admin profiles.
+            admin_emails_repository: Repository for admin email allow-list.
             settings: Application configuration; a fresh instance is created when omitted.
 
         """
@@ -50,6 +58,8 @@ class RegistrationService:
         self._waiter_repo = waiter_repository or WaiterRepository()
         self._customer_repo = customer_repository or CustomerRepository()
         self._waiter_emails_repo = waiter_emails_repository or WaiterEmailsRepository()
+        self._admin_repo = admin_repository or AdminRepository()
+        self._admin_emails_repo = admin_emails_repository or AdminEmailsRepository()
 
     def register_user(self, request: SignUpRequest) -> str:
         """Register a user with automatic role assignment and persistence.
@@ -71,22 +81,30 @@ class RegistrationService:
         """
         logger.info("Starting user registration", email=request.email)
 
-        # Resolve role and restaurant_id using the waiter emails table.
+        # Resolve role: admin-emails checked first, then waiter-emails, then customer.
         role = UserRole.CUSTOMER
         location_id: UUID | None = None
 
         try:
-            waiter_email = self._waiter_emails_repo.get(request.email)
-            if waiter_email:
-                role = UserRole.WAITER
-                location_id = waiter_email.location_id
+            admin_email = self._admin_emails_repo.get(request.email)
+            if admin_email:
+                role = UserRole.ADMIN
                 logger.info(
-                    "Email found in waiter emails table, assigning waiter role",
+                    "Email found in admin emails table, assigning admin role",
                     email=request.email,
-                    location_id=location_id,
                 )
+            else:
+                waiter_email = self._waiter_emails_repo.get(request.email)
+                if waiter_email:
+                    role = UserRole.WAITER
+                    location_id = waiter_email.location_id
+                    logger.info(
+                        "Email found in waiter emails table, assigning waiter role",
+                        email=request.email,
+                        location_id=location_id,
+                    )
         except Exception as exc:
-            logger.error("Failed to check waiter emails table", error=str(exc))
+            logger.error("Failed to check role emails tables", error=str(exc))
             raise
 
         # Register user in Cognito with resolved role.
@@ -101,7 +119,17 @@ class RegistrationService:
 
         # Persist to DynamoDB with resolved role.
         try:
-            if role == UserRole.WAITER and location_id:
+            if role == UserRole.ADMIN:
+                admin = Admin(
+                    id=UUID(user_id),
+                    fname=request.first_name,
+                    lname=request.last_name,
+                    email=request.email,
+                    image_url="",
+                )
+                self._admin_repo.create(admin)
+                logger.info("Admin persisted to DynamoDB", sub=user_id)
+            elif role == UserRole.WAITER and location_id:
                 waiter = Waiter(
                     id=UUID(user_id),
                     fname=request.first_name,

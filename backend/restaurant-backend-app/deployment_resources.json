@@ -142,6 +142,18 @@
           "integration_responses": [],
           "default_error_pattern": true,
           "enable_proxy": true
+        },
+        "PUT": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
         }
       },
       "/bookings/tables": {
@@ -350,6 +362,28 @@
     "tags": {}
   },
   "${waiter_emails_table}": {
+    "resource_type": "dynamodb_table",
+    "hash_key_name": "email",
+    "hash_key_type": "S",
+    "billing_mode": "PAY_PER_REQUEST",
+    "read_capacity": 1,
+    "write_capacity": 1,
+    "global_indexes": [],
+    "autoscaling": [],
+    "tags": {}
+  },
+  "${admins_table}": {
+    "resource_type": "dynamodb_table",
+    "hash_key_name": "id",
+    "hash_key_type": "S",
+    "billing_mode": "PAY_PER_REQUEST",
+    "read_capacity": 1,
+    "write_capacity": 1,
+    "global_indexes": [],
+    "autoscaling": [],
+    "tags": {}
+  },
+  "${admin_emails_table}": {
     "resource_type": "dynamodb_table",
     "hash_key_name": "email",
     "hash_key_type": "S",
