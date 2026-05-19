@@ -10,9 +10,11 @@ from dto.logout import LogoutRequest, LogoutResponse
 from dto.refresh import RefreshRequest, RefreshResponse
 from dto.sign_in import SignInRequest, SignInResponse
 from dto.sign_up import SignUpRequest, SignUpResponse
-from dto.user_profile import ProfileResponse
+from dto.user_profile import ProfileResponse, UpdateProfileRequest
 from enums.http_status_code import HttpStatusCode
 from pydantic import ValidationError
+from repositories.admin_emails_repository import AdminEmailsRepository
+from repositories.admin_repository import AdminRepository
 from repositories.customer_repository import CustomerRepository
 from repositories.waiter_repository import WaiterRepository
 from services.cognito_service import CognitoService
@@ -30,17 +32,22 @@ class ApiHandler(AbstractLambda):
         self._cognito_service = CognitoService()
         self._customer_repository = CustomerRepository()
         self._waiter_repository = WaiterRepository()
+        self._admin_repository = AdminRepository()
+        self._admin_emails_repository = AdminEmailsRepository()
 
         # Services (reuse shared dependencies)
         self._registration_service = RegistrationService(
             cognito_service=self._cognito_service,
             waiter_repository=self._waiter_repository,
             customer_repository=self._customer_repository,
+            admin_repository=self._admin_repository,
+            admin_emails_repository=self._admin_emails_repository,
         )
         self._user_profile_service = UserProfileService(
             cognito_service=self._cognito_service,
             customer_repository=self._customer_repository,
             waiter_repository=self._waiter_repository,
+            admin_repository=self._admin_repository,
         )
         self._table_availability_service = TableAvailabilityService()
 
@@ -84,6 +91,9 @@ class ApiHandler(AbstractLambda):
 
         if path == "/users/profile" and method == "GET":
             return self._get_user_profile(event)
+
+        if path == "/users/profile" and method == "PUT":
+            return self._update_user_profile(event)
 
         if path == "/bookings/tables" and method == "GET":
             return self._get_available_tables(event)
@@ -253,6 +263,26 @@ class ApiHandler(AbstractLambda):
         access_token = self._extract_access_token(event)
         _, role = self._cognito_service.get_identity_from_access_token(access_token)
         user = self._user_profile_service.get_user_profile(access_token)
+
+        return build_response(
+            ProfileResponse(
+                first_name=user.fname,
+                last_name=user.lname,
+                image_url=user.image_url,
+                email=user.email,
+                role=role,
+            ).model_dump(),
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    def _update_user_profile(self, event: dict) -> LambdaResponse:
+        """Update and return the authenticated user's profile."""
+        access_token = self._extract_access_token(event)
+        _, role = self._cognito_service.get_identity_from_access_token(access_token)
+        request: UpdateProfileRequest = self._validate(
+            UpdateProfileRequest, self._parse_body(event)
+        )
+        user = self._user_profile_service.update_user_profile(access_token, request)
 
         return build_response(
             ProfileResponse(

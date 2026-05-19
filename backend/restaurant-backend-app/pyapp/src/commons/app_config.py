@@ -27,6 +27,8 @@ class AppConfig(BaseSettings):
     feedback_culinary_table: str = "feedback-culinary"
     feedback_service_table: str = "feedback-service"
     waiter_emails_table: str = "waiter-emails"
+    admins_table: str = "admins"
+    admin_emails_table: str = "admin-emails"
 
     # Login attempt tracking
     max_login_attempts: int = 5

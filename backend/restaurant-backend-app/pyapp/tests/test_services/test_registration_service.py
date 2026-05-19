@@ -8,6 +8,8 @@ from pyapp.tests import ImportFromSourceContext
 
 with ImportFromSourceContext():
     from commons.exceptions import ApplicationException
+    from domain.admin import Admin
+    from domain.admin_email import AdminEmail
     from domain.user import Customer, Waiter
     from domain.waiter_emails import WaiterEmail
     from dto.sign_up import SignUpRequest
@@ -28,6 +30,8 @@ _WAITER_EMAIL_RECORD = WaiterEmail(
     email="jane@example.com",
     location_id=_LOCATION_ID,
 )
+
+_ADMIN_EMAIL_RECORD = AdminEmail(email="jane@example.com")
 
 
 class _ServiceTestCase(unittest.TestCase):
@@ -50,12 +54,25 @@ class _ServiceTestCase(unittest.TestCase):
         self.service._waiter_emails_repo = MagicMock()
         self.service._waiter_repo = MagicMock()
         self.service._customer_repo = MagicMock()
+        self.service._admin_emails_repo = MagicMock()
+        self.service._admin_repo = MagicMock()
 
         self.service._cognito_service.register_user.return_value = _USER_ID
+        self.service._admin_emails_repo.get.return_value = None
 
 
 class TestRoleResolution(_ServiceTestCase):
     """Tests that verify the correct role is derived from the waiter-emails list."""
+
+    def test_email_in_admin_list_registers_as_admin(self) -> None:
+        """An email present in the admin-emails table must result in UserRole.ADMIN."""
+        self.service._admin_emails_repo.get.return_value = _ADMIN_EMAIL_RECORD
+
+        self.service.register_user(_REQUEST)
+
+        self.service._cognito_service.register_user.assert_called_once()
+        _, kwargs = self.service._cognito_service.register_user.call_args
+        self.assertEqual(kwargs["role"], UserRole.ADMIN)
 
     def test_email_in_whitelist_registers_as_waiter(self) -> None:
         """An email present in the waiter-emails table must result in UserRole.WAITER."""
@@ -80,6 +97,28 @@ class TestRoleResolution(_ServiceTestCase):
 
 class TestDynamoDBPersistence(_ServiceTestCase):
     """Tests that verify the correct repository is used after role resolution."""
+
+    def test_admin_persisted_to_admin_repository(self) -> None:
+        """When role resolves to Admin, the record must be written to AdminRepository."""
+        self.service._admin_emails_repo.get.return_value = _ADMIN_EMAIL_RECORD
+
+        self.service.register_user(_REQUEST)
+
+        self.service._admin_repo.create.assert_called_once()
+        self.service._customer_repo.create.assert_not_called()
+        self.service._waiter_repo.create.assert_not_called()
+
+    def test_admin_record_carries_correct_user_fields(self) -> None:
+        """The Admin model must reflect the name, email, and sub from the request/Cognito."""
+        self.service._admin_emails_repo.get.return_value = _ADMIN_EMAIL_RECORD
+
+        self.service.register_user(_REQUEST)
+
+        admin: Admin = self.service._admin_repo.create.call_args.args[0]
+        self.assertEqual(admin.fname, "Jane")
+        self.assertEqual(admin.lname, "Doe")
+        self.assertEqual(admin.email, "jane@example.com")
+        self.assertEqual(str(admin.id), _USER_ID)
 
     def test_waiter_persisted_to_waiter_repository(self) -> None:
         """When role resolves to Waiter, the record must be written to WaiterRepository."""
