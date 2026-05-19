@@ -1,5 +1,7 @@
+import SignupPage from './pages/Signup'
+
 function App() {
-  return <div></div>
+  return <SignupPage />
 }
 
 export default App

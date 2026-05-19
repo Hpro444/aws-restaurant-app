@@ -1,1 +1,13 @@
 @import "tailwindcss";
+
+:root {
+  --color-bg-page: #f7f7f7;
+  --color-text-primary: #232323;
+  --color-text-muted: #898989;
+  --color-text-strong: #212121;
+  --color-border-default: #dadada;
+  --color-brand: #00ad0c;
+  --color-surface: #ffffff;
+  --color-black: #000000;
+  --color-link: #1d4ed8;
+}
