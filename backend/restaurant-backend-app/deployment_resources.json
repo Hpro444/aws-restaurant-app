@@ -46,10 +46,13 @@
     "resources": {
       "/auth/sign-up": {
         "enable_cors": {
-          "state": false,
+          "state": true,
           "custom_headers": [],
           "custom_methods": [],
-          "custom_origins": []
+          "custom_origins": [
+            "https://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/",
+            "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/"
+          ]
         },
         "POST": {
           "authorization_type": "NONE",
@@ -66,10 +69,13 @@
       },
       "/auth/refresh": {
         "enable_cors": {
-          "state": false,
+          "state": true,
           "custom_headers": [],
           "custom_methods": [],
-          "custom_origins": []
+          "custom_origins": [
+            "https://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/",
+            "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/"
+          ]
         },
         "POST": {
           "authorization_type": "NONE",
@@ -86,10 +92,13 @@
       },
       "/auth/logout": {
         "enable_cors": {
-          "state": false,
+          "state": true,
           "custom_headers": [],
           "custom_methods": [],
-          "custom_origins": []
+          "custom_origins": [
+            "https://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/",
+            "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/"
+          ]
         },
         "POST": {
           "authorization_type": "NONE",
@@ -106,10 +115,13 @@
       },
       "/auth/sign-in": {
         "enable_cors": {
-          "state": false,
+          "state": true,
           "custom_headers": [],
           "custom_methods": [],
-          "custom_origins": []
+          "custom_origins": [
+            "https://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/",
+            "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/"
+          ]
         },
         "POST": {
           "authorization_type": "NONE",
@@ -126,10 +138,13 @@
       },
       "/users/profile": {
         "enable_cors": {
-          "state": false,
+          "state": true,
           "custom_headers": [],
           "custom_methods": [],
-          "custom_origins": []
+          "custom_origins": [
+            "https://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/",
+            "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/"
+          ]
         },
         "GET": {
           "authorization_type": "NONE",
@@ -158,10 +173,13 @@
       },
       "/bookings/tables": {
         "enable_cors": {
-          "state": false,
+          "state": true,
           "custom_headers": [],
           "custom_methods": [],
-          "custom_origins": []
+          "custom_origins": [
+            "https://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/",
+            "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/"
+          ]
         },
         "GET": {
           "authorization_type": "NONE",
@@ -178,7 +196,7 @@
       },
       "/bookings/client": {
         "enable_cors": {
-          "state": false,
+          "state": true,
           "custom_headers": [],
           "custom_methods": [],
           "custom_origins": []
