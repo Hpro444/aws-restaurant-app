@@ -7,8 +7,11 @@ from typing import Any
 from enums.http_status_code import HttpStatusCode
 
 from commons import ApplicationException, build_response
+from commons.app_config import AppConfig
 from commons.log_helper import logger
 from commons.response import LambdaResponse
+
+_config = AppConfig()
 
 
 class AbstractLambda(ABC):
@@ -56,12 +59,13 @@ class AbstractLambda(ABC):
                 return None
             errors = self.validate_request(event=event)
             if errors:
-                return build_response(
+                response = build_response(
                     code=HttpStatusCode.RESPONSE_BAD_REQUEST_CODE, content=errors
                 ).model_dump()
-            execution_result = self.handle_request(event=event, context=context)
-            logger.debug("Response", response=execution_result.model_dump())
-            return execution_result.model_dump()
+            else:
+                execution_result = self.handle_request(event=event, context=context)
+                logger.debug("Response", response=execution_result.model_dump())
+                response = execution_result.model_dump()
         except ApplicationException as e:
             if e.code >= 500:
                 logger.error(
@@ -71,12 +75,14 @@ class AbstractLambda(ABC):
                 logger.info(
                     "Client error", request=event, status_code=e.code, error=str(e)
                 )
-            return LambdaResponse(
+            response = LambdaResponse(
                 statusCode=e.code, body=json.dumps(e.content)
             ).model_dump()
         except Exception as e:
             logger.error("Unexpected error", request=event, error=str(e))
-            return LambdaResponse(
+            response = LambdaResponse(
                 statusCode=HttpStatusCode.RESPONSE_INTERNAL_SERVER_ERROR,
                 body=json.dumps("Internal server error"),
             ).model_dump()
+        response["headers"]["Access-Control-Allow-Origin"] = _config.cors_origin
+        return response
