@@ -6,17 +6,20 @@ from typing import Any
 from commons import LambdaResponse, build_response, raise_error_response
 from commons.abstract_lambda import AbstractLambda
 from dto.available_tables import AvailableTablesRequest
+from dto.create_booking import CreateBookingRequest
 from dto.logout import LogoutRequest, LogoutResponse
 from dto.refresh import RefreshRequest, RefreshResponse
 from dto.sign_in import SignInRequest, SignInResponse
 from dto.sign_up import SignUpRequest, SignUpResponse
 from dto.user_profile import ProfileResponse, UpdateProfileRequest
 from enums.http_status_code import HttpStatusCode
+from enums.user_role import UserRole
 from pydantic import ValidationError
 from repositories.admin_emails_repository import AdminEmailsRepository
 from repositories.admin_repository import AdminRepository
 from repositories.customer_repository import CustomerRepository
 from repositories.waiter_repository import WaiterRepository
+from services.booking_service import BookingService
 from services.cognito_service import CognitoService
 from services.registration_service import RegistrationService
 from services.table_availability_service import TableAvailabilityService
@@ -50,6 +53,7 @@ class ApiHandler(AbstractLambda):
             admin_repository=self._admin_repository,
         )
         self._table_availability_service = TableAvailabilityService()
+        self._booking_service = BookingService()
 
     def validate_request(self, event: dict) -> dict:
         """Return empty dict; all validation is handled in route methods via Pydantic.
@@ -97,6 +101,9 @@ class ApiHandler(AbstractLambda):
 
         if path == "/bookings/tables" and method == "GET":
             return self._get_available_tables(event)
+
+        if path == "/bookings/client" and method == "POST":
+            return self._create_booking(event)
 
         return build_response(
             "Route not found", code=HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE
@@ -380,6 +387,43 @@ class ApiHandler(AbstractLambda):
 
         return build_response(
             response.model_dump(),
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    def _create_booking(self, event: dict) -> LambdaResponse:
+        """Handle POST /bookings/client — create a reservation for a customer.
+
+        Flow:
+            1. Extract the access token and resolve the caller's identity.
+            2. Only callers with ``UserRole.CUSTOMER`` may create a
+               client-side reservation; anything else returns 403.
+            3. Validate the JSON body against :class:`CreateBookingRequest`.
+            4. Delegate persistence to :class:`BookingService.create_booking`.
+            5. Return the saved reservation details for the UI success
+               confirmation.
+
+        """
+        access_token = self._extract_access_token(event)
+        user_id, role = self._cognito_service.get_identity_from_access_token(
+            access_token
+        )
+        if role != UserRole.CUSTOMER.value:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
+                "Only customers can create a client reservation",
+            )
+
+        request: CreateBookingRequest = self._validate(
+            CreateBookingRequest, self._parse_body(event)
+        )
+
+        response = self._booking_service.create_booking(
+            request=request,
+            customer_id=user_id,
+        )
+
+        return build_response(
+            response.model_dump(by_alias=True),
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 

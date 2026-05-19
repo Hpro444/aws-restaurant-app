@@ -10,6 +10,7 @@ from pyapp.tests import ImportFromSourceContext
 
 with ImportFromSourceContext():
     from domain.slot import Slot  # type: ignore[import-untyped]
+    from enums.slot_status import SlotStatus  # type: ignore[import-untyped]
     from repositories.slot_repository import (
         SlotRepository,  # type: ignore[import-untyped]
     )
@@ -137,3 +138,59 @@ class TestFindByTableIdsAndDate(_RepoTestCase):
 
         self.assertEqual(len(result), 3)
         self.assertEqual(self.repo.find_by_table_id_and_date.call_count, 2)
+
+
+_CONDITIONAL_CHECK_FAILED = ClientError(
+    {"Error": {"Code": "ConditionalCheckFailedException", "Message": "state changed"}},
+    "UpdateItem",
+)
+
+
+class TestUpdateStatus(_RepoTestCase):
+    """Tests for SlotRepository.update_status conditional transitions."""
+
+    def test_returns_true_on_successful_conditional_update(self) -> None:
+        """A clean update_item call must yield True and target the status attribute."""
+        self.mock_client.update_item.return_value = {}
+
+        ok = self.repo.update_status(
+            _SLOT_1_ID,
+            new_status=SlotStatus.RESERVED,
+            expected=SlotStatus.FREE,
+        )
+
+        self.assertTrue(ok)
+        kwargs = self.mock_client.update_item.call_args.kwargs
+        self.assertEqual(kwargs["TableName"], "test-slots")
+        self.assertEqual(kwargs["Key"], {"id": {"S": str(_SLOT_1_ID)}})
+        self.assertEqual(kwargs["UpdateExpression"], "SET #s = :new")
+        self.assertEqual(kwargs["ConditionExpression"], "#s = :expected")
+        self.assertEqual(kwargs["ExpressionAttributeNames"], {"#s": "status"})
+        self.assertEqual(
+            kwargs["ExpressionAttributeValues"],
+            {":new": {"S": "RESERVED"}, ":expected": {"S": "FREE"}},
+        )
+
+    def test_returns_false_when_condition_fails(self) -> None:
+        """ConditionalCheckFailedException must yield False without raising."""
+        self.mock_client.update_item.side_effect = _CONDITIONAL_CHECK_FAILED
+
+        ok = self.repo.update_status(
+            _SLOT_1_ID,
+            new_status=SlotStatus.RESERVED,
+            expected=SlotStatus.FREE,
+        )
+
+        self.assertFalse(ok)
+
+    def test_returns_false_on_generic_client_error(self) -> None:
+        """Other ClientErrors must yield False without raising."""
+        self.mock_client.update_item.side_effect = _GENERIC_CLIENT_ERROR
+
+        ok = self.repo.update_status(
+            _SLOT_1_ID,
+            new_status=SlotStatus.RESERVED,
+            expected=SlotStatus.FREE,
+        )
+
+        self.assertFalse(ok)

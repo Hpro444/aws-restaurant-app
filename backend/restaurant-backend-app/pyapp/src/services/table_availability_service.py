@@ -14,7 +14,7 @@ from dto.available_tables import (
     SlotResponse,
     TableAvailabilityResponse,
 )
-from repositories.reservation_repository import ReservationRepository
+from enums.slot_status import SlotStatus
 from repositories.slot_repository import SlotRepository
 from repositories.table_repository import TableRepository
 
@@ -22,8 +22,10 @@ from repositories.table_repository import TableRepository
 class TableAvailabilityService:
     """Determine available tables and bookable time slots.
 
-    Orchestrates targeted DynamoDB queries across Table, Slot, and
-    Reservation repositories to determine bookable time slots.
+    Orchestrates targeted DynamoDB queries across Table and Slot
+    repositories to determine bookable time slots. Slot booking state is
+    read directly from the Slot's ``status`` field — no reservation
+    lookup is needed.
 
     All data access uses GSI-backed Query operations — no table scans.
 
@@ -32,14 +34,13 @@ class TableAvailabilityService:
         2. Capacity  — only tables with capacity >= guests_number.
         3. Date      — only slots on the requested date (GSI query).
         4. Time window (optional) — only slots within from_time..to_time.
-        5. Availability — exclude slots that already have a reservation.
+        5. Availability — only slots with ``status == FREE``.
 
     Query flow (for 3 tables with 7 slots each):
         1 Query  → tables at location           (location_id-index)
         3 Queries → slots per table per date    (table_id-date-index)
-       21 Queries → reservation check per slot  (slot-index, Limit=1)
        ─────────
-       25 total DynamoDB calls, each reading 0-7 items max.
+        4 total DynamoDB calls, each reading 0–7 items max.
     """
 
     def __init__(self, settings: AppConfig | None = None) -> None:
@@ -52,7 +53,6 @@ class TableAvailabilityService:
         cfg = settings or AppConfig()
         self._table_repo = TableRepository(cfg)
         self._slot_repo = SlotRepository(cfg)
-        self._reservation_repo = ReservationRepository(cfg)
 
     def get_available_tables(
         self,
@@ -123,20 +123,15 @@ class TableAvailabilityService:
                 )
                 return AvailableTablesResponse(tables=[])
 
-        # ── Step 6: Filter by availability — exclude booked slots ────
-        slot_ids = {s.id for s in slots}
-        booked_slot_ids = self._reservation_repo.find_booked_slot_ids(slot_ids)
-
-        # ── Step 7: Free slots = all slots minus booked ones ─────────
-        free_slots = [s for s in slots if s.id not in booked_slot_ids]
+        # ── Step 6: Filter by availability — keep only FREE slots ────
+        free_slots = [s for s in slots if s.status == SlotStatus.FREE]
         logger.info(
             "Availability computed",
             total_slots=len(slots),
-            booked=len(booked_slot_ids),
             free=len(free_slots),
         )
 
-        # ── Step 8: Build response grouped by table ──────────────────
+        # ── Step 7: Build response grouped by table ──────────────────
         return self._build_response(suitable_tables, free_slots)
 
     # ── Private helpers ──────────────────────────────────────────────

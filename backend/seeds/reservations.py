@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from domain.reservation import Reservation  # type: ignore[import-not-found]
 from enums.reservation_status import ReservationStatus  # type: ignore[import-not-found]
+from enums.slot_status import SlotStatus  # type: ignore[import-not-found]
 
 from seeds.utils import seed_id
 
@@ -11,9 +12,15 @@ from seeds.utils import seed_id
 def seed(dynamodb, tables: dict, context: dict) -> None:
     """Seed 3 mock reservations: RESERVED, IN_PROGRESS, and CANCELLED.
 
+    Also flips the status of the slots held by the two active reservations
+    (RESERVED, IN_PROGRESS) to :attr:`SlotStatus.RESERVED` so demo
+    availability queries — which now read directly from ``slot.status`` —
+    reflect those bookings. The CANCELLED reservation's slot stays FREE.
+
     Requires context['slots'].
     """
-    table = dynamodb.Table(tables["reservations"])
+    reservations_table = dynamodb.Table(tables["reservations"])
+    slots_table = dynamodb.Table(tables["slots"])
     slots_list = context["slots"]
 
     if len(slots_list) < 15:
@@ -30,7 +37,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             customer_id=seed_id("customer", "alice"),
             waiter_id=seed_id("waiter", "lea"),
             created_at=created_at,
-            slot=chosen_slots[0].id,
+            slot_ids=[chosen_slots[0].id],
             status=ReservationStatus.RESERVED,
             number_of_guests=4,
         ),
@@ -39,7 +46,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             customer_id=seed_id("customer", "bob"),
             waiter_id=seed_id("waiter", "max"),
             created_at=created_at,
-            slot=chosen_slots[1].id,
+            slot_ids=[chosen_slots[1].id],
             status=ReservationStatus.IN_PROGRESS,
             number_of_guests=2,
         ),
@@ -48,16 +55,25 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             customer_id=seed_id("customer", "carol"),
             waiter_id=None,
             created_at=created_at,
-            slot=chosen_slots[2].id,
+            slot_ids=[chosen_slots[2].id],
             status=ReservationStatus.CANCELLED,
             number_of_guests=3,
         ),
     ]
 
-    with table.batch_writer() as batch:
+    with reservations_table.batch_writer() as batch:
         for reservation in reservations:
             batch.put_item(Item=reservation.model_dump(mode="json"))
 
+    # Flip the slots claimed by active reservations to RESERVED so
+    # availability queries reflect the demo bookings.
+    active_slots = [chosen_slots[0], chosen_slots[1]]
+    with slots_table.batch_writer() as batch:
+        for slot in active_slots:
+            slot.status = SlotStatus.RESERVED
+            batch.put_item(Item=slot.model_dump(mode="json"))
+
     print(
-        f"  ✓ Seeded {len(reservations)} reservations (2 active, 1 cancelled for testing)"
+        f"  ✓ Seeded {len(reservations)} reservations "
+        "(2 active, 1 cancelled for testing) and flipped 2 slots to RESERVED"
     )

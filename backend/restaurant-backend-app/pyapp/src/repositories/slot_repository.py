@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from botocore.exceptions import ClientError
 from commons.app_config import AppConfig
 from commons.log_helper import logger
 from domain.slot import Slot
+from enums.slot_status import SlotStatus
 
 from repositories.base_repository import DynamoRepository
 
@@ -97,3 +99,60 @@ class SlotRepository(DynamoRepository[Slot]):
             total_slots=len(all_slots),
         )
         return all_slots
+
+    def update_status(
+        self,
+        slot_id: UUID,
+        new_status: SlotStatus,
+        expected: SlotStatus,
+    ) -> bool:
+        """Atomically transition a slot's status from ``expected`` to ``new_status``.
+
+        Uses a DynamoDB ``ConditionExpression`` so two concurrent bookings
+        cannot both claim the same slot — only the one whose pre-image
+        matches ``expected`` succeeds.
+
+        Args:
+            slot_id: UUID of the slot to update.
+            new_status: Target status to set.
+            expected: Status the slot must currently hold for the update
+                to proceed; mismatches return False.
+
+        Returns:
+            True on successful update; False if the conditional check
+            failed (slot missing or in an unexpected state) or DynamoDB
+            errored.
+
+        """
+        try:
+            self._client.update_item(
+                TableName=self._resolve_table_name(),
+                Key={self._pk_field: {"S": str(slot_id)}},
+                UpdateExpression="SET #s = :new",
+                ConditionExpression="#s = :expected",
+                ExpressionAttributeNames={"#s": "status"},
+                ExpressionAttributeValues={
+                    ":new": {"S": new_status.value},
+                    ":expected": {"S": expected.value},
+                },
+            )
+            logger.info(
+                "Slot status updated",
+                slot_id=str(slot_id),
+                new_status=new_status.value,
+            )
+            return True
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                logger.info(
+                    "Slot status update rejected by condition",
+                    slot_id=str(slot_id),
+                    expected=expected.value,
+                )
+                return False
+            logger.error(
+                "DynamoDB update_item (slot status) failed",
+                slot_id=str(slot_id),
+                error=str(exc),
+            )
+            return False

@@ -41,7 +41,7 @@ def _make_reservation(**overrides) -> Reservation:
         customer_id=None,
         waiter_id=_WAITER_ID,
         created_at=_CREATED_AT,
-        slot=_SLOT_ID,
+        slot_ids=[_SLOT_ID],
         status=ReservationStatus.RESERVED,
         number_of_guests=4,
         **overrides,
