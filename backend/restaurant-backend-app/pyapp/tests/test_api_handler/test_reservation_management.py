@@ -111,14 +111,86 @@ class TestReservationManagement(ApiHandlerLambdaTestCase):
         self.HANDLER._reservation_management_service.update_reservation.assert_called_once()
 
     def test_cancel_reservation_returns_200(self) -> None:
-        """PUT /bookings/client/{id}/cancel performs reservation cancellation."""
+        """DELETE /bookings/client/{id}/cancel performs reservation cancellation."""
         result = self.HANDLER.lambda_handler(
-            make_event(_CANCEL_PATH, "PUT", headers=_VALID_HEADERS),
+            make_event(_CANCEL_PATH, "DELETE", headers=_VALID_HEADERS),
             {},
         )
 
         self.assertEqual(status(result), 200)
         self.HANDLER._reservation_management_service.cancel_reservation.assert_called_once()
+
+    def test_cancel_reservation_passes_correct_ids_to_service(self) -> None:
+        """Handler forwards extracted reservation_id and actor_id to the service."""
+        result = self.HANDLER.lambda_handler(
+            make_event(_CANCEL_PATH, "DELETE", headers=_VALID_HEADERS),
+            {},
+        )
+
+        self.assertEqual(status(result), 200)
+        self.HANDLER._reservation_management_service.cancel_reservation.assert_called_once_with(
+            reservation_id=_RESERVATION_ID,
+            actor_id=self.customer_id,
+            role=UserRole.CUSTOMER.value,
+        )
+
+    def test_cancel_reservation_missing_auth_returns_401(self) -> None:
+        """DELETE /bookings/client/{id}/cancel without Authorization header returns 401."""
+        result = self.HANDLER.lambda_handler(
+            make_event(_CANCEL_PATH, "DELETE"),
+            {},
+        )
+
+        self.assertEqual(status(result), 401)
+
+    def test_cancel_reservation_invalid_id_returns_422(self) -> None:
+        """Non-UUID segment in cancel path fails request validation with 422."""
+        bad_path = "/bookings/client/not-a-uuid/cancel"
+        result = self.HANDLER.lambda_handler(
+            make_event(bad_path, "DELETE", headers=_VALID_HEADERS),
+            {},
+        )
+
+        self.assertEqual(status(result), 422)
+
+    def test_cancel_reservation_service_raises_403(self) -> None:
+        """Service-level 403 propagates when caller does not own the reservation."""
+        self.HANDLER._reservation_management_service.cancel_reservation = MagicMock(
+            side_effect=ApplicationException(code=403, content="Forbidden")
+        )
+
+        result = self.HANDLER.lambda_handler(
+            make_event(_CANCEL_PATH, "DELETE", headers=_VALID_HEADERS),
+            {},
+        )
+
+        self.assertEqual(status(result), 403)
+
+    def test_cancel_reservation_service_raises_404(self) -> None:
+        """Service-level 404 propagates when reservation does not exist."""
+        self.HANDLER._reservation_management_service.cancel_reservation = MagicMock(
+            side_effect=ApplicationException(code=404, content="Not found")
+        )
+
+        result = self.HANDLER.lambda_handler(
+            make_event(_CANCEL_PATH, "DELETE", headers=_VALID_HEADERS),
+            {},
+        )
+
+        self.assertEqual(status(result), 404)
+
+    def test_cancel_reservation_within_cutoff_returns_422(self) -> None:
+        """Service-level 422 propagates when cancel is attempted within cutoff window."""
+        self.HANDLER._reservation_management_service.cancel_reservation = MagicMock(
+            side_effect=ApplicationException(code=422, content="Within cutoff window")
+        )
+
+        result = self.HANDLER.lambda_handler(
+            make_event(_CANCEL_PATH, "DELETE", headers=_VALID_HEADERS),
+            {},
+        )
+
+        self.assertEqual(status(result), 422)
 
     def test_invalid_reservation_id_returns_422(self) -> None:
         """Malformed reservationId in path fails request validation."""

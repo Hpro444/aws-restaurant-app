@@ -216,3 +216,138 @@ def test_customer_cannot_set_in_progress_status():
         )
 
     assert exc.value.code == 403
+
+
+def test_assigned_waiter_can_cancel():
+    """Assigned waiter is permitted to cancel the reservation before cutoff."""
+    service, reservation, _, waiter_id = _build_service(start_in_minutes=120)
+
+    response = service.cancel_reservation(
+        reservation_id=reservation.id,
+        actor_id=waiter_id,
+        role=UserRole.WAITER.value,
+    )
+
+    assert response.status == ReservationStatus.CANCELLED.value
+
+
+def test_unrelated_customer_cannot_cancel():
+    """A customer who does not own the reservation receives 403."""
+    service, reservation, _, _ = _build_service(start_in_minutes=120)
+    other_customer_id = uuid4()
+
+    with pytest.raises(ApplicationException) as exc:
+        service.cancel_reservation(
+            reservation_id=reservation.id,
+            actor_id=other_customer_id,
+            role=UserRole.CUSTOMER.value,
+        )
+
+    assert exc.value.code == 403
+
+
+def test_cancel_already_cancelled_reservation_raises_422():
+    """Cancelling a reservation that is already CANCELLED raises 422."""
+    service, reservation, customer_id, _ = _build_service(start_in_minutes=120)
+    reservation.status = ReservationStatus.CANCELLED
+
+    with pytest.raises(ApplicationException) as exc:
+        service.cancel_reservation(
+            reservation_id=reservation.id,
+            actor_id=customer_id,
+            role=UserRole.CUSTOMER.value,
+        )
+
+    assert exc.value.code == 422
+
+
+def test_cancel_29_minutes_before_start_raises_422():
+    """Cancel at 29 minutes before start is inside the 30-minute cutoff window."""
+    service, reservation, customer_id, _ = _build_service(start_in_minutes=29)
+
+    with pytest.raises(ApplicationException) as exc:
+        service.cancel_reservation(
+            reservation_id=reservation.id,
+            actor_id=customer_id,
+            role=UserRole.CUSTOMER.value,
+        )
+
+    assert exc.value.code == 422
+
+
+def test_cancel_31_minutes_before_start_succeeds():
+    """Cancel at 31 minutes before start is just outside the cutoff window."""
+    service, reservation, customer_id, _ = _build_service(start_in_minutes=31)
+
+    response = service.cancel_reservation(
+        reservation_id=reservation.id,
+        actor_id=customer_id,
+        role=UserRole.CUSTOMER.value,
+    )
+
+    assert response.status == ReservationStatus.CANCELLED.value
+
+
+def test_cancel_releases_all_slots_in_multi_slot_reservation():
+    """Every slot in a multi-slot reservation is set to FREE on cancellation."""
+    customer_id = uuid4()
+    waiter_id = uuid4()
+    location_id = uuid4()
+    table_id = uuid4()
+    slot_id_1, slot_id_2 = uuid4(), uuid4()
+
+    start_time = datetime.now(UTC) + timedelta(minutes=120)
+    boundary = start_time + timedelta(minutes=90)
+    end_time = boundary + timedelta(minutes=90)
+
+    reservation = Reservation(
+        id=uuid4(),
+        customer_id=customer_id,
+        waiter_id=waiter_id,
+        created_at=datetime.now(UTC),
+        slot_ids=[slot_id_1, slot_id_2],
+        status=ReservationStatus.RESERVED,
+        number_of_guests=4,
+    )
+    slot1 = Slot(
+        id=slot_id_1,
+        table_id=table_id,
+        start_time=start_time,
+        end_time=boundary,
+        date=start_time,
+        status=SlotStatus.RESERVED,
+    )
+    slot2 = Slot(
+        id=slot_id_2,
+        table_id=table_id,
+        start_time=boundary,
+        end_time=end_time,
+        date=boundary,
+        status=SlotStatus.RESERVED,
+    )
+    table = Table(id=table_id, table_number=3, capacity=4, location_id=location_id)
+    location = Location(
+        id=location_id,
+        name="48 Rustaveli Avenue, Tbilisi",
+        address="48 Rustaveli Avenue, Tbilisi",
+        description="Test location",
+        image_url="https://example.com/location.jpg",
+        open_time=datetime.now(UTC).time(),
+        close_time=datetime.now(UTC).time(),
+    )
+
+    slot_repo = DummySlotRepo([slot1, slot2])
+    service = ReservationManagementService()
+    service._reservation_repo = DummyReservationRepo(reservation)
+    service._slot_repo = slot_repo
+    service._table_repo = DummyTableRepo(table)
+    service._location_repo = DummyLocationRepo(location)
+
+    service.cancel_reservation(
+        reservation_id=reservation.id,
+        actor_id=customer_id,
+        role=UserRole.CUSTOMER.value,
+    )
+
+    assert slot1.status == SlotStatus.FREE
+    assert slot2.status == SlotStatus.FREE
