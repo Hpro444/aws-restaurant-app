@@ -316,7 +316,9 @@ class CognitoService:
                     ) from exc
                 raise ApplicationException(
                     code=HttpStatusCode.RESPONSE_UNAUTHORIZED,
-                    content={"message": "Incorrect email or password. Try again or create an account."},
+                    content={
+                        "message": "Incorrect email or password. Try again or create an account."
+                    },
                 ) from exc
             logger.error("initiate_auth failed", error_code=error_code, error=str(exc))
             raise ApplicationException(

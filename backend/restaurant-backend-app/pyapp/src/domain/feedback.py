@@ -14,6 +14,7 @@ class Feedback(DynamoModel, ABC):
     id: UUID
     customer_id: UUID | None
     feedback: str
+    rating: int | None = None
 
 
 class FeedbackCulinary(Feedback):
