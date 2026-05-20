@@ -11,6 +11,11 @@ _DISHES_POPULAR_PATH = "/dishes/popular"
 _LOCATION_SPECIALITY_PATH = (
     "/locations/f6d6b8df-a7d5-4f06-8dd0-739d2f4f8df3/speciality-dishes"
 )
+_BOOKINGS_CLIENT_PATH = "/bookings/client"
+_BOOKINGS_CLIENT_DETAILS_PATH = "/bookings/client/43f656ab-2e53-4893-9a79-6378a5f5f57f"
+_BOOKINGS_CLIENT_CANCEL_PATH = (
+    "/bookings/client/43f656ab-2e53-4893-9a79-6378a5f5f57f/cancel"
+)
 
 _DUMMY_BODY = {
     "firstName": "Jane",
@@ -98,6 +103,39 @@ class TestRouting(ApiHandlerLambdaTestCase):
             status(
                 self.HANDLER.lambda_handler(
                     make_event(_LOCATION_SPECIALITY_PATH, "POST", {}), {}
+                )
+            ),
+            404,
+        )
+
+    def test_wrong_method_on_bookings_client_returns_404(self) -> None:
+        """A DELETE to the bookings/client path should return 404."""
+        self.assertEqual(
+            status(
+                self.HANDLER.lambda_handler(
+                    make_event(_BOOKINGS_CLIENT_PATH, "DELETE", {}), {}
+                )
+            ),
+            404,
+        )
+
+    def test_wrong_method_on_bookings_client_details_returns_404(self) -> None:
+        """A POST to the bookings/client/{id} path should return 404."""
+        self.assertEqual(
+            status(
+                self.HANDLER.lambda_handler(
+                    make_event(_BOOKINGS_CLIENT_DETAILS_PATH, "POST", {}), {}
+                )
+            ),
+            404,
+        )
+
+    def test_wrong_method_on_bookings_client_cancel_returns_404(self) -> None:
+        """A GET to the bookings/client/{id}/cancel path should return 404."""
+        self.assertEqual(
+            status(
+                self.HANDLER.lambda_handler(
+                    make_event(_BOOKINGS_CLIENT_CANCEL_PATH, "GET", {}), {}
                 )
             ),
             404,

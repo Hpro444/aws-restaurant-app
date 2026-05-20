@@ -11,6 +11,7 @@ from dto.create_booking import CreateBookingRequest
 from dto.locations import LocationResponse
 from dto.logout import LogoutRequest, LogoutResponse
 from dto.refresh import RefreshRequest, RefreshResponse
+from dto.reservation_management import UpdateReservationRequest
 from dto.sign_in import SignInRequest, SignInResponse
 from dto.sign_up import SignUpRequest, SignUpResponse
 from dto.user_profile import ProfileResponse, UpdateProfileRequest
@@ -26,6 +27,7 @@ from services.cognito_service import CognitoService
 from services.dishes_service import DishesService
 from services.locations_service import LocationsService
 from services.registration_service import RegistrationService
+from services.reservation_management_service import ReservationManagementService
 from services.table_availability_service import TableAvailabilityService
 from services.user_profile_service import UserProfileService
 
@@ -59,6 +61,7 @@ class ApiHandler(AbstractLambda):
         self._locations_service = LocationsService()
         self._table_availability_service = TableAvailabilityService()
         self._booking_service = BookingService()
+        self._reservation_management_service = ReservationManagementService()
         self._dishes_service = DishesService()
 
     def validate_request(self, event: dict) -> dict:
@@ -120,6 +123,26 @@ class ApiHandler(AbstractLambda):
 
         if path == "/bookings/client" and method == "POST":
             return self._create_booking(event)
+
+        if path == "/bookings/client" and method == "GET":
+            return self._list_dashboard_bookings(event)
+
+        if (
+            path.startswith("/bookings/client/")
+            and not path.endswith("/cancel")
+            and method == "GET"
+        ):
+            return self._get_booking(event)
+
+        if (
+            path.endswith("/cancel")
+            and path.startswith("/bookings/client/")
+            and method == "PUT"
+        ):
+            return self._cancel_booking(event)
+
+        if path.startswith("/bookings/client/") and method == "PUT":
+            return self._update_booking(event)
 
         if path == "/dishes/popular" and method == "GET":
             return self._get_popular_dishes(event)
@@ -376,6 +399,48 @@ class ApiHandler(AbstractLambda):
         """Extract query string parameters from API Gateway event."""
         return event.get("queryStringParameters") or {}
 
+    # TODO: ovo treba da zameni sa _extract_path_segment da se koristi univerzalna funkcija
+    @staticmethod
+    def _extract_booking_id(path: str, suffix: str | None = None) -> str:
+        """Extract booking UUID from path and validate format.
+
+        Expected forms:
+            - /bookings/client/{reservationId}
+            - /bookings/client/{reservationId}/cancel
+        """
+        base = "/bookings/client/"
+        if not path.startswith(base):
+            raise_error_response(
+                HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                "Route not found",
+            )
+
+        tail = path[len(base) :]
+        if suffix:
+            expected_suffix = f"/{suffix}"
+            if not tail.endswith(expected_suffix):
+                raise_error_response(
+                    HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                    "Route not found",
+                )
+            tail = tail[: -len(expected_suffix)]
+
+        reservation_id = tail.strip("/")
+        try:
+            UUID(reservation_id)
+        except ValueError:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                [{"field": "reservationId", "message": "Must be a valid UUID"}],
+            )
+        except TypeError:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                [{"field": "reservationId", "message": "Must be a valid UUID"}],
+            )
+
+        return reservation_id
+
     @staticmethod
     def _extract_path_segment(event: dict, position: int) -> str | None:
         """Extract a path segment by position for parametrized routes.
@@ -481,7 +546,7 @@ class ApiHandler(AbstractLambda):
         )
 
         return build_response(
-            response.model_dump(),
+            response.model_dump(by_alias=True),
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 
@@ -515,6 +580,85 @@ class ApiHandler(AbstractLambda):
         response = self._booking_service.create_booking(
             request=request,
             customer_id=user_id,
+        )
+
+        return build_response(
+            response.model_dump(by_alias=True),
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    def _list_dashboard_bookings(self, event: dict) -> LambdaResponse:
+        """Handle GET /bookings/client for customer/waiter dashboard reservations."""
+        access_token = self._extract_access_token(event)
+        user_id, role = self._cognito_service.get_identity_from_access_token(
+            access_token
+        )
+
+        response = self._reservation_management_service.list_for_dashboard(
+            actor_id=user_id,
+            role=role,
+        )
+        return build_response(
+            response.model_dump(by_alias=True),
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    def _get_booking(self, event: dict) -> LambdaResponse:
+        """Handle GET /bookings/client/{reservationId}."""
+        access_token = self._extract_access_token(event)
+        user_id, role = self._cognito_service.get_identity_from_access_token(
+            access_token
+        )
+        reservation_id = self._extract_booking_id(event.get("path", ""))
+
+        response = self._reservation_management_service.get_reservation(
+            reservation_id=reservation_id,
+            actor_id=user_id,
+            role=role,
+        )
+
+        return build_response(
+            response.model_dump(by_alias=True),
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    def _update_booking(self, event: dict) -> LambdaResponse:
+        """Handle PUT /bookings/client/{reservationId}."""
+        access_token = self._extract_access_token(event)
+        user_id, role = self._cognito_service.get_identity_from_access_token(
+            access_token
+        )
+        reservation_id = self._extract_booking_id(event.get("path", ""))
+        request: UpdateReservationRequest = self._validate(
+            UpdateReservationRequest, self._parse_body(event)
+        )
+
+        response = self._reservation_management_service.update_reservation(
+            reservation_id=reservation_id,
+            request=request,
+            actor_id=user_id,
+            role=role,
+        )
+
+        return build_response(
+            response.model_dump(by_alias=True),
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    def _cancel_booking(self, event: dict) -> LambdaResponse:
+        """Handle PUT /bookings/client/{reservationId}/cancel."""
+        access_token = self._extract_access_token(event)
+        user_id, role = self._cognito_service.get_identity_from_access_token(
+            access_token
+        )
+        reservation_id = self._extract_booking_id(
+            event.get("path", ""), suffix="cancel"
+        )
+
+        response = self._reservation_management_service.cancel_reservation(
+            reservation_id=reservation_id,
+            actor_id=user_id,
+            role=role,
         )
 
         return build_response(

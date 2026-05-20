@@ -6,7 +6,7 @@ from domain.reservation import Reservation  # type: ignore[import-not-found]
 from enums.reservation_status import ReservationStatus  # type: ignore[import-not-found]
 from enums.slot_status import SlotStatus  # type: ignore[import-not-found]
 
-from seeds.utils import seed_id
+from seeds.utils import seed_id, to_item
 
 
 def seed(dynamodb, tables: dict, context: dict) -> None:
@@ -63,7 +63,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
 
     with reservations_table.batch_writer() as batch:
         for reservation in reservations:
-            batch.put_item(Item=reservation.model_dump(mode="json"))
+            batch.put_item(Item=to_item(reservation))
 
     # Flip the slots claimed by active reservations to RESERVED so
     # availability queries reflect the demo bookings.
@@ -71,7 +71,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
     with slots_table.batch_writer() as batch:
         for slot in active_slots:
             slot.status = SlotStatus.RESERVED
-            batch.put_item(Item=slot.model_dump(mode="json"))
+            batch.put_item(Item=to_item(slot))
 
     print(
         f"  ✓ Seeded {len(reservations)} reservations "

@@ -12,6 +12,7 @@ from commons.app_config import AppConfig
 from commons.dynamo_model import DynamoModel
 from commons.exceptions import ApplicationException
 from commons.log_helper import logger
+from enums.http_status_code import HttpStatusCode
 
 T = TypeVar("T", bound=DynamoModel)
 
@@ -114,6 +115,10 @@ class DynamoRepository(ABC, Generic[T]):
                     409, f"Item with id '{item.id}' already exists."
                 )
             logger.error("DynamoDB put_item (create) failed", error=str(exc))
+            raise ApplicationException(
+                HttpStatusCode.RESPONSE_INTERNAL_SERVER_ERROR,
+                "Failed to persist item",
+            ) from exc
 
     def get(self, item_id: UUID) -> T | None:
         """Return the item with the given id, or None if it does not exist.

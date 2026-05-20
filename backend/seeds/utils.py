@@ -18,5 +18,5 @@ def to_item(model) -> dict:
     """
     return {
         k: Decimal(str(v)) if isinstance(v, float) else v
-        for k, v in model.model_dump(mode="json").items()
+        for k, v in model.model_dump(mode="json", exclude_none=True).items()
     }
