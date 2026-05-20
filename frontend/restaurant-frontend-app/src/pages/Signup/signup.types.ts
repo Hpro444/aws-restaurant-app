@@ -15,4 +15,7 @@ export type FormInputProps = InputHTMLAttributes<HTMLInputElement> & {
   id: string;
   label: string;
   example?: string;
+  helperText?: string;
+  helperColor?: string;
+  inputBorderColor?: string;
 };
