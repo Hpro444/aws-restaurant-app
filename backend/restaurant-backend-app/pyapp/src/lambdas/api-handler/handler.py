@@ -8,6 +8,7 @@ from commons import LambdaResponse, build_response, raise_error_response
 from commons.abstract_lambda import AbstractLambda
 from dto.available_tables import AvailableTablesRequest
 from dto.create_booking import CreateBookingRequest
+from dto.error_response import FieldError, ValidationErrorResponse
 from dto.locations import LocationResponse
 from dto.logout import LogoutRequest, LogoutResponse
 from dto.refresh import RefreshRequest, RefreshResponse
@@ -201,7 +202,9 @@ class ApiHandler(AbstractLambda):
         except json.JSONDecodeError:
             raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                [{"field": "body", "message": "Invalid JSON"}],
+                ValidationErrorResponse(
+                    errors=[FieldError(field="body", message="Invalid JSON")]
+                ).model_dump(),
             )
 
     def _validate(self, model_cls, payload: dict):
@@ -219,13 +222,16 @@ class ApiHandler(AbstractLambda):
             return model_cls(**payload)
         except ValidationError as exc:
             errors = [
-                {
-                    "field": str(err["loc"][0]) if err["loc"] else "unknown",
-                    "message": err["msg"],
-                }
+                FieldError(
+                    field=str(err["loc"][0]) if err["loc"] else "unknown",
+                    message=err["msg"],
+                )
                 for err in exc.errors()
             ]
-            raise_error_response(HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY, errors)
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                ValidationErrorResponse(errors=errors).model_dump(),
+            )
 
     def _sign_up(self, event: dict) -> LambdaResponse:
         """Process a user registration request and return a 201 response.
@@ -374,7 +380,9 @@ class ApiHandler(AbstractLambda):
         if raw_id is None:
             raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                [{"field": "id", "message": "Missing location id"}],
+                ValidationErrorResponse(
+                    errors=[FieldError(field="id", message="Missing location id")]
+                ).model_dump(),
             )
 
         try:
@@ -382,14 +390,18 @@ class ApiHandler(AbstractLambda):
         except ValueError:
             raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                [{"field": "id", "message": "Must be a valid UUID"}],
+                ValidationErrorResponse(
+                    errors=[FieldError(field="id", message="Must be a valid UUID")]
+                ).model_dump(),
             )
 
         location = self._locations_service.get_location_by_id(location_id)
         if location is None:
             raise_error_response(
                 HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
-                [{"field": "id", "message": "Location not found"}],
+                ValidationErrorResponse(
+                    errors=[FieldError(field="id", message="Location not found")]
+                ).model_dump(),
             )
 
         return build_response(
@@ -440,12 +452,24 @@ class ApiHandler(AbstractLambda):
         except ValueError:
             raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                [{"field": "reservationId", "message": "Must be a valid UUID"}],
+                ValidationErrorResponse(
+                    errors=[
+                        FieldError(
+                            field="reservationId", message="Must be a valid UUID"
+                        )
+                    ]
+                ).model_dump(),
             )
         except TypeError:
             raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                [{"field": "reservationId", "message": "Must be a valid UUID"}],
+                ValidationErrorResponse(
+                    errors=[
+                        FieldError(
+                            field="reservationId", message="Must be a valid UUID"
+                        )
+                    ]
+                ).model_dump(),
             )
 
         return reservation_id
@@ -505,32 +529,45 @@ class ApiHandler(AbstractLambda):
         except ValueError:
             return raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                [{"field": "guests_number", "message": "Must be a valid integer"}],
+                ValidationErrorResponse(
+                    errors=[
+                        FieldError(
+                            field="guests_number", message="Must be a valid integer"
+                        )
+                    ]
+                ).model_dump(),
             )
         except TypeError:
             return raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                [{"field": "guests_number", "message": "Must be a valid integer"}],
+                ValidationErrorResponse(
+                    errors=[
+                        FieldError(
+                            field="guests_number", message="Must be a valid integer"
+                        )
+                    ]
+                ).model_dump(),
             )
 
         # Check for missing required parameters before Pydantic validation
         missing_fields = []
         if not params.get("location_id"):
             missing_fields.append(
-                {"field": "location_id", "message": "This field is required"}
+                FieldError(field="location_id", message="This field is required")
             )
         if not params.get("date"):
             missing_fields.append(
-                {"field": "date", "message": "This field is required"}
+                FieldError(field="date", message="This field is required")
             )
         if guests_number is None:
             missing_fields.append(
-                {"field": "guests_number", "message": "This field is required"}
+                FieldError(field="guests_number", message="This field is required")
             )
 
         if missing_fields:
             return raise_error_response(
-                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY, missing_fields
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                ValidationErrorResponse(errors=missing_fields).model_dump(),
             )
 
         # Validate all params through Pydantic (date format, UUID, range, time)
@@ -705,7 +742,13 @@ class ApiHandler(AbstractLambda):
         if location_id_str is None:
             raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                [{"field": "id", "message": "Path parameter 'id' is required"}],
+                ValidationErrorResponse(
+                    errors=[
+                        FieldError(
+                            field="id", message="Path parameter 'id' is required"
+                        )
+                    ]
+                ).model_dump(),
             )
 
         try:
@@ -713,12 +756,14 @@ class ApiHandler(AbstractLambda):
         except ValueError:
             raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                [
-                    {
-                        "field": "id",
-                        "message": "Path parameter 'id' must be a valid UUID",
-                    }
-                ],
+                ValidationErrorResponse(
+                    errors=[
+                        FieldError(
+                            field="id",
+                            message="Path parameter 'id' must be a valid UUID",
+                        )
+                    ]
+                ).model_dump(),
             )
 
         dishes = self._dishes_service.get_speciality_dishes_by_location(location_id)
@@ -738,7 +783,13 @@ class ApiHandler(AbstractLambda):
         if location_id_str is None:
             raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                [{"field": "id", "message": "Path parameter 'id' is required"}],
+                ValidationErrorResponse(
+                    errors=[
+                        FieldError(
+                            field="id", message="Path parameter 'id' is required"
+                        )
+                    ]
+                ).model_dump(),
             )
 
         try:
@@ -746,12 +797,14 @@ class ApiHandler(AbstractLambda):
         except ValueError:
             raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                [
-                    {
-                        "field": "id",
-                        "message": "Path parameter 'id' must be a valid UUID",
-                    }
-                ],
+                ValidationErrorResponse(
+                    errors=[
+                        FieldError(
+                            field="id",
+                            message="Path parameter 'id' must be a valid UUID",
+                        )
+                    ]
+                ).model_dump(),
             )
 
         params = self._parse_query_params(event)
@@ -760,18 +813,21 @@ class ApiHandler(AbstractLambda):
         if type is None:
             raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                [{"field": "type", "message": "This field is required"}],
+                ValidationErrorResponse(
+                    errors=[FieldError(field="type", message="This field is required")]
+                ).model_dump(),
             )
 
         if type not in {"cuisine", "service"}:
             raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                [
-                    {
-                        "field": "type",
-                        "message": "Must be one of: cuisine, service",
-                    }
-                ],
+                ValidationErrorResponse(
+                    errors=[
+                        FieldError(
+                            field="type", message="Must be one of: cuisine, service"
+                        )
+                    ]
+                ).model_dump(),
             )
 
         sort_value = params.get("sort", "date,desc")
@@ -780,18 +836,27 @@ class ApiHandler(AbstractLambda):
         if sort_key not in {"date", "rate"}:
             raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                [{"field": "sort", "message": "Sort field must be one of: date, rate"}],
+                ValidationErrorResponse(
+                    errors=[
+                        FieldError(
+                            field="sort",
+                            message="Sort field must be one of: date, rate",
+                        )
+                    ]
+                ).model_dump(),
             )
 
         if sort_direction and sort_direction not in {"asc", "desc"}:
             raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                [
-                    {
-                        "field": "sort",
-                        "message": "Sort direction must be one of: asc, desc",
-                    }
-                ],
+                ValidationErrorResponse(
+                    errors=[
+                        FieldError(
+                            field="sort",
+                            message="Sort direction must be one of: asc, desc",
+                        )
+                    ]
+                ).model_dump(),
             )
 
         sort = [sort_value]
@@ -803,26 +868,40 @@ class ApiHandler(AbstractLambda):
         except ValueError, TypeError:
             raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                [{"field": "page", "message": "Must be a valid integer"}],
+                ValidationErrorResponse(
+                    errors=[FieldError(field="page", message="Must be a valid integer")]
+                ).model_dump(),
             )
         try:
             size = int(raw_size)
         except ValueError, TypeError:
             raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                [{"field": "size", "message": "Must be a valid integer"}],
+                ValidationErrorResponse(
+                    errors=[FieldError(field="size", message="Must be a valid integer")]
+                ).model_dump(),
             )
 
         if page < 0:
             raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                [{"field": "page", "message": "Must be greater than or equal to 0"}],
+                ValidationErrorResponse(
+                    errors=[
+                        FieldError(
+                            field="page", message="Must be greater than or equal to 0"
+                        )
+                    ]
+                ).model_dump(),
             )
 
         if size < 1 or size > 100:
             raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                [{"field": "size", "message": "Must be between 1 and 100"}],
+                ValidationErrorResponse(
+                    errors=[
+                        FieldError(field="size", message="Must be between 1 and 100")
+                    ]
+                ).model_dump(),
             )
 
         feedback_page = self._feedback_service.get_feedbacks(

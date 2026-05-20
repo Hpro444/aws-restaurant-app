@@ -87,7 +87,7 @@ class TestAvailableTables(ApiHandlerLambdaTestCase):
             make_get_event(_PATH, {**_VALID_PARAMS, "guests_number": "two"}), {}
         )
         self.assertEqual(status(result), 422)
-        self.assertEqual(body(result)[0]["field"], "guests_number")
+        self.assertEqual(body(result)["errors"][0]["field"], "guests_number")
         self.HANDLER._table_availability_service.get_available_tables.assert_not_called()
 
     def test_missing_location_id_returns_422(self) -> None:

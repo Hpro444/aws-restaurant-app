@@ -15,6 +15,17 @@ class SignUpRequest(BaseModel):
     email: EmailStr
     password: SecretStr
 
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, v: object) -> object:
+        """Strip whitespace and lowercase the email, then enforce that the local part starts with a letter."""
+        if isinstance(v, str):
+            v = v.strip().lower()
+            local = v.split("@")[0]
+            if not local or not local[0].isalpha():
+                raise ValueError("email local part must start with a letter")
+        return v
+
     @field_validator("password")
     @classmethod
     def validate_password_policy(cls, v: SecretStr) -> SecretStr:
