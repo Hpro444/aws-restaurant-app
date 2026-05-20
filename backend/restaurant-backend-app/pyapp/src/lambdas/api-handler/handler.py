@@ -139,7 +139,7 @@ class ApiHandler(AbstractLambda):
         if (
             path.endswith("/cancel")
             and path.startswith("/bookings/client/")
-            and method == "PUT"
+            and method == "DELETE"
         ):
             return self._cancel_booking(event)
 

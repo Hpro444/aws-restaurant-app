@@ -266,7 +266,7 @@
             "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com"
           ]
         },
-        "PUT": {
+        "DELETE": {
           "authorization_type": "NONE",
           "integration_type": "lambda",
           "lambda_name": "api-handler",
