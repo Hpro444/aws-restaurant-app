@@ -366,6 +366,28 @@
           "default_error_pattern": true,
           "enable_proxy": true
         }
+      },
+      "/locations/{id}/feedbacks": {
+        "enable_cors": {
+          "state": true,
+          "custom_headers": [],
+          "custom_methods": [],
+          "custom_origins": [
+            "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com"
+          ]
+        },
+        "GET": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
+        }
       }
     },
     "tags": {}
@@ -562,7 +584,7 @@
     "autoscaling": [],
     "tags": {}
   },
-  "${feedback_culinary_table}": {
+  "${feedback_cuisine_table}": {
     "resource_type": "dynamodb_table",
     "hash_key_name": "id",
     "hash_key_type": "S",
@@ -587,7 +609,14 @@
     "billing_mode": "PAY_PER_REQUEST",
     "read_capacity": 1,
     "write_capacity": 1,
-    "global_indexes": [],
+    "global_indexes": [
+      {
+        "name": "waiter_id_index",
+        "index_key_name": "waiter_id",
+        "index_key_type": "S",
+        "projection_type": "ALL"
+      }
+    ],
     "autoscaling": [],
     "tags": {}
   },

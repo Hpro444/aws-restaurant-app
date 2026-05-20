@@ -25,6 +25,7 @@ from repositories.waiter_repository import WaiterRepository
 from services.booking_service import BookingService
 from services.cognito_service import CognitoService
 from services.dishes_service import DishesService
+from services.feedback_service import FeedbackService
 from services.locations_service import LocationsService
 from services.registration_service import RegistrationService
 from services.reservation_management_service import ReservationManagementService
@@ -63,6 +64,7 @@ class ApiHandler(AbstractLambda):
         self._booking_service = BookingService()
         self._reservation_management_service = ReservationManagementService()
         self._dishes_service = DishesService()
+        self._feedback_service = FeedbackService()
 
     def validate_request(self, event: dict) -> dict:
         """Return empty dict; all validation is handled in route methods via Pydantic.
@@ -153,6 +155,13 @@ class ApiHandler(AbstractLambda):
             and method == "GET"
         ):
             return self._get_speciality_dishes_by_location(event)
+
+        if (
+            path.startswith("/locations/")
+            and path.endswith("/feedbacks")
+            and method == "GET"
+        ):
+            return self._get_feedbacks_by_location(event)
 
         return build_response(
             "Route not found", code=HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE
@@ -715,6 +724,123 @@ class ApiHandler(AbstractLambda):
         dishes = self._dishes_service.get_speciality_dishes_by_location(location_id)
         return build_response(
             [dish.model_dump() for dish in dishes],
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    def _get_feedbacks_by_location(self, event: dict) -> LambdaResponse:
+        """Handle GET /locations/{id}/feedbacks.
+
+        Returns feedbacks for the requested location only.
+
+        """
+        location_id_str = self._extract_path_segment(event, 1)
+
+        if location_id_str is None:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                [{"field": "id", "message": "Path parameter 'id' is required"}],
+            )
+
+        try:
+            location_id = UUID(location_id_str)
+        except ValueError:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                [
+                    {
+                        "field": "id",
+                        "message": "Path parameter 'id' must be a valid UUID",
+                    }
+                ],
+            )
+
+        params = self._parse_query_params(event)
+
+        type = params.get("type")
+        if type is None:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                [{"field": "type", "message": "This field is required"}],
+            )
+
+        if type not in {"cuisine", "service"}:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                [
+                    {
+                        "field": "type",
+                        "message": "Must be one of: cuisine, service",
+                    }
+                ],
+            )
+
+        sort_value = params.get("sort", "date,desc")
+        sort_key, _, sort_direction = sort_value.partition(",")
+
+        if sort_key not in {"date", "rate"}:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                [{"field": "sort", "message": "Sort field must be one of: date, rate"}],
+            )
+
+        if sort_direction and sort_direction not in {"asc", "desc"}:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                [
+                    {
+                        "field": "sort",
+                        "message": "Sort direction must be one of: asc, desc",
+                    }
+                ],
+            )
+
+        sort = [sort_value]
+
+        raw_page = params.get("page", "0")
+        raw_size = params.get("size", "20")
+        try:
+            page = int(raw_page)
+        except ValueError, TypeError:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                [{"field": "page", "message": "Must be a valid integer"}],
+            )
+        try:
+            size = int(raw_size)
+        except ValueError, TypeError:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                [{"field": "size", "message": "Must be a valid integer"}],
+            )
+
+        if page < 0:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                [{"field": "page", "message": "Must be greater than or equal to 0"}],
+            )
+
+        if size < 1 or size > 100:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                [{"field": "size", "message": "Must be between 1 and 100"}],
+            )
+
+        feedback_page = self._feedback_service.get_feedbacks(
+            location_id=location_id,
+            type=type,
+            sort=sort,
+            page=page,
+            size=size,
+        )
+
+        content = feedback_page.get("content", [])
+        feedback_page["content"] = [
+            item.model_dump(mode="json") if hasattr(item, "model_dump") else item
+            for item in content
+        ]
+
+        return build_response(
+            feedback_page,
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 

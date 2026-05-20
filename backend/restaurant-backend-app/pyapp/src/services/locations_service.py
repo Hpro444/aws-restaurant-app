@@ -5,7 +5,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from dto.locations import LocationResponse
-from repositories.feedback_culinary_repository import FeedbackCulinaryRepository
+from repositories.feedback_cuisine_repository import FeedbackCuisineRepository
 from repositories.location_repository import LocationRepository
 from repositories.table_repository import TableRepository
 
@@ -17,13 +17,13 @@ class LocationsService:
         self,
         location_repository: LocationRepository | None = None,
         table_repository: TableRepository | None = None,
-        feedback_culinary_repository: FeedbackCulinaryRepository | None = None,
+        feedback_cuisine_repository: FeedbackCuisineRepository | None = None,
     ) -> None:
         """Initialize dependencies, creating them if not provided."""
         self._location_repository = location_repository or LocationRepository()
         self._table_repository = table_repository or TableRepository()
-        self._feedback_culinary_repository = (
-            feedback_culinary_repository or FeedbackCulinaryRepository()
+        self._feedback_cuisine_repository = (
+            feedback_cuisine_repository or FeedbackCuisineRepository()
         )
 
     def get_locations(self) -> list[LocationResponse]:
@@ -63,12 +63,12 @@ class LocationsService:
         )
 
     def _calculate_rating(self, location_id) -> str:
-        """Calculate the average rating for a location from culinary feedback only. Returns as a string with 1 decimal place, or '0' if no ratings."""
+        """Calculate the average rating for a location from cuisine feedback only. Returns as a string with 1 decimal place, or '0' if no ratings."""
         feedbacks = list(
-            self._feedback_culinary_repository.find_by_location_id(location_id)
+            self._feedback_cuisine_repository.find_by_location_id(location_id)
         )
         ratings = [
-            f.rating for f in feedbacks if hasattr(f, "rating") and f.rating is not None
+            f.rate for f in feedbacks if hasattr(f, "rate") and f.rate is not None
         ]
         if not ratings:
             return "0"
