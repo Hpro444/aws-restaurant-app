@@ -83,3 +83,10 @@ class TestSignIn(ApiHandlerLambdaTestCase):
         """A non-JSON body should return 422."""
         event = {"path": _PATH, "httpMethod": "POST", "body": "not-json"}
         self.assertEqual(status(self.HANDLER.lambda_handler(event, {})), 422)
+
+    def test_email_normalized_to_lowercase(self) -> None:
+        """An uppercase email should be lowercased and the request should succeed with 200."""
+        result = self.HANDLER.lambda_handler(
+            make_event(_PATH, "POST", {**_VALID_BODY, "email": "JANE@EXAMPLE.COM"}), {}
+        )
+        self.assertEqual(status(result), 200)
