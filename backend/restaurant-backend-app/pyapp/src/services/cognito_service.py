@@ -310,13 +310,13 @@ class CognitoService:
                     raise ApplicationException(
                         code=HttpStatusCode.RESPONSE_UNAUTHORIZED,
                         content={
-                            "message": "Invalid credentials",
+                            "message": "Invalid credentials. You have 1 attempt remaining before your account is temporarily locked.",
                             "remaining_attempts": 1,
                         },
                     ) from exc
                 raise ApplicationException(
                     code=HttpStatusCode.RESPONSE_UNAUTHORIZED,
-                    content="Invalid credentials",
+                    content={"message": "Incorrect email or password. Try again or create an account."},
                 ) from exc
             logger.error("initiate_auth failed", error_code=error_code, error=str(exc))
             raise ApplicationException(
