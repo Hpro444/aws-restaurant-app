@@ -100,6 +100,49 @@ class SlotRepository(DynamoRepository[Slot]):
         )
         return all_slots
 
+    def find_by_ids(self, slot_ids: list[UUID]) -> list[Slot]:
+        """Return existing slots for the provided IDs in input order.
+
+        Uses ``BatchGetItem`` to avoid one round-trip per slot id.
+        """
+        if not slot_ids:
+            return []
+
+        table_name = self._resolve_table_name()
+        unique_ids = list(dict.fromkeys(slot_ids))
+
+        found_by_id: dict[UUID, Slot] = {}
+        for start in range(0, len(unique_ids), 100):
+            chunk = unique_ids[start : start + 100]
+            request_items = {
+                table_name: {
+                    "Keys": [
+                        {self._pk_field: {"S": str(slot_id)}} for slot_id in chunk
+                    ],
+                }
+            }
+
+            while request_items:
+                response = self._client.batch_get_item(RequestItems=request_items)
+                raw_items = response.get("Responses", {}).get(table_name, [])
+                for raw in raw_items:
+                    slot = self._model_class.from_dynamodb_item(raw)
+                    found_by_id[slot.id] = slot
+
+                unprocessed = response.get("UnprocessedKeys", {})
+                request_items = (
+                    {table_name: unprocessed[table_name]}
+                    if table_name in unprocessed
+                    else {}
+                )
+
+        logger.info(
+            "Slots fetched by ids",
+            requested_count=len(slot_ids),
+            found_count=len(found_by_id),
+        )
+        return [found_by_id[slot_id] for slot_id in slot_ids if slot_id in found_by_id]
+
     def update_status(
         self,
         slot_id: UUID,

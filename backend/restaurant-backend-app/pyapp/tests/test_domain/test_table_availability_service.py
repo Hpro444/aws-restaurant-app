@@ -65,18 +65,29 @@ class TestTableAvailabilityService(unittest.TestCase):
             "services.table_availability_service.TableRepository"
         )
         slot_repo_patcher = patch("services.table_availability_service.SlotRepository")
+        location_repo_patcher = patch(
+            "services.table_availability_service.LocationRepository"
+        )
 
         self.mock_table_repo_cls = table_repo_patcher.start()
         self.mock_slot_repo_cls = slot_repo_patcher.start()
+        self.mock_location_repo_cls = location_repo_patcher.start()
 
         self.addCleanup(table_repo_patcher.stop)
         self.addCleanup(slot_repo_patcher.stop)
+        self.addCleanup(location_repo_patcher.stop)
 
         self.mock_table_repo = MagicMock()
         self.mock_slot_repo = MagicMock()
+        self.mock_location_repo = MagicMock()
 
         self.mock_table_repo_cls.return_value = self.mock_table_repo
         self.mock_slot_repo_cls.return_value = self.mock_slot_repo
+        self.mock_location_repo_cls.return_value = self.mock_location_repo
+
+        location = MagicMock()
+        location.name = "48 Rustaveli Avenue, Tbilisi"
+        self.mock_location_repo.get.return_value = location
 
         self.service = TableAvailabilityService()
 

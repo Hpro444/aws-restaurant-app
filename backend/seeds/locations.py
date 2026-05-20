@@ -12,8 +12,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
     locations = [
         Location(
             id=seed_id("location", "downtown"),
-            name="Downtown",
-            address="123 Main Street",
+            name="48 Rustaveli Avenue, Tbilisi",
+            address="48 Rustaveli Avenue, Tbilisi",
             description="Central city location near the main square.",
             image_url="https://images.example.com/locations/downtown.jpg",
             open_time="10:00",
@@ -21,8 +21,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         ),
         Location(
             id=seed_id("location", "airport"),
-            name="Airport Terminal",
-            address="456 Terminal Boulevard",
+            name="4 Chavchavadze Avenue, Tbilisi",
+            address="4 Chavchavadze Avenue, Tbilisi",
             description="Fast-service location inside the international terminal.",
             image_url="https://images.example.com/locations/airport.jpg",
             open_time="06:00",

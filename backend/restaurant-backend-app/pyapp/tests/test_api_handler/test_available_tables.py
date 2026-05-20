@@ -24,6 +24,7 @@ _MOCK_RESPONSE_DATA = {
             "table_id": "f6d6b8df-a7d5-4f06-8dd0-739d2f4f8df3",
             "table_number": 1,
             "capacity": 4,
+            "location_name": "48 Rustaveli Avenue, Tbilisi",
             "available_slots": [
                 {
                     "slot_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
@@ -53,6 +54,10 @@ class TestAvailableTables(ApiHandlerLambdaTestCase):
         result = self.HANDLER.lambda_handler(make_get_event(_PATH, _VALID_PARAMS), {})
         self.assertEqual(status(result), 200)
         self.assertIn("tables", body(result))
+        self.assertEqual(
+            body(result)["tables"][0]["location_name"],
+            "48 Rustaveli Avenue, Tbilisi",
+        )
         self.HANDLER._table_availability_service.get_available_tables.assert_called_once_with(
             location_id=UUID(_VALID_PARAMS["location_id"]),
             booking_date=_TOMORROW,

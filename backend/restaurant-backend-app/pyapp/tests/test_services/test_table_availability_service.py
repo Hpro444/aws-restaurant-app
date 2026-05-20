@@ -67,6 +67,10 @@ class TestTableAvailabilityService(unittest.TestCase):
         self.service = TableAvailabilityService.__new__(TableAvailabilityService)
         self.service._table_repo = MagicMock()
         self.service._slot_repo = MagicMock()
+        self.service._location_repo = MagicMock()
+        location = MagicMock()
+        location.name = "48 Rustaveli Avenue, Tbilisi"
+        self.service._location_repo.get.return_value = location
 
     def test_invalid_location_uuid_returns_empty_without_repo_calls(self) -> None:
         """Invalid UUID input should short-circuit and return an empty response."""

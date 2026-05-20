@@ -15,6 +15,7 @@ from dto.available_tables import (
     TableAvailabilityResponse,
 )
 from enums.slot_status import SlotStatus
+from repositories.location_repository import LocationRepository
 from repositories.slot_repository import SlotRepository
 from repositories.table_repository import TableRepository
 
@@ -53,6 +54,7 @@ class TableAvailabilityService:
         cfg = settings or AppConfig()
         self._table_repo = TableRepository(cfg)
         self._slot_repo = SlotRepository(cfg)
+        self._location_repo = LocationRepository(cfg)
 
     def get_available_tables(
         self,
@@ -91,6 +93,7 @@ class TableAvailabilityService:
             return AvailableTablesResponse(tables=[])
 
         # ── Step 2: Filter by location — query tables at location (GSI)
+        location = self._location_repo.get(location_uuid)
         all_tables = self._table_repo.find_by_location_id(location_uuid)
 
         # ── Step 3: Filter by guest count — capacity >= requested ────
@@ -132,7 +135,11 @@ class TableAvailabilityService:
         )
 
         # ── Step 7: Build response grouped by table ──────────────────
-        return self._build_response(suitable_tables, free_slots)
+        return self._build_response(
+            suitable_tables,
+            free_slots,
+            location_name=location.name if location else None,
+        )
 
     # ── Private helpers ──────────────────────────────────────────────
 
@@ -195,13 +202,14 @@ class TableAvailabilityService:
 
     @staticmethod
     def _build_response(
-        tables: list[Table], free_slots: list[Slot]
+        tables: list[Table],
+        free_slots: list[Slot],
+        location_name: str | None = None,
     ) -> AvailableTablesResponse:
         """Group free slots by table and build the response DTO.
 
         Tables with zero free slots are excluded from the response.
         Tables sorted by table_number, slots sorted by start_time.
-
         """
         table_by_id = {t.id: t for t in tables}
 
@@ -225,6 +233,7 @@ class TableAvailabilityService:
                     table_id=str(table.id),
                     table_number=table.table_number,
                     capacity=table.capacity,
+                    location_name=location_name,
                     available_slots=slot_list,
                 )
             )

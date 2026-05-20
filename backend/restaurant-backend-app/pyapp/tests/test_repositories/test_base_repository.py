@@ -117,9 +117,11 @@ class TestCreate(_DishRepoTestCase):
         self.assertEqual(ctx.exception.code, 409)
 
     def test_swallows_other_client_errors(self) -> None:
-        """Non-conflict ClientErrors must be logged and not re-raised."""
+        """Non-conflict ClientErrors must raise ApplicationException(500)."""
         self.mock_client.put_item.side_effect = _GENERIC_CLIENT_ERROR
-        self.repo.create(_DISH)  # must not raise
+        with self.assertRaises(ApplicationException) as ctx:
+            self.repo.create(_DISH)
+        self.assertEqual(ctx.exception.code, 500)
 
 
 class TestGet(_DishRepoTestCase):
