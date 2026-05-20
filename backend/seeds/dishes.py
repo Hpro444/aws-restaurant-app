@@ -23,6 +23,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             name="Pasta Carbonara",
             description="Creamy Roman pasta with guanciale, egg yolk, and Pecorino Romano.",
             image_url="https://images.example.com/dishes/carbonara.jpg",
+            specialty=True,
+            popular=True,
             price=18.50,
             weight_gram=350,
         ),
@@ -32,6 +34,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             name="Margherita Pizza",
             description="Classic Neapolitan pizza with San Marzano tomato, fresh mozzarella, and basil.",
             image_url="https://images.example.com/dishes/margherita.jpg",
+            specialty=True,
+            popular=True,
             price=14.00,
             weight_gram=400,
         ),
@@ -41,6 +45,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             name="Caesar Salad",
             description="Crisp romaine lettuce, house-made Caesar dressing, croutons, and Parmesan.",
             image_url="https://images.example.com/dishes/caesar.jpg",
+            specialty=False,
+            popular=False,
             price=11.00,
             weight_gram=250,
         ),
@@ -50,6 +56,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             name="Beef Burger",
             description="180 g prime beef patty, aged cheddar, caramelised onions, and brioche bun.",
             image_url="https://images.example.com/dishes/burger.jpg",
+            specialty=False,
+            popular=True,
             price=16.50,
             weight_gram=450,
         ),
@@ -59,6 +67,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             name="Tomato Soup",
             description="Slow-roasted heirloom tomatoes blended with cream and fresh basil.",
             image_url="https://images.example.com/dishes/tomato-soup.jpg",
+            specialty=False,
+            popular=False,
             price=8.00,
             weight_gram=300,
         ),
@@ -71,6 +81,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             name="Grilled Chicken Wrap",
             description="Grilled chicken breast, avocado, mixed greens, and chipotle mayo in a flour tortilla.",
             image_url="https://images.example.com/dishes/chicken-wrap.jpg",
+            specialty=True,
+            popular=True,
             price=12.50,
             weight_gram=280,
         ),
@@ -80,6 +92,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             name="Fish & Chips",
             description="Beer-battered cod fillet with thick-cut chips, mushy peas, and tartare sauce.",
             image_url="https://images.example.com/dishes/fish-chips.jpg",
+            specialty=True,
+            popular=True,
             price=15.00,
             weight_gram=500,
         ),
@@ -89,6 +103,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             name="Greek Salad",
             description="Tomato, cucumber, red onion, Kalamata olives, and feta with oregano vinaigrette.",
             image_url="https://images.example.com/dishes/greek-salad.jpg",
+            specialty=False,
+            popular=False,
             price=10.00,
             weight_gram=220,
         ),
@@ -98,6 +114,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             name="Club Sandwich",
             description="Triple-decker with smoked turkey, bacon, lettuce, tomato, and honey mustard.",
             image_url="https://images.example.com/dishes/club-sandwich.jpg",
+            specialty=False,
+            popular=False,
             price=11.50,
             weight_gram=320,
         ),
@@ -107,6 +125,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             name="Minestrone Soup",
             description="Hearty Italian vegetable soup with cannellini beans, pasta, and Parmesan.",
             image_url="https://images.example.com/dishes/minestrone.jpg",
+            specialty=False,
+            popular=False,
             price=7.50,
             weight_gram=300,
         ),
@@ -116,7 +136,14 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
 
     with table.batch_writer() as batch:
         for dish in all_dishes:
-            batch.put_item(Item=to_item(dish))
+            item = to_item(dish)
+
+            # DynamoDB GSI key types do not support BOOL.
+            # Persist `popular` as numeric 1/0 because the GSI key uses
+            # the same attribute name and key attributes cannot be BOOL.
+            item["popular"] = 1 if dish.popular else 0
+
+            batch.put_item(Item=item)
 
     print(
         f"  ✓ Seeded {len(all_dishes)} dishes ({len(downtown_dishes)} Downtown, {len(airport_dishes)} Airport)"

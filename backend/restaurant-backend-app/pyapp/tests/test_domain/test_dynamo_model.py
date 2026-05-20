@@ -30,6 +30,8 @@ def _make_dish(**overrides) -> Dish:
         image_url="https://example.com/pizza.jpg",
         price=12.99,
         weight_gram=350,
+        specialty=False,
+        popular=True,
         **overrides,
     )
 

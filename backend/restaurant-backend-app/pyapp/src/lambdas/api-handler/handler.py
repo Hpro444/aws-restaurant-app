@@ -2,6 +2,7 @@
 
 import json
 from typing import Any
+from uuid import UUID
 
 from commons import LambdaResponse, build_response, raise_error_response
 from commons.abstract_lambda import AbstractLambda
@@ -21,6 +22,7 @@ from repositories.customer_repository import CustomerRepository
 from repositories.waiter_repository import WaiterRepository
 from services.booking_service import BookingService
 from services.cognito_service import CognitoService
+from services.dishes_service import DishesService
 from services.registration_service import RegistrationService
 from services.table_availability_service import TableAvailabilityService
 from services.user_profile_service import UserProfileService
@@ -54,6 +56,7 @@ class ApiHandler(AbstractLambda):
         )
         self._table_availability_service = TableAvailabilityService()
         self._booking_service = BookingService()
+        self._dishes_service = DishesService()
 
     def validate_request(self, event: dict) -> dict:
         """Return empty dict; all validation is handled in route methods via Pydantic.
@@ -104,6 +107,16 @@ class ApiHandler(AbstractLambda):
 
         if path == "/bookings/client" and method == "POST":
             return self._create_booking(event)
+
+        if path == "/dishes/popular" and method == "GET":
+            return self._get_popular_dishes(event)
+
+        if (
+            path.startswith("/locations/")
+            and path.endswith("/speciality-dishes")
+            and method == "GET"
+        ):
+            return self._get_speciality_dishes_by_location(event)
 
         return build_response(
             "Route not found", code=HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE
@@ -307,6 +320,32 @@ class ApiHandler(AbstractLambda):
         """Extract query string parameters from API Gateway event."""
         return event.get("queryStringParameters") or {}
 
+    @staticmethod
+    def _extract_path_segment(event: dict, position: int) -> str | None:
+        """Extract a path segment by position for parametrized routes.
+
+        For /locations/{id}/speciality-dishes, position=1 returns the id value.
+        Tries pathParameters first (API Gateway), then falls back to parsing the path string.
+
+        Args:
+            event: Lambda event from API Gateway.
+            position: 0-based position of the segment to extract (1 for id in /locations/{id}/...).
+
+        Returns:
+            The path segment value, or None if not found.
+
+        """
+        path_params = event.get("pathParameters") or {}
+        if "id" in path_params:
+            return path_params.get("id")
+
+        path = event.get("path", "")
+        parts = [part for part in path.split("/") if part]
+        if position < len(parts):
+            return parts[position]
+
+        return None
+
     def _get_available_tables(self, event: dict):
         """Handle GET /bookings/tables.
 
@@ -424,6 +463,58 @@ class ApiHandler(AbstractLambda):
 
         return build_response(
             response.model_dump(by_alias=True),
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    def _get_popular_dishes(self, event: dict) -> LambdaResponse:
+        """Handle GET /dishes/popular — retrieve all popular dishes across locations.
+
+        Returns a list of all dishes marked as popular, across all restaurant
+        locations. No authentication required (public endpoint).
+
+        Uses a DynamoDB GSI on the ``popular`` flag for O(1) lookup efficiency.
+
+        Returns:
+            A Lambda proxy response dict with statusCode 200 and a JSON array
+            of DishResponse objects, or an empty array if no popular dishes exist.
+
+        """
+        dishes = self._dishes_service.get_popular_dishes()
+        return build_response(
+            [dish.model_dump() for dish in dishes],
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    def _get_speciality_dishes_by_location(self, event: dict) -> LambdaResponse:
+        """Handle GET /locations/{id}/speciality-dishes.
+
+        Returns speciality dishes for the requested location only.
+
+        """
+        location_id_str = self._extract_path_segment(event, 1)
+
+        if not location_id_str:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                [{"field": "id", "message": "Path parameter 'id' is required"}],
+            )
+
+        try:
+            location_id = UUID(location_id_str)
+        except ValueError:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                [
+                    {
+                        "field": "id",
+                        "message": "Path parameter 'id' must be a valid UUID",
+                    }
+                ],
+            )
+
+        dishes = self._dishes_service.get_speciality_dishes_by_location(location_id)
+        return build_response(
+            [dish.model_dump() for dish in dishes],
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 

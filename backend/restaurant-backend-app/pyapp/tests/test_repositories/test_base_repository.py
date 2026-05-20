@@ -25,6 +25,8 @@ _DISH = Dish(
     image_url="https://example.com/pizza.jpg",
     price=12.99,
     weight_gram=350,
+    specialty=False,
+    popular=True,
 )
 
 _CONDITIONAL_CHECK_FAILED = ClientError(
@@ -202,6 +204,8 @@ class TestScan(_DishRepoTestCase):
             image_url="https://example.com/calzone.jpg",
             price=13.50,
             weight_gram=400,
+            specialty=True,
+            popular=False,
         )
         page2_item = page2_dish.to_dynamodb_item()
         self.mock_client.scan.side_effect = [

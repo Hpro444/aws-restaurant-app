@@ -7,6 +7,10 @@ _SIGN_IN_PATH = "/auth/sign-in"
 _REFRESH_PATH = "/auth/refresh"
 _LOGOUT_PATH = "/auth/logout"
 _BOOKINGS_TABLES_PATH = "/bookings/tables"
+_DISHES_POPULAR_PATH = "/dishes/popular"
+_LOCATION_SPECIALITY_PATH = (
+    "/locations/f6d6b8df-a7d5-4f06-8dd0-739d2f4f8df3/speciality-dishes"
+)
 
 _DUMMY_BODY = {
     "firstName": "Jane",
@@ -73,6 +77,28 @@ class TestRouting(ApiHandlerLambdaTestCase):
         self.assertEqual(
             status(
                 self.HANDLER.lambda_handler(make_event(_LOGOUT_PATH, "GET", {}), {})
+            ),
+            404,
+        )
+
+    def test_wrong_method_on_dishes_popular_returns_404(self) -> None:
+        """A POST to the popular dishes path should return 404."""
+        self.assertEqual(
+            status(
+                self.HANDLER.lambda_handler(
+                    make_event(_DISHES_POPULAR_PATH, "POST", {}), {}
+                )
+            ),
+            404,
+        )
+
+    def test_wrong_method_on_location_speciality_returns_404(self) -> None:
+        """A POST to the location speciality path should return 404."""
+        self.assertEqual(
+            status(
+                self.HANDLER.lambda_handler(
+                    make_event(_LOCATION_SPECIALITY_PATH, "POST", {}), {}
+                )
             ),
             404,
         )
