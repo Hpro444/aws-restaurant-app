@@ -22,12 +22,12 @@ class TestLocationsService(TestCase):
         """Create service with mocked repository and sample domain entities."""
         self.mock_location_repo = MagicMock()
         self.mock_table_repo = MagicMock()
-        self.mock_feedback_culinary_repo = MagicMock()
-        self.mock_feedback_culinary_repo.find_by_location_id.return_value = []
+        self.mock_feedback_cuisine_repo = MagicMock()
+        self.mock_feedback_cuisine_repo.find_by_location_id.return_value = []
         self.service = LocationsService(
             location_repository=self.mock_location_repo,
             table_repository=self.mock_table_repo,
-            feedback_culinary_repository=self.mock_feedback_culinary_repo,
+            feedback_cuisine_repository=self.mock_feedback_cuisine_repo,
         )
         self.location_1 = Location(
             id=uuid4(),
@@ -185,7 +185,7 @@ class TestLocationsService(TestCase):
         """LocationResponse.rating is '0' if there is no culinary feedback for the location."""
         self.mock_location_repo.scan.return_value = [self.location_1]
         self._mock_empty_tables_for_locations()
-        self.mock_feedback_culinary_repo.find_by_location_id.return_value = []
+        self.mock_feedback_cuisine_repo.find_by_location_id.return_value = []
         result = self.service.get_locations()
         self.assertEqual(result[0].rating, "0")
 
@@ -193,8 +193,8 @@ class TestLocationsService(TestCase):
         """LocationResponse.rating equals the single culinary feedback rating as a decimal string."""
         self.mock_location_repo.scan.return_value = [self.location_1]
         self._mock_empty_tables_for_locations()
-        self.mock_feedback_culinary_repo.find_by_location_id.return_value = [
-            MagicMock(rating=4)
+        self.mock_feedback_cuisine_repo.find_by_location_id.return_value = [
+            MagicMock(rate=4)
         ]
         result = self.service.get_locations()
         self.assertEqual(result[0].rating, "4.0")
@@ -203,10 +203,10 @@ class TestLocationsService(TestCase):
         """LocationResponse.rating is the average of all culinary feedback ratings, 1 decimal place."""
         self.mock_location_repo.scan.return_value = [self.location_1]
         self._mock_empty_tables_for_locations()
-        self.mock_feedback_culinary_repo.find_by_location_id.return_value = [
-            MagicMock(rating=5),
-            MagicMock(rating=3),
-            MagicMock(rating=4),
+        self.mock_feedback_cuisine_repo.find_by_location_id.return_value = [
+            MagicMock(rate=5),
+            MagicMock(rate=3),
+            MagicMock(rate=4),
         ]
         result = self.service.get_locations()
         self.assertEqual(result[0].rating, "4.0")
@@ -215,10 +215,10 @@ class TestLocationsService(TestCase):
         """LocationResponse.rating ignores feedbacks with rating=None."""
         self.mock_location_repo.scan.return_value = [self.location_1]
         self._mock_empty_tables_for_locations()
-        self.mock_feedback_culinary_repo.find_by_location_id.return_value = [
-            MagicMock(rating=5),
-            MagicMock(rating=None),
-            MagicMock(rating=1),
+        self.mock_feedback_cuisine_repo.find_by_location_id.return_value = [
+            MagicMock(rate=5),
+            MagicMock(rate=None),
+            MagicMock(rate=1),
         ]
         result = self.service.get_locations()
         self.assertEqual(result[0].rating, "3.0")
@@ -230,9 +230,9 @@ class TestLocationsService(TestCase):
             self.table_1,
             self.table_2,
         ]
-        self.mock_feedback_culinary_repo.find_by_location_id.return_value = [
-            MagicMock(rating=5),
-            MagicMock(rating=3),
+        self.mock_feedback_cuisine_repo.find_by_location_id.return_value = [
+            MagicMock(rate=5),
+            MagicMock(rate=3),
         ]
 
         result = self.service.get_location_by_id(self.location_1.id)

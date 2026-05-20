@@ -1,16 +1,18 @@
-"""Seed module for culinary feedback."""
+"""Seed module for cuisine feedback."""
 
-from domain.feedback import FeedbackCulinary  # type: ignore[import-not-found]
+from domain.feedback import (
+    FeedbackCuisine,  # Updated import  # type: ignore[import-not-found]
+)
 
 from seeds.utils import seed_id
 
 
 def seed(dynamodb, tables: dict, context: dict) -> None:
-    """Seed 3 culinary feedback entries per location.
+    """Seed 3 cuisine feedback entries per location.
 
     Requires context['customers'] and context['locations'].
     """
-    table = dynamodb.Table(tables["feedback_culinary"])
+    table = dynamodb.Table(tables["feedback_cuisine"])
     locations = context["locations"]
 
     downtown_id = seed_id("location", "downtown")
@@ -21,47 +23,53 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
     carol_id = seed_id("customer", "carol")
 
     entries = [
-        FeedbackCulinary(
-            id=seed_id("feedback-culinary", "alice:downtown"),
+        FeedbackCuisine(
+            id=seed_id("feedback-cuisine", "alice:downtown"),
             customer_id=alice_id,
             feedback="Absolutely loved the Pasta Carbonara — rich, creamy, and perfectly cooked. Will definitely be back!",
             location_id=locations[downtown_id].id,
-            rating=5,
+            rate=5,
+            date="2026-05-20T00:00:00Z",
         ),
-        FeedbackCulinary(
-            id=seed_id("feedback-culinary", "bob:downtown"),
+        FeedbackCuisine(
+            id=seed_id("feedback-cuisine", "bob:downtown"),
             customer_id=bob_id,
             feedback="The Beef Burger was outstanding. Juicy patty, great toppings. Best burger I've had in the city.",
             location_id=locations[downtown_id].id,
-            rating=4,
+            rate=4,
+            date="2026-05-20T00:00:00Z",
         ),
-        FeedbackCulinary(
-            id=seed_id("feedback-culinary", "carol:downtown"),
+        FeedbackCuisine(
+            id=seed_id("feedback-cuisine", "carol:downtown"),
             customer_id=carol_id,
             feedback="Caesar Salad was fresh and well-balanced. Would have appreciated a bigger portion for the price.",
             location_id=locations[downtown_id].id,
-            rating=3,
+            rate=3,
+            date="2026-05-20T00:00:00Z",
         ),
-        FeedbackCulinary(
-            id=seed_id("feedback-culinary", "alice:airport"),
+        FeedbackCuisine(
+            id=seed_id("feedback-cuisine", "alice:airport"),
             customer_id=alice_id,
             feedback="Fish & Chips were crispy and hot — impressive for an airport kitchen. Tartare sauce was excellent.",
             location_id=locations[airport_id].id,
-            rating=4,
+            rate=4,
+            date="2026-05-20T00:00:00Z",
         ),
-        FeedbackCulinary(
-            id=seed_id("feedback-culinary", "bob:airport"),
+        FeedbackCuisine(
+            id=seed_id("feedback-cuisine", "bob:airport"),
             customer_id=bob_id,
             feedback="Chicken wrap was fresh and filling. Great option when you need something quick before a flight.",
             location_id=locations[airport_id].id,
-            rating=5,
+            rate=5,
+            date="2026-05-20T00:00:00Z",
         ),
-        FeedbackCulinary(
-            id=seed_id("feedback-culinary", "carol:airport"),
+        FeedbackCuisine(
+            id=seed_id("feedback-cuisine", "carol:airport"),
             customer_id=carol_id,
             feedback="Minestrone was hearty and warming. Nice to find a proper home-style soup in an airport.",
             location_id=locations[airport_id].id,
-            rating=4,
+            rate=4,
+            date="2026-05-20T00:00:00Z",
         ),
     ]
 
@@ -69,4 +77,4 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         for entry in entries:
             batch.put_item(Item=entry.model_dump(mode="json"))
 
-    print(f"  ✓ Seeded {len(entries)} culinary feedback entries")
+    print(f"  ✓ Seeded {len(entries)} cuisine feedback entries")

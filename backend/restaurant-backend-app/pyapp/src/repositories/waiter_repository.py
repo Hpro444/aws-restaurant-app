@@ -27,21 +27,20 @@ class WaiterRepository(DynamoRepository[Waiter]):
         super().__init__(cfg.waiters_table, Waiter, cfg)
 
     def find_by_location_id(self, location_id: UUID) -> list[Waiter]:
-        """Return all waiters mapped to the provided location via GSI query."""
+        """Query waiters belonging to a specific location using a GSI."""
         table_name = self._resolve_table_name()
-        waiters = self._paginated_query(
+        items = self._paginated_query(
             "location_id_index query",
             self._client.query,
             TableName=table_name,
             IndexName=self._LOCATION_INDEX,
             KeyConditionExpression="location_id = :lid",
-            ExpressionAttributeValues={
-                ":lid": {"S": str(location_id)},
-            },
+            ExpressionAttributeValues={":lid": {"S": str(location_id)}},
         )
+
         logger.info(
-            "Waiters filtered by location",
+            "Waiters queried by location",
             location_id=str(location_id),
-            count=len(waiters),
+            count=len(items),
         )
-        return waiters
+        return items

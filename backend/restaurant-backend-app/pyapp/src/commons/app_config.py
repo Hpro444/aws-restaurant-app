@@ -24,7 +24,7 @@ class AppConfig(BaseSettings):
     shifts_table: str = "shifts"
     slots_table: str = "slots"
     reservations_table: str = "reservations"
-    feedback_culinary_table: str = "feedback-culinary"
+    feedback_cuisine_table: str = "feedback-cuisine"
     feedback_service_table: str = "feedback-service"
     waiter_emails_table: str = "waiter-emails"
     admins_table: str = "admins"

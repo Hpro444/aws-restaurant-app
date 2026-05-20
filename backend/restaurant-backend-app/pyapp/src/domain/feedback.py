@@ -6,18 +6,20 @@ from abc import ABC
 from uuid import UUID
 
 from commons.dynamo_model import DynamoModel
+from pydantic import AwareDatetime
 
 
 class Feedback(DynamoModel, ABC):
-    """Base class for feedback models; must be subclassed as FeedbackCulinary or FeedbackService."""
+    """Base class for feedback models; must be subclassed as FeedbackCuisine or FeedbackService."""
 
     id: UUID
     customer_id: UUID | None
     feedback: str
-    rating: int | None = None
+    rate: int | None = None
+    date: AwareDatetime
 
 
-class FeedbackCulinary(Feedback):
+class FeedbackCuisine(Feedback):
     """Represents feedback related to culinary experience."""
 
     location_id: UUID
