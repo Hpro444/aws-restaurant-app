@@ -6,6 +6,7 @@ from datetime import time
 from uuid import UUID
 
 from commons.dynamo_model import DynamoModel
+from pydantic import field_validator
 
 
 class Location(DynamoModel):
@@ -18,3 +19,15 @@ class Location(DynamoModel):
     image_url: str
     open_time: time
     close_time: time
+
+    @field_validator("open_time", "close_time", mode="before")
+    @classmethod
+    def parse_time_strings(cls, v: object) -> object:
+        """Convert 'HH:MM' strings to time objects for DynamoDB deserialization."""
+        if isinstance(v, str):
+            try:
+                return time.fromisoformat(v)
+            except ValueError:
+                # If fromisoformat fails, let Pydantic's default validator handle it
+                pass
+        return v

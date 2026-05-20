@@ -26,30 +26,35 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             customer_id=alice_id,
             feedback="Lea was wonderful — very attentive, friendly, and knew the menu inside out. Made our evening special.",
             waiter_id=waiters[lea_id].id,
+            rating=5,
         ),
         FeedbackService(
             id=seed_id("feedback-service", "bob:lea"),
             customer_id=bob_id,
             feedback="Professional service throughout. Lea kept our glasses topped up without being asked. Highly recommend.",
             waiter_id=waiters[lea_id].id,
+            rating=4,
         ),
         FeedbackService(
             id=seed_id("feedback-service", "carol:lea"),
             customer_id=carol_id,
             feedback="Very warm and welcoming. Lea remembered my dietary preferences from a previous visit — impressive.",
             waiter_id=waiters[lea_id].id,
+            rating=5,
         ),
         FeedbackService(
             id=seed_id("feedback-service", "alice:max"),
             customer_id=alice_id,
             feedback="Max was efficient and knowledgeable about the menu. Quick service, which is exactly what you need at an airport.",
             waiter_id=waiters[max_id].id,
+            rating=4,
         ),
         FeedbackService(
             id=seed_id("feedback-service", "carol:max"),
             customer_id=carol_id,
             feedback="Max handled a large group smoothly and kept everyone's orders straight. Great under pressure.",
             waiter_id=waiters[max_id].id,
+            rating=3,
         ),
     ]
 

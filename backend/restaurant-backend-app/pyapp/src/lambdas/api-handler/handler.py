@@ -8,6 +8,7 @@ from commons import LambdaResponse, build_response, raise_error_response
 from commons.abstract_lambda import AbstractLambda
 from dto.available_tables import AvailableTablesRequest
 from dto.create_booking import CreateBookingRequest
+from dto.locations import LocationResponse
 from dto.logout import LogoutRequest, LogoutResponse
 from dto.refresh import RefreshRequest, RefreshResponse
 from dto.sign_in import SignInRequest, SignInResponse
@@ -23,6 +24,7 @@ from repositories.waiter_repository import WaiterRepository
 from services.booking_service import BookingService
 from services.cognito_service import CognitoService
 from services.dishes_service import DishesService
+from services.locations_service import LocationsService
 from services.registration_service import RegistrationService
 from services.table_availability_service import TableAvailabilityService
 from services.user_profile_service import UserProfileService
@@ -54,6 +56,7 @@ class ApiHandler(AbstractLambda):
             waiter_repository=self._waiter_repository,
             admin_repository=self._admin_repository,
         )
+        self._locations_service = LocationsService()
         self._table_availability_service = TableAvailabilityService()
         self._booking_service = BookingService()
         self._dishes_service = DishesService()
@@ -83,6 +86,7 @@ class ApiHandler(AbstractLambda):
         """
         path = event.get("path", "")
         method = event.get("httpMethod", "")
+        resource = event.get("resource", "")
 
         if path == "/auth/sign-up" and method == "POST":
             return self._sign_up(event)
@@ -101,6 +105,15 @@ class ApiHandler(AbstractLambda):
 
         if path == "/users/profile" and method == "PUT":
             return self._update_user_profile(event)
+
+        # TODO: there should be an universal helper function to handle paths like that end with "/{id}", like here "/locations/{id}"
+        if method == "GET" and (
+            resource == "/locations/{id}" or self._is_single_location_path(path)
+        ):
+            return self._get_location_by_id(event)
+
+        if path == "/locations" and method == "GET":
+            return self._get_locations()
 
         if path == "/bookings/tables" and method == "GET":
             return self._get_available_tables(event)
@@ -315,6 +328,49 @@ class ApiHandler(AbstractLambda):
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 
+    def _get_locations(self) -> LambdaResponse:
+        """Return all restaurant locations for the public locations page."""
+        locations: list[LocationResponse] = self._locations_service.get_locations()
+        return build_response(
+            [location.model_dump() for location in locations],
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    def _get_location_by_id(self, event: dict) -> LambdaResponse:
+        """Return a single location for GET /locations/{id}."""
+        raw_id = self._extract_path_segment(event, 1)
+        if raw_id is None:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                [{"field": "id", "message": "Missing location id"}],
+            )
+
+        try:
+            location_id = UUID(raw_id)
+        except ValueError:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                [{"field": "id", "message": "Must be a valid UUID"}],
+            )
+
+        location = self._locations_service.get_location_by_id(location_id)
+        if location is None:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                [{"field": "id", "message": "Location not found"}],
+            )
+
+        return build_response(
+            location.model_dump(),
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    @staticmethod
+    def _is_single_location_path(path: str) -> bool:
+        """Return True only for concrete paths shaped as /locations/{id}."""
+        parts = [part for part in path.split("/") if part]
+        return len(parts) == 2 and parts[0] == "locations"
+
     @staticmethod
     def _parse_query_params(event: dict) -> dict:
         """Extract query string parameters from API Gateway event."""
@@ -493,7 +549,7 @@ class ApiHandler(AbstractLambda):
         """
         location_id_str = self._extract_path_segment(event, 1)
 
-        if not location_id_str:
+        if location_id_str is None:
             raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
                 [{"field": "id", "message": "Path parameter 'id' is required"}],
