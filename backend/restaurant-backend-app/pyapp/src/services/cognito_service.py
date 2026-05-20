@@ -302,7 +302,7 @@ class CognitoService:
                     raise ApplicationException(
                         code=HttpStatusCode.RESPONSE_LOCKED_CODE,
                         content={
-                            "message": "Account locked due to too many failed login attempts.",
+                            "message": "Your account is temporarily locked due to multiple failed login attempts. Please try again later.",
                             "lockout_until": lockout_until,
                         },
                     ) from exc
