@@ -5,25 +5,45 @@ const FormInput = ({
   id,
   label,
   example,
+  helperText,
+  helperColor,
+  inputBorderColor,
   className = "",
   ...props
 }: FormInputProps) => {
-  const helperId = example ? `${id}-helper` : undefined;
+  const text = helperText ?? example;
+  const helperId = text ? `${id}-helper` : undefined;
 
   return (
     <div className={classes.fieldWrap}>
       <label htmlFor={id} className={classes.label}>
         {label}
       </label>
+
       <input
-        type="text"
         id={id}
-        placeholder="Enter your first name"
         className={classes.input + " " + className}
         aria-describedby={helperId}
+        style={
+          inputBorderColor
+            ? {
+                borderColor: inputBorderColor,
+                boxShadow: `0 0 0 1px ${inputBorderColor}22`,
+              }
+            : undefined
+        }
         {...props}
       />
-      {example ? <small className={classes.helper}>{example}</small> : null}
+
+      {text && (
+        <small
+          id={helperId}
+          className={classes.helper}
+          style={{ color: helperColor }}
+        >
+          {text}
+        </small>
+      )}
     </div>
   );
 };
