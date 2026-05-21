@@ -1,56 +1,14 @@
 {
   "info": {
     "name": "Restaurant App API",
-    "_postman_id": "restaurant-app-collection",
-    "description": "Full API collection for the Restaurant App backend. Set the `base_url` variable to your API Gateway URL before running.",
+    "_postman_id": "restaurant-app-collection-v3",
+    "description": "Full API collection for the Restaurant App backend.\n\n## Quick start\n\n1. Replace the URL host (`https://your-api-id.execute-api.us-east-1.amazonaws.com/api`) with your actual API Gateway base URL in each request that you use. Stage `api` must be in the path; no trailing slash.\n2. Run **Auth → Sign In**, copy the returned `access_token` and `refresh_token`.\n3. In any authenticated request, replace `YOUR_ACCESS_TOKEN` in the `Authorization` header with the real token.\n4. Replace the example UUIDs (`reservation_id`, `location_id`) in URLs with the ones you actually want to query.\n\n`{\"message\": \"Missing Authentication Token\"}` from AWS means the path didn't match a deployed route — most often a missing `/api` stage prefix or a trailing slash.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-  },
-  "variable": [
-    {
-      "key": "base_url",
-      "value": "https://your-api-id.execute-api.us-east-1.amazonaws.com/dev",
-      "type": "string",
-      "description": "API Gateway base URL (no trailing slash)"
-    },
-    {
-      "key": "access_token",
-      "value": "",
-      "type": "string",
-      "description": "JWT access token – populated automatically by the sign-in test script"
-    },
-    {
-      "key": "refresh_token",
-      "value": "",
-      "type": "string",
-      "description": "Refresh token – populated automatically by the sign-in test script"
-    },
-    {
-      "key": "location_id",
-      "value": "00000000-0000-0000-0000-000000000001",
-      "type": "string",
-      "description": "UUID of the location to use in location/booking requests"
-    },
-    {
-      "key": "reservation_id",
-      "value": "",
-      "type": "string",
-      "description": "UUID of a reservation – populated automatically by the create-booking test script"
-    }
-  ],
-  "auth": {
-    "type": "bearer",
-    "bearer": [
-      {
-        "key": "token",
-        "value": "{{access_token}}",
-        "type": "string"
-      }
-    ]
   },
   "item": [
     {
       "name": "Auth",
-      "description": "Authentication endpoints – sign-up, sign-in, token refresh, and logout.",
+      "description": "Authentication endpoints – sign-up, sign-in, token refresh, logout.",
       "item": [
         {
           "name": "Sign Up",
@@ -59,17 +17,18 @@
             "header": [
               { "key": "Content-Type", "value": "application/json" }
             ],
-            "url": {
-              "raw": "{{base_url}}/auth/sign-up",
-              "host": ["{{base_url}}"],
-              "path": ["auth", "sign-up"]
-            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Doe\",\n  \"email\": \"jane.doe@example.com\",\n  \"password\": \"Password1!\"\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "description": "Register a new user. Role is assigned automatically (Customer by default; Waiter if the email appears in the waiter-emails table).\n\n**Password rules:** 8-16 characters, at least one uppercase letter, one lowercase letter, one digit, and one special character."
+            "url": {
+              "raw": "https://your-api-id.execute-api.us-east-1.amazonaws.com/api/auth/sign-up",
+              "protocol": "https",
+              "host": ["your-api-id", "execute-api", "us-east-1", "amazonaws", "com"],
+              "path": ["api", "auth", "sign-up"]
+            },
+            "description": "Register a new user. Role is assigned automatically (Customer by default; Waiter if the email appears in the waiter-emails table; Admin if listed in the admin-emails table).\n\n### Body fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| `firstName` | string | yes | 1-100 chars |\n| `lastName` | string | yes | 1-100 chars |\n| `email` | string | yes | Valid email; local part must start with a letter |\n| `password` | string | yes | 8-16 chars, ≥1 uppercase, ≥1 lowercase, ≥1 digit, ≥1 special char |"
           },
           "response": [
             {
@@ -78,40 +37,35 @@
               "code": 201,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
               "body": "{\n  \"user_id\": \"a1b2c3d4-0000-0000-0000-000000000001\",\n  \"message\": \"User registered successfully\"\n}"
+            },
+            {
+              "name": "422 Unprocessable Entity",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"errors\": [\n    { \"field\": \"password\", \"message\": \"must contain at least one uppercase letter\" }\n  ]\n}"
             }
           ]
         },
         {
           "name": "Sign In",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const json = pm.response.json();",
-                  "if (json.access_token)  { pm.collectionVariables.set('access_token',  json.access_token);  }",
-                  "if (json.refresh_token) { pm.collectionVariables.set('refresh_token', json.refresh_token); }"
-                ]
-              }
-            }
-          ],
           "request": {
             "method": "POST",
             "header": [
               { "key": "Content-Type", "value": "application/json" }
             ],
-            "url": {
-              "raw": "{{base_url}}/auth/sign-in",
-              "host": ["{{base_url}}"],
-              "path": ["auth", "sign-in"]
-            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"jane.doe@example.com\",\n  \"password\": \"Password1!\"\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "description": "Authenticate a user and receive an access token + refresh token.\n\n**After 5 failed attempts** the account is locked for 15 minutes.\n\nThe test script automatically stores `access_token` and `refresh_token` as collection variables."
+            "url": {
+              "raw": "https://your-api-id.execute-api.us-east-1.amazonaws.com/api/auth/sign-in",
+              "protocol": "https",
+              "host": ["your-api-id", "execute-api", "us-east-1", "amazonaws", "com"],
+              "path": ["api", "auth", "sign-in"]
+            },
+            "description": "Authenticate a user and receive an access token + refresh token.\n\n**Lockout:** After 5 failed attempts the account is locked for 15 minutes.\n\n### Body fields\n| Field | Type | Required |\n|---|---|---|\n| `email` | string | yes |\n| `password` | string | yes |"
           },
           "response": [
             {
@@ -127,39 +81,35 @@
               "code": 401,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
               "body": "{\n  \"message\": \"Invalid credentials\"\n}"
+            },
+            {
+              "name": "423 Locked",
+              "status": "Locked",
+              "code": 423,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"message\": \"Account locked. Try again later.\"\n}"
             }
           ]
         },
         {
           "name": "Refresh Token",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const json = pm.response.json();",
-                  "if (json.access_token) { pm.collectionVariables.set('access_token', json.access_token); }"
-                ]
-              }
-            }
-          ],
           "request": {
             "method": "POST",
             "header": [
               { "key": "Content-Type", "value": "application/json" }
             ],
-            "url": {
-              "raw": "{{base_url}}/auth/refresh",
-              "host": ["{{base_url}}"],
-              "path": ["auth", "refresh"]
-            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
+              "raw": "{\n  \"refresh_token\": \"YOUR_REFRESH_TOKEN\"\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "description": "Exchange a refresh token for a new access token. The test script updates the `access_token` collection variable automatically."
+            "url": {
+              "raw": "https://your-api-id.execute-api.us-east-1.amazonaws.com/api/auth/refresh",
+              "protocol": "https",
+              "host": ["your-api-id", "execute-api", "us-east-1", "amazonaws", "com"],
+              "path": ["api", "auth", "refresh"]
+            },
+            "description": "Exchange a refresh token for a new access token.\n\n### Body fields\n| Field | Type | Required |\n|---|---|---|\n| `refresh_token` | string | yes |"
           },
           "response": [
             {
@@ -178,17 +128,18 @@
             "header": [
               { "key": "Content-Type", "value": "application/json" }
             ],
-            "url": {
-              "raw": "{{base_url}}/auth/logout",
-              "host": ["{{base_url}}"],
-              "path": ["auth", "logout"]
-            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}",
+              "raw": "{\n  \"refresh_token\": \"YOUR_REFRESH_TOKEN\"\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "description": "Invalidate the refresh token to end the session."
+            "url": {
+              "raw": "https://your-api-id.execute-api.us-east-1.amazonaws.com/api/auth/logout",
+              "protocol": "https",
+              "host": ["your-api-id", "execute-api", "us-east-1", "amazonaws", "com"],
+              "path": ["api", "auth", "logout"]
+            },
+            "description": "Invalidate the refresh token to end the session.\n\n### Body fields\n| Field | Type | Required |\n|---|---|---|\n| `refresh_token` | string | yes |"
           },
           "response": [
             {
@@ -211,14 +162,15 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+              { "key": "Authorization", "value": "Bearer YOUR_ACCESS_TOKEN" }
             ],
             "url": {
-              "raw": "{{base_url}}/users/profile",
-              "host": ["{{base_url}}"],
-              "path": ["users", "profile"]
+              "raw": "https://your-api-id.execute-api.us-east-1.amazonaws.com/api/users/profile",
+              "protocol": "https",
+              "host": ["your-api-id", "execute-api", "us-east-1", "amazonaws", "com"],
+              "path": ["api", "users", "profile"]
             },
-            "description": "Retrieve the profile of the currently authenticated user."
+            "description": "Retrieve the profile of the currently authenticated user.\n\n**Auth:** Bearer token required."
           },
           "response": [
             {
@@ -235,20 +187,21 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{access_token}}" },
-              { "key": "Content-Type",   "value": "application/json" }
+              { "key": "Authorization", "value": "Bearer YOUR_ACCESS_TOKEN" },
+              { "key": "Content-Type", "value": "application/json" }
             ],
-            "url": {
-              "raw": "{{base_url}}/users/profile",
-              "host": ["{{base_url}}"],
-              "path": ["users", "profile"]
-            },
             "body": {
               "mode": "raw",
               "raw": "{\n  \"first_name\": \"Jane\",\n  \"last_name\": \"Smith\",\n  \"image_url\": \"https://example.com/avatars/jane-new.png\"\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "description": "Update the display name and/or avatar URL for the authenticated user."
+            "url": {
+              "raw": "https://your-api-id.execute-api.us-east-1.amazonaws.com/api/users/profile",
+              "protocol": "https",
+              "host": ["your-api-id", "execute-api", "us-east-1", "amazonaws", "com"],
+              "path": ["api", "users", "profile"]
+            },
+            "description": "Update the display name and/or avatar URL for the authenticated user.\n\n**Auth:** Bearer token required.\n\n### Body fields\n| Field | Type | Required |\n|---|---|---|\n| `first_name` | string | yes |\n| `last_name` | string | yes |\n| `image_url` | string | yes |"
           },
           "response": [
             {
@@ -272,9 +225,10 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/locations",
-              "host": ["{{base_url}}"],
-              "path": ["locations"]
+              "raw": "https://your-api-id.execute-api.us-east-1.amazonaws.com/api/locations",
+              "protocol": "https",
+              "host": ["your-api-id", "execute-api", "us-east-1", "amazonaws", "com"],
+              "path": ["api", "locations"]
             },
             "description": "Returns all restaurant locations with capacity, occupancy, rating, and image."
           },
@@ -284,7 +238,7 @@
               "status": "OK",
               "code": 200,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
-              "body": "[\n  {\n    \"id\": \"00000000-0000-0000-0000-000000000001\",\n    \"address\": \"123 Main Street, New York, NY\",\n    \"description\": \"Our flagship downtown location.\",\n    \"total_capacity\": \"80\",\n    \"average_occupancy\": \"65\",\n    \"image_url\": \"https://example.com/locations/main.jpg\",\n    \"rating\": \"4.5\"\n  }\n]"
+              "body": "[\n  {\n    \"id\": \"00000000-0000-0000-0000-000000000001\",\n    \"address\": \"48 Rustaveli Avenue, Tbilisi\",\n    \"description\": \"Central city location near the main square.\",\n    \"total_capacity\": \"80\",\n    \"average_occupancy\": \"65\",\n    \"image_url\": \"https://example.com/locations/main.jpg\",\n    \"rating\": \"4.5\"\n  }\n]"
             }
           ]
         },
@@ -294,9 +248,10 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/locations/select-options",
-              "host": ["{{base_url}}"],
-              "path": ["locations", "select-options"]
+              "raw": "https://your-api-id.execute-api.us-east-1.amazonaws.com/api/locations/select-options",
+              "protocol": "https",
+              "host": ["your-api-id", "execute-api", "us-east-1", "amazonaws", "com"],
+              "path": ["api", "locations", "select-options"]
             },
             "description": "Lightweight endpoint that returns only `location_id` + `location_address` pairs, suited for dropdown pickers."
           },
@@ -306,7 +261,7 @@
               "status": "OK",
               "code": 200,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
-              "body": "[\n  {\n    \"location_id\": \"00000000-0000-0000-0000-000000000001\",\n    \"location_address\": \"123 Main Street, New York, NY\"\n  }\n]"
+              "body": "[\n  {\n    \"location_id\": \"00000000-0000-0000-0000-000000000001\",\n    \"location_address\": \"48 Rustaveli Avenue, Tbilisi\"\n  }\n]"
             }
           ]
         },
@@ -316,11 +271,12 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/locations/{{location_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["locations", "{{location_id}}"]
+              "raw": "https://your-api-id.execute-api.us-east-1.amazonaws.com/api/locations/00000000-0000-0000-0000-000000000001",
+              "protocol": "https",
+              "host": ["your-api-id", "execute-api", "us-east-1", "amazonaws", "com"],
+              "path": ["api", "locations", "00000000-0000-0000-0000-000000000001"]
             },
-            "description": "Retrieve full details for a single location by its UUID."
+            "description": "Retrieve full details for a single location by its UUID.\n\n### Path parameters\n| Name | Type | Required |\n|---|---|---|\n| `id` | UUID | yes |\n\nReplace `00000000-0000-0000-0000-000000000001` with the target location UUID."
           },
           "response": [
             {
@@ -328,14 +284,14 @@
               "status": "OK",
               "code": 200,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
-              "body": "{\n  \"id\": \"00000000-0000-0000-0000-000000000001\",\n  \"address\": \"123 Main Street, New York, NY\",\n  \"description\": \"Our flagship downtown location.\",\n  \"total_capacity\": \"80\",\n  \"average_occupancy\": \"65\",\n  \"image_url\": \"https://example.com/locations/main.jpg\",\n  \"rating\": \"4.5\"\n}"
+              "body": "{\n  \"id\": \"00000000-0000-0000-0000-000000000001\",\n  \"address\": \"48 Rustaveli Avenue, Tbilisi\",\n  \"description\": \"Central city location near the main square.\",\n  \"total_capacity\": \"80\",\n  \"average_occupancy\": \"65\",\n  \"image_url\": \"https://example.com/locations/main.jpg\",\n  \"rating\": \"4.5\"\n}"
             },
             {
               "name": "404 Not Found",
               "status": "Not Found",
               "code": 404,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
-              "body": "{\n  \"message\": \"Location not found\"\n}"
+              "body": "{\n  \"errors\": [\n    { \"field\": \"id\", \"message\": \"Location not found\" }\n  ]\n}"
             }
           ]
         },
@@ -345,11 +301,12 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/locations/{{location_id}}/speciality-dishes",
-              "host": ["{{base_url}}"],
-              "path": ["locations", "{{location_id}}", "speciality-dishes"]
+              "raw": "https://your-api-id.execute-api.us-east-1.amazonaws.com/api/locations/00000000-0000-0000-0000-000000000001/speciality-dishes",
+              "protocol": "https",
+              "host": ["your-api-id", "execute-api", "us-east-1", "amazonaws", "com"],
+              "path": ["api", "locations", "00000000-0000-0000-0000-000000000001", "speciality-dishes"]
             },
-            "description": "Returns the specialty dishes offered at a specific location."
+            "description": "Returns the specialty dishes offered at a specific location.\n\n### Path parameters\n| Name | Type | Required |\n|---|---|---|\n| `id` | UUID | yes |\n\nReplace `00000000-0000-0000-0000-000000000001` with the target location UUID."
           },
           "response": [
             {
@@ -367,33 +324,34 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/locations/{{location_id}}/feedbacks?type=cuisine&sort=date,desc&page=0&size=20",
-              "host": ["{{base_url}}"],
-              "path": ["locations", "{{location_id}}", "feedbacks"],
+              "raw": "https://your-api-id.execute-api.us-east-1.amazonaws.com/api/locations/00000000-0000-0000-0000-000000000001/feedbacks?type=cuisine&sort=date,desc&page=0&size=20",
+              "protocol": "https",
+              "host": ["your-api-id", "execute-api", "us-east-1", "amazonaws", "com"],
+              "path": ["api", "locations", "00000000-0000-0000-0000-000000000001", "feedbacks"],
               "query": [
                 {
                   "key": "type",
                   "value": "cuisine",
-                  "description": "Required. 'cuisine' or 'service'"
+                  "description": "Required. One of: `cuisine`, `service`."
                 },
                 {
                   "key": "sort",
                   "value": "date,desc",
-                  "description": "Optional. '{field},{direction}' – field: 'date' or 'rate'; direction: 'asc' or 'desc'. Default: 'date,desc'"
+                  "description": "Optional. `{field},{direction}` – field: `date` or `rate`; direction: `asc` or `desc`. Default: `date,desc`."
                 },
                 {
                   "key": "page",
                   "value": "0",
-                  "description": "Optional. 0-indexed page number. Default: 0"
+                  "description": "Optional. 0-indexed page number (≥0). Default: 0."
                 },
                 {
                   "key": "size",
                   "value": "20",
-                  "description": "Optional. Items per page (1-100). Default: 20"
+                  "description": "Optional. Items per page (1-100). Default: 20."
                 }
               ]
             },
-            "description": "Paginated, sortable feedback for a location. `type` is required (`cuisine` or `service`)."
+            "description": "Paginated, sortable feedback for a location. `type` is required (`cuisine` or `service`).\n\n### Path parameters\n| Name | Type | Required |\n|---|---|---|\n| `id` | UUID | yes |"
           },
           "response": [
             {
@@ -402,6 +360,13 @@
               "code": 200,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
               "body": "{\n  \"totalPages\": 3,\n  \"totalElements\": 55,\n  \"size\": 20,\n  \"content\": [\n    {\n      \"id\": \"fb000001-0000-0000-0000-000000000001\",\n      \"customer_id\": \"a1b2c3d4-0000-0000-0000-000000000001\",\n      \"feedback\": \"Amazing food and great atmosphere!\",\n      \"rate\": 5,\n      \"date\": \"2026-05-15T18:30:00Z\"\n    }\n  ],\n  \"number\": 0,\n  \"sort\": [\"date,desc\"],\n  \"first\": true,\n  \"last\": false,\n  \"numberOfElements\": 20,\n  \"pageable\": {\n    \"offset\": 0,\n    \"sort\": [\"date,desc\"],\n    \"paged\": true,\n    \"pageSize\": 20,\n    \"pageNumber\": 0,\n    \"unpaged\": false\n  },\n  \"empty\": false\n}"
+            },
+            {
+              "name": "422 Unprocessable Entity",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"errors\": [\n    { \"field\": \"type\", \"message\": \"Must be one of: cuisine, service\" }\n  ]\n}"
             }
           ]
         }
@@ -417,9 +382,10 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/dishes/popular",
-              "host": ["{{base_url}}"],
-              "path": ["dishes", "popular"]
+              "raw": "https://your-api-id.execute-api.us-east-1.amazonaws.com/api/dishes/popular",
+              "protocol": "https",
+              "host": ["your-api-id", "execute-api", "us-east-1", "amazonaws", "com"],
+              "path": ["api", "dishes", "popular"]
             },
             "description": "Returns the globally most-popular dishes across all locations."
           },
@@ -445,29 +411,30 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/bookings/tables?location_id={{location_id}}&date=2026-05-28&guests_number=2&from_time=12:00",
-              "host": ["{{base_url}}"],
-              "path": ["bookings", "tables"],
+              "raw": "https://your-api-id.execute-api.us-east-1.amazonaws.com/api/bookings/tables?location_id=00000000-0000-0000-0000-000000000001&date=2026-05-28&guests_number=2&from_time=12:00",
+              "protocol": "https",
+              "host": ["your-api-id", "execute-api", "us-east-1", "amazonaws", "com"],
+              "path": ["api", "bookings", "tables"],
               "query": [
                 {
                   "key": "location_id",
-                  "value": "{{location_id}}",
-                  "description": "Required. UUID of the restaurant location"
+                  "value": "00000000-0000-0000-0000-000000000001",
+                  "description": "Required. UUID of the restaurant location."
                 },
                 {
                   "key": "date",
                   "value": "2026-05-28",
-                  "description": "Required. YYYY-MM-DD format. Must not be in the past; max 30 days ahead"
+                  "description": "Required. YYYY-MM-DD. Must not be in the past; max 30 days ahead."
                 },
                 {
                   "key": "guests_number",
                   "value": "2",
-                  "description": "Required. Integer 1-10"
+                  "description": "Required. Integer 1-10."
                 },
                 {
                   "key": "from_time",
                   "value": "12:00",
-                  "description": "Optional. HH:MM – snaps to nearest valid slot start"
+                  "description": "Optional. HH:MM – snaps to nearest valid slot start."
                 }
               ]
             },
@@ -479,41 +446,37 @@
               "status": "OK",
               "code": 200,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
-              "body": "{\n  \"tables\": [\n    {\n      \"table_id\": \"tb000001-0000-0000-0000-000000000001\",\n      \"table_number\": 5,\n      \"capacity\": 4,\n      \"location_address\": \"123 Main Street, New York, NY\",\n      \"available_slots\": [\n        {\n          \"slot_id\": \"sl000001-0000-0000-0000-000000000001\",\n          \"start_time\": \"12:00\",\n          \"end_time\": \"13:30\"\n        },\n        {\n          \"slot_id\": \"sl000001-0000-0000-0000-000000000002\",\n          \"start_time\": \"14:00\",\n          \"end_time\": \"15:30\"\n        }\n      ]\n    }\n  ]\n}"
+              "body": "{\n  \"tables\": [\n    {\n      \"table_id\": \"tb000001-0000-0000-0000-000000000001\",\n      \"table_number\": 5,\n      \"capacity\": 4,\n      \"location_address\": \"48 Rustaveli Avenue, Tbilisi\",\n      \"available_slots\": [\n        {\n          \"slot_id\": \"sl000001-0000-0000-0000-000000000001\",\n          \"start_time\": \"12:00\",\n          \"end_time\": \"13:30\"\n        },\n        {\n          \"slot_id\": \"sl000001-0000-0000-0000-000000000002\",\n          \"start_time\": \"14:00\",\n          \"end_time\": \"15:30\"\n        }\n      ]\n    }\n  ]\n}"
+            },
+            {
+              "name": "422 Unprocessable Entity",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"errors\": [\n    { \"field\": \"guests_number\", \"message\": \"Must be a valid integer\" }\n  ]\n}"
             }
           ]
         },
         {
           "name": "Create Booking",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const json = pm.response.json();",
-                  "if (json.reservationId) { pm.collectionVariables.set('reservation_id', json.reservationId); }"
-                ]
-              }
-            }
-          ],
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{access_token}}" },
-              { "key": "Content-Type",   "value": "application/json" }
+              { "key": "Authorization", "value": "Bearer YOUR_ACCESS_TOKEN" },
+              { "key": "Content-Type", "value": "application/json" }
             ],
-            "url": {
-              "raw": "{{base_url}}/bookings/client",
-              "host": ["{{base_url}}"],
-              "path": ["bookings", "client"]
-            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"locationId\": \"{{location_id}}\",\n  \"tableNumber\": 5,\n  \"date\": \"2026-05-28\",\n  \"guestsNumber\": 2,\n  \"timeFrom\": \"12:00\",\n  \"timeTo\": \"13:30\"\n}",
+              "raw": "{\n  \"locationId\": \"00000000-0000-0000-0000-000000000001\",\n  \"tableNumber\": 5,\n  \"date\": \"2026-05-28\",\n  \"guestsNumber\": 2,\n  \"timeFrom\": \"12:00\",\n  \"timeTo\": \"13:30\"\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "description": "Create a new reservation. **Customer role required.** Slots are 90 minutes long. The test script saves `reservation_id` automatically.\n\n- `date`: YYYY-MM-DD, not in the past, max 30 days ahead\n- `timeFrom` / `timeTo`: HH:MM; `timeTo` must be after `timeFrom`\n- `guestsNumber`: 1-10"
+            "url": {
+              "raw": "https://your-api-id.execute-api.us-east-1.amazonaws.com/api/bookings/client",
+              "protocol": "https",
+              "host": ["your-api-id", "execute-api", "us-east-1", "amazonaws", "com"],
+              "path": ["api", "bookings", "client"]
+            },
+            "description": "Create a new reservation. **Customer role required.** Slots are 90 minutes long.\n\n**Auth:** Bearer token required.\n\n### Body fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| `locationId` | UUID | yes | |\n| `tableNumber` | integer | yes | > 0 |\n| `date` | string | yes | YYYY-MM-DD, not in the past, max 30 days ahead |\n| `guestsNumber` | integer | yes | 1-10 |\n| `timeFrom` | string | yes | HH:MM |\n| `timeTo` | string | yes | HH:MM, must be greater than `timeFrom` |"
           },
           "response": [
             {
@@ -521,14 +484,14 @@
               "status": "OK",
               "code": 200,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
-              "body": "{\n  \"reservationId\": \"res00001-0000-0000-0000-000000000001\",\n  \"status\": \"RESERVED\",\n  \"locationId\": \"00000000-0000-0000-0000-000000000001\",\n  \"location_address\": \"123 Main Street, New York, NY\",\n  \"tableNumber\": 5,\n  \"date\": \"2026-05-28\",\n  \"timeFrom\": \"12:00\",\n  \"timeTo\": \"13:30\",\n  \"guestsNumber\": 2\n}"
+              "body": "{\n  \"reservationId\": \"res00001-0000-0000-0000-000000000001\",\n  \"status\": \"RESERVED\",\n  \"locationId\": \"00000000-0000-0000-0000-000000000001\",\n  \"location_address\": \"48 Rustaveli Avenue, Tbilisi\",\n  \"tableNumber\": 5,\n  \"date\": \"2026-05-28\",\n  \"timeFrom\": \"12:00\",\n  \"timeTo\": \"13:30\",\n  \"guestsNumber\": 2\n}"
             },
             {
               "name": "403 Forbidden (non-Customer role)",
               "status": "Forbidden",
               "code": 403,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
-              "body": "{\n  \"message\": \"Forbidden\"\n}"
+              "body": "{\n  \"message\": \"Only customers can create a client reservation\"\n}"
             }
           ]
         },
@@ -537,14 +500,15 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+              { "key": "Authorization", "value": "Bearer YOUR_ACCESS_TOKEN" }
             ],
             "url": {
-              "raw": "{{base_url}}/bookings/client",
-              "host": ["{{base_url}}"],
-              "path": ["bookings", "client"]
+              "raw": "https://your-api-id.execute-api.us-east-1.amazonaws.com/api/bookings/client",
+              "protocol": "https",
+              "host": ["your-api-id", "execute-api", "us-east-1", "amazonaws", "com"],
+              "path": ["api", "bookings", "client"]
             },
-            "description": "Returns all reservations belonging to the authenticated user (Customer or Waiter). Includes `allowedActions` flags that indicate whether the reservation can still be edited or cancelled."
+            "description": "Returns all reservations belonging to the authenticated user (Customer or Waiter). Includes `allowedActions` flags that indicate whether the reservation can still be edited or cancelled.\n\n**Auth:** Bearer token required."
           },
           "response": [
             {
@@ -552,7 +516,7 @@
               "status": "OK",
               "code": 200,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
-              "body": "{\n  \"reservations\": [\n    {\n      \"reservationId\": \"res00001-0000-0000-0000-000000000001\",\n      \"status\": \"RESERVED\",\n      \"customerId\": \"a1b2c3d4-0000-0000-0000-000000000001\",\n      \"waiterId\": null,\n      \"locationId\": \"00000000-0000-0000-0000-000000000001\",\n      \"location_address\": \"123 Main Street, New York, NY\",\n      \"tableNumber\": 5,\n      \"date\": \"2026-05-28\",\n      \"timeFrom\": \"12:00\",\n      \"timeTo\": \"13:30\",\n      \"guestsNumber\": 2,\n      \"allowedActions\": {\n        \"canEdit\": true,\n        \"canCancel\": true\n      },\n      \"cutoffReason\": null\n    }\n  ]\n}"
+              "body": "{\n  \"reservations\": [\n    {\n      \"reservationId\": \"res00001-0000-0000-0000-000000000001\",\n      \"status\": \"RESERVED\",\n      \"customerId\": \"a1b2c3d4-0000-0000-0000-000000000001\",\n      \"waiterId\": null,\n      \"locationId\": \"00000000-0000-0000-0000-000000000001\",\n      \"location_address\": \"48 Rustaveli Avenue, Tbilisi\",\n      \"tableNumber\": 5,\n      \"date\": \"2026-05-28\",\n      \"timeFrom\": \"12:00\",\n      \"timeTo\": \"13:30\",\n      \"guestsNumber\": 2,\n      \"allowedActions\": {\n        \"canEdit\": true,\n        \"canCancel\": true\n      },\n      \"cutoffReason\": null\n    }\n  ]\n}"
             }
           ]
         },
@@ -561,14 +525,15 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+              { "key": "Authorization", "value": "Bearer YOUR_ACCESS_TOKEN" }
             ],
             "url": {
-              "raw": "{{base_url}}/bookings/client/{{reservation_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["bookings", "client", "{{reservation_id}}"]
+              "raw": "https://your-api-id.execute-api.us-east-1.amazonaws.com/api/bookings/client/res00001-0000-0000-0000-000000000001",
+              "protocol": "https",
+              "host": ["your-api-id", "execute-api", "us-east-1", "amazonaws", "com"],
+              "path": ["api", "bookings", "client", "res00001-0000-0000-0000-000000000001"]
             },
-            "description": "Retrieve the full details of a single reservation by its UUID."
+            "description": "Retrieve the full details of a single reservation by its UUID.\n\n**Auth:** Bearer token required.\n\n### Path parameters\n| Name | Type | Required |\n|---|---|---|\n| `reservationId` | UUID | yes |\n\nReplace `res00001-0000-0000-0000-000000000001` with a real reservation UUID."
           },
           "response": [
             {
@@ -576,7 +541,7 @@
               "status": "OK",
               "code": 200,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
-              "body": "{\n  \"reservationId\": \"res00001-0000-0000-0000-000000000001\",\n  \"status\": \"RESERVED\",\n  \"customerId\": \"a1b2c3d4-0000-0000-0000-000000000001\",\n  \"waiterId\": null,\n  \"locationId\": \"00000000-0000-0000-0000-000000000001\",\n  \"location_address\": \"123 Main Street, New York, NY\",\n  \"tableNumber\": 5,\n  \"date\": \"2026-05-28\",\n  \"timeFrom\": \"12:00\",\n  \"timeTo\": \"13:30\",\n  \"guestsNumber\": 2,\n  \"allowedActions\": {\n    \"canEdit\": true,\n    \"canCancel\": true\n  },\n  \"cutoffReason\": null\n}"
+              "body": "{\n  \"reservationId\": \"res00001-0000-0000-0000-000000000001\",\n  \"status\": \"RESERVED\",\n  \"customerId\": \"a1b2c3d4-0000-0000-0000-000000000001\",\n  \"waiterId\": null,\n  \"locationId\": \"00000000-0000-0000-0000-000000000001\",\n  \"location_address\": \"48 Rustaveli Avenue, Tbilisi\",\n  \"tableNumber\": 5,\n  \"date\": \"2026-05-28\",\n  \"timeFrom\": \"12:00\",\n  \"timeTo\": \"13:30\",\n  \"guestsNumber\": 2,\n  \"allowedActions\": {\n    \"canEdit\": true,\n    \"canCancel\": true\n  },\n  \"cutoffReason\": null\n}"
             },
             {
               "name": "404 Not Found",
@@ -592,20 +557,21 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{access_token}}" },
-              { "key": "Content-Type",   "value": "application/json" }
+              { "key": "Authorization", "value": "Bearer YOUR_ACCESS_TOKEN" },
+              { "key": "Content-Type", "value": "application/json" }
             ],
-            "url": {
-              "raw": "{{base_url}}/bookings/client/{{reservation_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["bookings", "client", "{{reservation_id}}"]
-            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"guestsNumber\": 3,\n  \"status\": null\n}",
+              "raw": "{\n  \"guestsNumber\": 3,\n  \"status\": \"RESERVED\"\n}",
               "options": { "raw": { "language": "json" } }
             },
-            "description": "Update `guestsNumber` and/or `status` for an existing reservation. At least one field must be non-null.\n\nValid `status` values: `RESERVED`, `IN_PROGRESS`, `CANCELLED`, `FINISHED`"
+            "url": {
+              "raw": "https://your-api-id.execute-api.us-east-1.amazonaws.com/api/bookings/client/res00001-0000-0000-0000-000000000001",
+              "protocol": "https",
+              "host": ["your-api-id", "execute-api", "us-east-1", "amazonaws", "com"],
+              "path": ["api", "bookings", "client", "res00001-0000-0000-0000-000000000001"]
+            },
+            "description": "Update `guestsNumber` and/or `status` for an existing reservation. **At least one field must be non-null.**\n\n**Auth:** Bearer token required.\n\n### Path parameters\n| Name | Type | Required |\n|---|---|---|\n| `reservationId` | UUID | yes |\n\n### Body fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| `guestsNumber` | integer | one-of | 1-10 |\n| `status` | string | one-of | One of: `RESERVED`, `IN_PROGRESS`, `CANCELLED`, `FINISHED` |"
           },
           "response": [
             {
@@ -613,7 +579,14 @@
               "status": "OK",
               "code": 200,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
-              "body": "{\n  \"reservationId\": \"res00001-0000-0000-0000-000000000001\",\n  \"status\": \"RESERVED\",\n  \"customerId\": \"a1b2c3d4-0000-0000-0000-000000000001\",\n  \"waiterId\": null,\n  \"locationId\": \"00000000-0000-0000-0000-000000000001\",\n  \"location_address\": \"123 Main Street, New York, NY\",\n  \"tableNumber\": 5,\n  \"date\": \"2026-05-28\",\n  \"timeFrom\": \"12:00\",\n  \"timeTo\": \"13:30\",\n  \"guestsNumber\": 3,\n  \"allowedActions\": {\n    \"canEdit\": true,\n    \"canCancel\": true\n  },\n  \"cutoffReason\": null\n}"
+              "body": "{\n  \"reservationId\": \"res00001-0000-0000-0000-000000000001\",\n  \"status\": \"RESERVED\",\n  \"customerId\": \"a1b2c3d4-0000-0000-0000-000000000001\",\n  \"waiterId\": null,\n  \"locationId\": \"00000000-0000-0000-0000-000000000001\",\n  \"location_address\": \"48 Rustaveli Avenue, Tbilisi\",\n  \"tableNumber\": 5,\n  \"date\": \"2026-05-28\",\n  \"timeFrom\": \"12:00\",\n  \"timeTo\": \"13:30\",\n  \"guestsNumber\": 3,\n  \"allowedActions\": {\n    \"canEdit\": true,\n    \"canCancel\": true\n  },\n  \"cutoffReason\": null\n}"
+            },
+            {
+              "name": "422 Unprocessable Entity",
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"errors\": [\n    { \"field\": \"__root__\", \"message\": \"At least one editable field must be provided\" }\n  ]\n}"
             }
           ]
         },
@@ -622,14 +595,15 @@
           "request": {
             "method": "DELETE",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+              { "key": "Authorization", "value": "Bearer YOUR_ACCESS_TOKEN" }
             ],
             "url": {
-              "raw": "{{base_url}}/bookings/client/{{reservation_id}}/cancel",
-              "host": ["{{base_url}}"],
-              "path": ["bookings", "client", "{{reservation_id}}", "cancel"]
+              "raw": "https://your-api-id.execute-api.us-east-1.amazonaws.com/api/bookings/client/res00001-0000-0000-0000-000000000001/cancel",
+              "protocol": "https",
+              "host": ["your-api-id", "execute-api", "us-east-1", "amazonaws", "com"],
+              "path": ["api", "bookings", "client", "res00001-0000-0000-0000-000000000001", "cancel"]
             },
-            "description": "Cancel a reservation by its UUID. Returns the updated reservation object with `status: CANCELLED`."
+            "description": "Cancel a reservation by its UUID. Returns the updated reservation object with `status: CANCELLED`.\n\n**Auth:** Bearer token required.\n\n### Path parameters\n| Name | Type | Required |\n|---|---|---|\n| `reservationId` | UUID | yes |"
           },
           "response": [
             {
@@ -637,7 +611,7 @@
               "status": "OK",
               "code": 200,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
-              "body": "{\n  \"reservationId\": \"res00001-0000-0000-0000-000000000001\",\n  \"status\": \"CANCELLED\",\n  \"customerId\": \"a1b2c3d4-0000-0000-0000-000000000001\",\n  \"waiterId\": null,\n  \"locationId\": \"00000000-0000-0000-0000-000000000001\",\n  \"location_address\": \"123 Main Street, New York, NY\",\n  \"tableNumber\": 5,\n  \"date\": \"2026-05-28\",\n  \"timeFrom\": \"12:00\",\n  \"timeTo\": \"13:30\",\n  \"guestsNumber\": 2,\n  \"allowedActions\": {\n    \"canEdit\": false,\n    \"canCancel\": false\n  },\n  \"cutoffReason\": null\n}"
+              "body": "{\n  \"reservationId\": \"res00001-0000-0000-0000-000000000001\",\n  \"status\": \"CANCELLED\",\n  \"customerId\": \"a1b2c3d4-0000-0000-0000-000000000001\",\n  \"waiterId\": null,\n  \"locationId\": \"00000000-0000-0000-0000-000000000001\",\n  \"location_address\": \"48 Rustaveli Avenue, Tbilisi\",\n  \"tableNumber\": 5,\n  \"date\": \"2026-05-28\",\n  \"timeFrom\": \"12:00\",\n  \"timeTo\": \"13:30\",\n  \"guestsNumber\": 2,\n  \"allowedActions\": {\n    \"canEdit\": false,\n    \"canCancel\": false\n  },\n  \"cutoffReason\": null\n}"
             }
           ]
         }
