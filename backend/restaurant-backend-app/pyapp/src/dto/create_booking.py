@@ -18,7 +18,7 @@ class CreateBookingRequest(BaseModel):
     snake_case.
     """
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
     location_id: UUID = Field(..., alias="locationId")
     table_number: int = Field(..., alias="tableNumber", gt=0)
@@ -96,7 +96,7 @@ class CreateBookingRequest(BaseModel):
 class CreateBookingResponse(BaseModel):
     """Payload returned on a successful reservation for UI confirmation."""
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
     reservation_id: str = Field(..., alias="reservationId")
     status: str

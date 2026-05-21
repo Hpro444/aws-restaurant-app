@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # ── Request DTO ───────────────────────────────────────────────────────
 
@@ -22,6 +22,8 @@ class AvailableTablesRequest(BaseModel):
     entered time and returns all free slots from that point onwards.
 
     """
+
+    model_config = ConfigDict(extra="ignore")
 
     location_id: UUID = Field(...)
     date: str
@@ -71,6 +73,8 @@ class SlotResponse(BaseModel):
 
     """
 
+    model_config = ConfigDict(extra="ignore")
+
     slot_id: str
     start_time: str
     end_time: str
@@ -78,6 +82,8 @@ class SlotResponse(BaseModel):
 
 class TableAvailabilityResponse(BaseModel):
     """One table result card as shown in the booking UI."""
+
+    model_config = ConfigDict(extra="ignore")
 
     table_id: str
     table_number: int
@@ -88,5 +94,7 @@ class TableAvailabilityResponse(BaseModel):
 
 class AvailableTablesResponse(BaseModel):
     """Top-level response returned by GET /bookings/tables."""
+
+    model_config = ConfigDict(extra="ignore")
 
     tables: list[TableAvailabilityResponse]

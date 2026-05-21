@@ -20,7 +20,7 @@ class DynamoModel(BaseModel):
     field validator converts them to int or float before Pydantic validates.
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="ignore")
 
     _exclude_none: ClassVar[bool] = False
 

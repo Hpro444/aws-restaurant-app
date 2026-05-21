@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, SecretStr, field_va
 class SignUpRequest(BaseModel):
     """Validated payload accepted by POST /auth/sign-up."""
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
     first_name: str = Field(..., alias="firstName", min_length=1, max_length=100)
     last_name: str = Field(..., alias="lastName", min_length=1, max_length=100)
@@ -49,6 +49,8 @@ class SignUpRequest(BaseModel):
 
 class SignUpResponse(BaseModel):
     """Payload returned on successful user registration."""
+
+    model_config = ConfigDict(extra="ignore")
 
     user_id: str
     message: str

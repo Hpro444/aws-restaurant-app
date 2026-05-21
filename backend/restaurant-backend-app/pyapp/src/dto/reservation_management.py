@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 class AllowedActions(BaseModel):
     """Frontend-ready flags for reservation action buttons."""
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
     can_edit: bool = Field(..., alias="canEdit")
     can_cancel: bool = Field(..., alias="canCancel")
@@ -18,7 +18,7 @@ class AllowedActions(BaseModel):
 class ReservationView(BaseModel):
     """Reservation payload enriched with derived data for dashboards."""
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
     reservation_id: str = Field(..., alias="reservationId")
     status: str
@@ -38,7 +38,7 @@ class ReservationView(BaseModel):
 class ReservationListResponse(BaseModel):
     """List wrapper for customer/waiter dashboard reservations."""
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
     reservations: list[ReservationView]
 
@@ -46,7 +46,7 @@ class ReservationListResponse(BaseModel):
 class UpdateReservationRequest(BaseModel):
     """Editable reservation fields for customer/waiter actions."""
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
     guests_number: int | None = Field(None, alias="guestsNumber", gt=0, le=10)
     status: ReservationStatus | None = None

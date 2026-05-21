@@ -1,10 +1,12 @@
 """Pydantic models for the sign-in request and response."""
 
-from pydantic import BaseModel, EmailStr, SecretStr, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, SecretStr, field_validator
 
 
 class SignInRequest(BaseModel):
     """Validated payload accepted by POST /auth/sign-in."""
+
+    model_config = ConfigDict(extra="ignore")
 
     email: EmailStr
     password: SecretStr
@@ -20,6 +22,8 @@ class SignInRequest(BaseModel):
 
 class SignInResponse(BaseModel):
     """Payload returned on successful authentication."""
+
+    model_config = ConfigDict(extra="ignore")
 
     access_token: str
     refresh_token: str
