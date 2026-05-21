@@ -9,7 +9,7 @@ from commons.abstract_lambda import AbstractLambda
 from dto.available_tables import AvailableTablesRequest
 from dto.create_booking import CreateBookingRequest
 from dto.error_response import FieldError, ValidationErrorResponse
-from dto.locations import LocationNameResponse, LocationResponse
+from dto.locations import LocationAddressResponse, LocationResponse
 from dto.logout import LogoutRequest, LogoutResponse
 from dto.refresh import RefreshRequest, RefreshResponse
 from dto.reservation_management import UpdateReservationRequest
@@ -380,7 +380,7 @@ class ApiHandler(AbstractLambda):
 
     def _get_location_addresses(self) -> LambdaResponse:
         """Return all location addresses for location pickers and filters."""
-        location_options: list[LocationNameResponse] = (
+        location_options: list[LocationAddressResponse] = (
             self._locations_service.get_location_addresses()
         )
         return build_response(
