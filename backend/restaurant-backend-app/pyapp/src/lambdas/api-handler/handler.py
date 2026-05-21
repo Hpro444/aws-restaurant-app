@@ -94,6 +94,9 @@ class ApiHandler(AbstractLambda):
         method = event.get("httpMethod", "")
         resource = event.get("resource", "")
 
+        if method == "OPTIONS":
+            return build_response("", code=HttpStatusCode.RESPONSE_OK_CODE)
+
         if path == "/auth/sign-up" and method == "POST":
             return self._sign_up(event)
 
