@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-05-21
+
+### Added
+- Expanded test coverage for `TableAvailabilityService` and the available-tables API endpoint with additional edge-case scenarios
+
+### Changed
+- Refactored `TableAvailabilityService` to snap `from_time` to the nearest 90-minute slot boundary, ensuring time-window filters align with actual slot intervals
+- Updated `AvailableTables` DTO to support the refined slot-aligned filtering parameters
+- Updated `handler.py` to pass slot-aligned time parameters through to the availability service
+- Replaced placeholder image URLs in all seed modules with real S3-hosted assets: `user_img.png` for customers and waiters, `dish1_img.png` for dishes, `location_img.jpg` for locations
+
+### Fixed
+- Minor correction in `FeedbackServiceRepository` import/export
+
 ## [1.1.0] - 2026-05-20
 
 ### Added
