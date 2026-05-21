@@ -484,7 +484,13 @@
                 { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
                 { "name": "type", "in": "query", "required": true, "schema": { "type": "string", "enum": ["cuisine", "service"] } },
                 { "name": "sort", "in": "query", "required": false, "schema": { "type": "string", "example": "date,desc" }, "description": "Sort by `date` or `rate` with `asc`/`desc` direction." },
-                { "name": "page", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 0, "default": 0 } },
+                {
+                  "name": "page",
+                  "in": "query",
+                  "required": false,
+                  "schema": { "type": "integer", "minimum": 0, "default": 0 },
+                  "description": "Zero-based page index. Must be between 0 and totalPages-1; out-of-range values return 422."
+                },
                 { "name": "size", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } }
               ],
               "responses": {
@@ -524,7 +530,19 @@
             },
             "ValidationError": {
               "description": "Validation error",
-              "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ValidationErrorResponse" } } }
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "oneOf": [
+                      { "$ref": "#/components/schemas/ValidationErrorResponse" },
+                      {
+                        "type": "array",
+                        "items": { "$ref": "#/components/schemas/FieldError" }
+                      }
+                    ]
+                  }
+                }
+              }
             }
           },
           "schemas": {
@@ -593,7 +611,7 @@
             "ReservationListResponse": { "type": "object", "required": ["reservations"], "properties": { "reservations": { "type": "array", "items": { "$ref": "#/components/schemas/ReservationView" } } } },
             "UpdateReservationRequest": { "type": "object", "description": "At least one of guestsNumber or status must be present.", "properties": { "guestsNumber": { "type": "integer", "minimum": 1, "maximum": 10 }, "status": { "type": "string", "enum": ["RESERVED", "IN_PROGRESS", "CANCELLED", "FINISHED"] } }, "anyOf": [{ "required": ["guestsNumber"] }, { "required": ["status"] }] },
             "DishResponse": { "type": "object", "required": ["name", "image_url", "price", "weight_gram"], "properties": { "name": { "type": "string" }, "image_url": { "type": "string" }, "price": { "type": "number", "format": "float" }, "weight_gram": { "type": "integer" } } },
-            "FeedbackItem": { "type": "object", "required": ["id", "feedback", "date"], "properties": { "id": { "type": "string", "format": "uuid" }, "customer_id": { "type": "string", "format": "uuid", "nullable": true }, "feedback": { "type": "string" }, "rate": { "type": "integer", "nullable": true }, "date": { "type": "string", "format": "date-time" }, "location_id": { "type": "string", "format": "uuid", "nullable": true }, "waiter_id": { "type": "string", "format": "uuid", "nullable": true } } },
+            "FeedbackItem": { "type": "object", "required": ["id", "feedback", "date"], "properties": { "id": { "type": "string", "format": "uuid" }, "customer_id": { "type": "string", "format": "uuid", "nullable": true }, "feedback": { "type": "string" }, "rate": { "type": "integer", "nullable": true }, "date": { "type": "string", "format": "date-time" }, "user_image": { "type": "string", "nullable": true }, "location_id": { "type": "string", "format": "uuid", "nullable": true }, "waiter_id": { "type": "string", "format": "uuid", "nullable": true } } },
             "FeedbackPageable": { "type": "object", "required": ["offset", "sort", "paged", "pageSize", "pageNumber", "unpaged"], "properties": { "offset": { "type": "integer" }, "sort": { "type": "array", "items": { "type": "string" } }, "paged": { "type": "boolean" }, "pageSize": { "type": "integer" }, "pageNumber": { "type": "integer" }, "unpaged": { "type": "boolean" } } },
             "FeedbackPageResponse": { "type": "object", "required": ["totalPages", "totalElements", "size", "content", "number", "sort", "first", "last", "numberOfElements", "pageable", "empty"], "properties": { "totalPages": { "type": "integer" }, "totalElements": { "type": "integer" }, "size": { "type": "integer" }, "content": { "type": "array", "items": { "$ref": "#/components/schemas/FeedbackItem" } }, "number": { "type": "integer" }, "sort": { "type": "array", "items": { "type": "string" } }, "first": { "type": "boolean" }, "last": { "type": "boolean" }, "numberOfElements": { "type": "integer" }, "pageable": { "$ref": "#/components/schemas/FeedbackPageable" }, "empty": { "type": "boolean" } } }
           }
