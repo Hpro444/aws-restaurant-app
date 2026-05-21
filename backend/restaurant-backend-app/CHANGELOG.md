@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-05-21
+
+### Added
+- Swagger UI API documentation endpoint for interactive exploration of all backend routes (`feature/api-swagger-docs`)
+- `user_image` field on the `Feedback` base domain model — stored in DynamoDB and included in the feedbacks API response so reviewers' avatars are available without a separate customer lookup
+
+### Changed
+- **Seed dishes**: each of the three restaurant locations now has exactly 4 specialty dishes; every dish carries a unique image drawn from the 4 available S3 food assets (`dish1_img.png`, `ChocolateMoussewithBerries.png`, `PineappleTartwithVanillaSouffle.png`, `avocado_pine_nut_bowl.png`)
+- **Seed customers**: avatar URLs now cycle through the 4 real S3 images (`user_avatar_1.png`, `user_avatar_2.png`, `user_avatar_3.png`, `user_avatar_default.png`), replacing the previously referenced non-existent files (`user_avatar_4.png` … `user_avatar_11.png`)
+- **Seed feedback**: completely rebuilt — each of the 11 customers now has exactly 2 cuisine-feedback entries per restaurant location and 2 service-feedback entries per waiter (66 entries per feedback type, up from 30); every entry embeds the reviewer's `user_image` URL directly in the record
+- Refactored dish specialties and slot seeding so that tomorrow's slots are always available for demo use
+- Enhanced CORS headers on all Lambda responses; customer and dish seeding logic updated for improved demo data quality (`bcd40a8`)
+- `LocationAddressResponse` DTO corrected to return the proper field types (`fix/correct-dto-response-types`)
+- Pydantic model configurations updated across domain and DTO models: whitespace stripping on string fields, minimum length enforcement, and `extra="ignore"` for forward compatibility (`89cf78c`, `75fefd4`)
+- Error response format unified to consistent JSON structure `{"errors": [{"field": "...", "message": "..."}]}` across all API handlers (`fix/api-json-message-format`)
+
+### Fixed
+- Sign-up flow: two separate rounds of regression fixes (`fix/sign_up` × 2)
+- Registration service tests updated to reflect the correct return value on successful sign-up (`fix/cognito_tests`)
+- Most popular dishes endpoint corrected to handle all locations consistently (`fixt/tests`)
+- Post-first-demo bug fixes across various API features and UI edge cases (`builds/last_build`)
+
 ## [1.2.0] - 2026-05-21
 
 ### Added
