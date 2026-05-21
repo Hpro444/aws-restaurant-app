@@ -16,7 +16,7 @@ class LocationResponse(BaseModel):
 
 
 class LocationNameResponse(BaseModel):
-    """One location option returned by GET /locations/names."""
+    """One location option returned by GET /locations/select-options."""
 
     location_id: str
     location_address: str

@@ -7,7 +7,7 @@ from dto.locations import LocationNameResponse, LocationResponse
 from pyapp.tests.test_api_handler import ApiHandlerLambdaTestCase, body, status
 
 _PATH = "/locations"
-_NAMES_PATH = "/locations/names"
+_NAMES_PATH = "/locations/select-options"
 
 
 class TestLocationsEndpoint(ApiHandlerLambdaTestCase):
@@ -206,7 +206,7 @@ class TestLocationsEndpoint(ApiHandlerLambdaTestCase):
     def test_get_location_addresses_success_returns_200_with_address_array(
         self,
     ) -> None:
-        """GET /locations/names should return 200 with location_id + location_address objects."""
+        """GET /locations/select-options should return 200 with location_id + location_address objects."""
         location_id_1 = str(uuid4())
         location_id_2 = str(uuid4())
         mock_names = [
@@ -241,7 +241,7 @@ class TestLocationsEndpoint(ApiHandlerLambdaTestCase):
         self.HANDLER._locations_service.get_location_addresses.assert_called_once()
 
     def test_get_location_addresses_returns_200_with_empty_array(self) -> None:
-        """GET /locations/names should return 200 with an empty array when no locations exist."""
+        """GET /locations/select-options should return 200 with an empty array when no locations exist."""
         self.HANDLER._locations_service.get_location_addresses = MagicMock(
             return_value=[]
         )
