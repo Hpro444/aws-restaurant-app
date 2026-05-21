@@ -211,13 +211,16 @@ def main():
         return 1
 
     # Summary.
-    tomorrow_date = (datetime.now(timezone.utc) + timedelta(days=1)).strftime(
+    today_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    last_seeded_date = (datetime.now(timezone.utc) + timedelta(days=7)).strftime(
         "%Y-%m-%d"
     )
     downtown_id = seed_id("location", "downtown")
     airport_id = seed_id("location", "airport")
+    old_town_id = seed_id("location", "old-town")
     lea_id = seed_id("waiter", "lea")
     max_id = seed_id("waiter", "max")
+    nina_id = seed_id("waiter", "nina")
 
     print("\n" + "=" * 70)
     print("  ✅ SEEDING COMPLETE")
@@ -227,19 +230,24 @@ def main():
     print("\n📝 Seeded IDs for testing:")
     print(f"   - Location (Downtown): {downtown_id}")
     print(f"   - Location (Airport):  {airport_id}")
+    print(f"   - Location (Old Town): {old_town_id}")
     print(f"   - Waiter (Lea):        {lea_id}")
     print(f"   - Waiter (Max):        {max_id}")
+    print(f"   - Waiter (Nina):       {nina_id}")
     print(f"   - Customer (Alice):    {seed_id('customer', 'alice')}")
     print(f"   - Customer (Bob):      {seed_id('customer', 'bob')}")
     print(f"   - Customer (Carol):    {seed_id('customer', 'carol')}")
-    print(f"   - Slots seeded for date: {tomorrow_date}")
+    print(f"   - Slots seeded for date range: {today_date} → {last_seeded_date}")
     print()
     print("🧪 Ready-to-use API test URLs (replace BASE_URL with your API Gateway URL):")
     print(
-        f"   GET /api/bookings/tables?location_id={downtown_id}&date={tomorrow_date}&guests_number=2"
+        f"   GET /api/bookings/tables?location_id={downtown_id}&date={today_date}&guests_number=2"
     )
     print(
-        f"   GET /api/bookings/tables?location_id={airport_id}&date={tomorrow_date}&guests_number=2"
+        f"   GET /api/bookings/tables?location_id={airport_id}&date={today_date}&guests_number=2"
+    )
+    print(
+        f"   GET /api/bookings/tables?location_id={old_town_id}&date={last_seeded_date}&guests_number=2"
     )
     print()
 

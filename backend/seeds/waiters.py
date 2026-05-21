@@ -6,7 +6,7 @@ from seeds.utils import seed_id
 
 
 def seed(dynamodb, tables: dict, context: dict) -> None:
-    """Seed 2 demo waiters and write them to context['waiters'].
+    """Seed demo waiters and write them to context['waiters'].
 
     Requires context['locations'] populated by the locations seeder.
     """
@@ -15,6 +15,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
 
     downtown_id = seed_id("location", "downtown")
     airport_id = seed_id("location", "airport")
+    old_town_id = seed_id("location", "old-town")
 
     waiters = [
         Waiter(
@@ -32,6 +33,14 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             email="max@example.com",
             image_url="http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/user_img.png",
             location_id=locations[airport_id].id,
+        ),
+        Waiter(
+            id=seed_id("waiter", "nina"),
+            fname="Nina",
+            lname="Beridze",
+            email="nina@example.com",
+            image_url="http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/user_img.png",
+            location_id=locations[old_town_id].id,
         ),
     ]
 

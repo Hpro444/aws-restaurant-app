@@ -17,6 +17,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
 
     lea_id = seed_id("waiter", "lea")
     max_id = seed_id("waiter", "max")
+    nina_id = seed_id("waiter", "nina")
 
     alice_id = seed_id("customer", "alice")
     bob_id = seed_id("customer", "bob")
@@ -61,6 +62,22 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             feedback="Max handled a large group smoothly and kept everyone's orders straight. Great under pressure.",
             waiter_id=waiters[max_id].id,
             rate=3,
+            date="2026-05-20T00:00:00Z",
+        ),
+        FeedbackService(
+            id=seed_id("feedback-service", "alice:nina"),
+            customer_id=alice_id,
+            feedback="Nina was very kind and gave excellent pairing suggestions for local dishes.",
+            waiter_id=waiters[nina_id].id,
+            rate=5,
+            date="2026-05-20T00:00:00Z",
+        ),
+        FeedbackService(
+            id=seed_id("feedback-service", "bob:nina"),
+            customer_id=bob_id,
+            feedback="Quick and friendly service from Nina, everything arrived hot and on time.",
+            waiter_id=waiters[nina_id].id,
+            rate=4,
             date="2026-05-20T00:00:00Z",
         ),
     ]

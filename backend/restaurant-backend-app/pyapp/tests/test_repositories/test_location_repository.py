@@ -12,7 +12,7 @@ with ImportFromSourceContext():
     from repositories.location_repository import LocationRepository
 
 _LOCATION_ID = uuid4()
-_LOCATION_NAME = "Downtown"
+_LOCATION_LABEL = "Downtown"
 _LOCATION_ADDRESS = "123 Main Street"
 _LOCATION_DESCRIPTION = "Central city location"
 _LOCATION_IMAGE_URL = "https://example.com/downtown.jpg"
@@ -31,7 +31,7 @@ class TestLocationRepositoryScan(unittest.TestCase):
         self.repo = LocationRepository()
         self.mock_location = Location(
             id=_LOCATION_ID,
-            name=_LOCATION_NAME,
+            name=_LOCATION_LABEL,
             address=_LOCATION_ADDRESS,
             description=_LOCATION_DESCRIPTION,
             image_url=_LOCATION_IMAGE_URL,

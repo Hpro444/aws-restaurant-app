@@ -15,6 +15,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
 
     downtown_id = seed_id("location", "downtown")
     airport_id = seed_id("location", "airport")
+    old_town_id = seed_id("location", "old-town")
 
     entries = [
         WaiterEmail(
@@ -24,6 +25,10 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         WaiterEmail(
             email="max@example.com",
             location_id=locations[airport_id].id,
+        ),
+        WaiterEmail(
+            email="nina@example.com",
+            location_id=locations[old_town_id].id,
         ),
     ]
 

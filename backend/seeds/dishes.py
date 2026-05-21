@@ -15,6 +15,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
 
     downtown_id = seed_id("location", "downtown")
     airport_id = seed_id("location", "airport")
+    old_town_id = seed_id("location", "old-town")
 
     downtown_dishes = [
         Dish(
@@ -132,7 +133,65 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         ),
     ]
 
-    all_dishes = downtown_dishes + airport_dishes
+    old_town_dishes = [
+        Dish(
+            id=seed_id("dish", "old-town:khachapuri"),
+            location_id=locations[old_town_id].id,
+            name="Adjarian Khachapuri",
+            description="Boat-shaped cheese bread topped with egg yolk and butter.",
+            image_url="http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/dish1_img.png",
+            specialty=True,
+            popular=True,
+            price=13.50,
+            weight_gram=420,
+        ),
+        Dish(
+            id=seed_id("dish", "old-town:khinkali"),
+            location_id=locations[old_town_id].id,
+            name="Khinkali",
+            description="Traditional Georgian dumplings filled with spiced beef and broth.",
+            image_url="http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/dish1_img.png",
+            specialty=True,
+            popular=True,
+            price=12.00,
+            weight_gram=360,
+        ),
+        Dish(
+            id=seed_id("dish", "old-town:mtsvadi"),
+            location_id=locations[old_town_id].id,
+            name="Mtsvadi",
+            description="Charcoal-grilled pork skewers served with pickled onions and tkemali.",
+            image_url="http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/dish1_img.png",
+            specialty=False,
+            popular=True,
+            price=17.00,
+            weight_gram=380,
+        ),
+        Dish(
+            id=seed_id("dish", "old-town:lobio"),
+            location_id=locations[old_town_id].id,
+            name="Lobio",
+            description="Slow-cooked red bean stew with herbs and cornbread.",
+            image_url="http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/dish1_img.png",
+            specialty=False,
+            popular=False,
+            price=9.50,
+            weight_gram=300,
+        ),
+        Dish(
+            id=seed_id("dish", "old-town:churchkhela"),
+            location_id=locations[old_town_id].id,
+            name="Churchkhela",
+            description="Walnuts threaded and dipped in thickened grape must.",
+            image_url="http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/dish1_img.png",
+            specialty=False,
+            popular=False,
+            price=6.00,
+            weight_gram=120,
+        ),
+    ]
+
+    all_dishes = downtown_dishes + airport_dishes + old_town_dishes
 
     with table.batch_writer() as batch:
         for dish in all_dishes:
@@ -146,5 +205,9 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             batch.put_item(Item=item)
 
     print(
-        f"  ✓ Seeded {len(all_dishes)} dishes ({len(downtown_dishes)} Downtown, {len(airport_dishes)} Airport)"
+        "  ✓ Seeded "
+        f"{len(all_dishes)} dishes "
+        f"({len(downtown_dishes)} Downtown, "
+        f"{len(airport_dishes)} Airport, "
+        f"{len(old_town_dishes)} Old Town)"
     )

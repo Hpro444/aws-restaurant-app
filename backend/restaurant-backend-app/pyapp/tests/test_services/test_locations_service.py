@@ -11,7 +11,7 @@ with ImportFromSourceContext():
 
     from domain.location import Location
     from domain.table import Table
-    from dto.locations import LocationResponse
+    from dto.locations import LocationNameResponse, LocationResponse
     from services.locations_service import LocationsService
 
 
@@ -251,3 +251,38 @@ class TestLocationsService(TestCase):
         result = self.service.get_location_by_id(uuid4())
 
         self.assertIsNone(result)
+
+    def test_get_location_addresses_success_returns_list(self) -> None:
+        """get_location_addresses should return a list of LocationNameResponse objects."""
+        self.mock_location_repo.scan.return_value = [self.location_1, self.location_2]
+
+        result = self.service.get_location_addresses()
+
+        self.assertIsInstance(result, list)
+        self.assertEqual(len(result), 2)
+        self.assertIsInstance(result[0], LocationNameResponse)
+        self.assertIsInstance(result[1], LocationNameResponse)
+
+    def test_get_location_addresses_maps_location_address_field(self) -> None:
+        """LocationNameResponse.location_address must match Location.address."""
+        self.mock_location_repo.scan.return_value = [self.location_1]
+
+        result = self.service.get_location_addresses()
+
+        self.assertEqual(result[0].location_address, self.location_1.address)
+
+    def test_get_location_addresses_maps_location_id_field(self) -> None:
+        """LocationNameResponse.location_id must match Location.id as string."""
+        self.mock_location_repo.scan.return_value = [self.location_1]
+
+        result = self.service.get_location_addresses()
+
+        self.assertEqual(result[0].location_id, str(self.location_1.id))
+
+    def test_get_location_addresses_returns_empty_list_when_no_locations(self) -> None:
+        """get_location_addresses should return an empty list when repository returns no locations."""
+        self.mock_location_repo.scan.return_value = []
+
+        result = self.service.get_location_addresses()
+
+        self.assertEqual(result, [])
