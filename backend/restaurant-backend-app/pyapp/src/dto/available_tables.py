@@ -23,10 +23,10 @@ class AvailableTablesRequest(BaseModel):
 
     """
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="ignore", str_strip_whitespace=True)
 
     location_id: UUID = Field(...)
-    date: str
+    date: str = Field(..., min_length=1)
     guests_number: int = Field(..., gt=0, le=10)
     from_time: Optional[str] = Field(None)
 

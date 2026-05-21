@@ -467,9 +467,6 @@
     "resource_type": "dynamodb_table",
     "hash_key_name": "id",
     "hash_key_type": "S",
-    "billing_mode": "PAY_PER_REQUEST",
-    "read_capacity": 1,
-    "write_capacity": 1,
     "global_indexes": [
       {
         "name": "location_id_index",
@@ -485,9 +482,6 @@
     "resource_type": "dynamodb_table",
     "hash_key_name": "id",
     "hash_key_type": "S",
-    "billing_mode": "PAY_PER_REQUEST",
-    "read_capacity": 1,
-    "write_capacity": 1,
     "global_indexes": [],
     "autoscaling": [],
     "tags": {}
@@ -496,9 +490,6 @@
     "resource_type": "dynamodb_table",
     "hash_key_name": "id",
     "hash_key_type": "S",
-    "billing_mode": "PAY_PER_REQUEST",
-    "read_capacity": 1,
-    "write_capacity": 1,
     "global_indexes": [],
     "autoscaling": [],
     "tags": {}
@@ -507,9 +498,6 @@
     "resource_type": "dynamodb_table",
     "hash_key_name": "id",
     "hash_key_type": "S",
-    "billing_mode": "PAY_PER_REQUEST",
-    "read_capacity": 1,
-    "write_capacity": 1,
     "global_indexes": [
       {
         "name": "location_id_index",
@@ -525,9 +513,6 @@
     "resource_type": "dynamodb_table",
     "hash_key_name": "id",
     "hash_key_type": "S",
-    "billing_mode": "PAY_PER_REQUEST",
-    "read_capacity": 1,
-    "write_capacity": 1,
     "global_indexes": [
       {
         "name": "popular_index",
@@ -549,9 +534,6 @@
     "resource_type": "dynamodb_table",
     "hash_key_name": "id",
     "hash_key_type": "S",
-    "billing_mode": "PAY_PER_REQUEST",
-    "read_capacity": 1,
-    "write_capacity": 1,
     "global_indexes": [],
     "autoscaling": [],
     "tags": {}
@@ -560,7 +542,6 @@
     "resource_type": "dynamodb_table",
     "hash_key_name": "id",
     "hash_key_type": "S",
-    "billing_mode": "PAY_PER_REQUEST",
     "global_indexes": [
       {
         "name": "table_id_date_index",
@@ -578,9 +559,6 @@
     "resource_type": "dynamodb_table",
     "hash_key_name": "id",
     "hash_key_type": "S",
-    "billing_mode": "PAY_PER_REQUEST",
-    "read_capacity": 1,
-    "write_capacity": 1,
     "global_indexes": [
       {
         "name": "slot-index",
@@ -608,9 +586,6 @@
     "resource_type": "dynamodb_table",
     "hash_key_name": "id",
     "hash_key_type": "S",
-    "billing_mode": "PAY_PER_REQUEST",
-    "read_capacity": 1,
-    "write_capacity": 1,
     "global_indexes": [
       {
         "name": "location_id_index",
@@ -626,9 +601,6 @@
     "resource_type": "dynamodb_table",
     "hash_key_name": "id",
     "hash_key_type": "S",
-    "billing_mode": "PAY_PER_REQUEST",
-    "read_capacity": 1,
-    "write_capacity": 1,
     "global_indexes": [
       {
         "name": "waiter_id_index",
@@ -644,9 +616,6 @@
     "resource_type": "dynamodb_table",
     "hash_key_name": "email",
     "hash_key_type": "S",
-    "billing_mode": "PAY_PER_REQUEST",
-    "read_capacity": 1,
-    "write_capacity": 1,
     "global_indexes": [],
     "autoscaling": [],
     "tags": {}
@@ -655,9 +624,6 @@
     "resource_type": "dynamodb_table",
     "hash_key_name": "id",
     "hash_key_type": "S",
-    "billing_mode": "PAY_PER_REQUEST",
-    "read_capacity": 1,
-    "write_capacity": 1,
     "global_indexes": [],
     "autoscaling": [],
     "tags": {}
@@ -666,9 +632,6 @@
     "resource_type": "dynamodb_table",
     "hash_key_name": "email",
     "hash_key_type": "S",
-    "billing_mode": "PAY_PER_REQUEST",
-    "read_capacity": 1,
-    "write_capacity": 1,
     "global_indexes": [],
     "autoscaling": [],
     "tags": {}

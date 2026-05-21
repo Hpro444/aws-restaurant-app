@@ -18,14 +18,16 @@ class CreateBookingRequest(BaseModel):
     snake_case.
     """
 
-    model_config = ConfigDict(populate_by_name=True, extra="ignore")
+    model_config = ConfigDict(
+        populate_by_name=True, extra="ignore", str_strip_whitespace=True
+    )
 
     location_id: UUID = Field(..., alias="locationId")
     table_number: int = Field(..., alias="tableNumber", gt=0)
-    date: str
+    date: str = Field(..., min_length=1)
     guests_number: int = Field(..., alias="guestsNumber", gt=0, le=10)
-    time_from: str = Field(..., alias="timeFrom")
-    time_to: str = Field(..., alias="timeTo")
+    time_from: str = Field(..., alias="timeFrom", min_length=1)
+    time_to: str = Field(..., alias="timeTo", min_length=1)
 
     @field_validator("table_number", mode="before")
     @classmethod

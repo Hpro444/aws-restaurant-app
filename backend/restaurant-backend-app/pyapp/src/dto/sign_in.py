@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, SecretStr, field_validator
 class SignInRequest(BaseModel):
     """Validated payload accepted by POST /auth/sign-in."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="ignore", str_strip_whitespace=True)
 
     email: EmailStr
     password: SecretStr
@@ -17,6 +17,14 @@ class SignInRequest(BaseModel):
         """Strip whitespace and lowercase the email before format validation."""
         if isinstance(v, str):
             return v.strip().lower()
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def password_not_empty(cls, v: SecretStr) -> SecretStr:
+        """Reject empty/whitespace-only passwords."""
+        if not v.get_secret_value().strip():
+            raise ValueError("must not be empty")
         return v
 
 
