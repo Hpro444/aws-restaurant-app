@@ -197,10 +197,10 @@ class TestErrorPropagation(_ServiceTestCase):
 
         self.service._cognito_service.register_user.assert_not_called()
 
-    def test_returns_cognito_sub_on_success(self) -> None:
-        """register_user must return the Cognito sub UUID string on success."""
+    def test_returns_none_on_success(self) -> None:
+        """register_user must return None on success."""
         self.service._waiter_emails_repo.get.return_value = None
 
         result = self.service.register_user(_REQUEST)
 
-        self.assertEqual(result, _USER_ID)
+        self.assertIsNone(result)
