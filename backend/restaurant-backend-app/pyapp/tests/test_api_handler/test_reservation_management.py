@@ -165,6 +165,7 @@ class TestReservationManagement(ApiHandlerLambdaTestCase):
         )
 
         self.assertEqual(status(result), 403)
+        self.assertEqual(body(result)["message"], "Forbidden")
 
     def test_cancel_reservation_service_raises_404(self) -> None:
         """Service-level 404 propagates when reservation does not exist."""
@@ -178,6 +179,7 @@ class TestReservationManagement(ApiHandlerLambdaTestCase):
         )
 
         self.assertEqual(status(result), 404)
+        self.assertEqual(body(result)["message"], "Not found")
 
     def test_cancel_reservation_within_cutoff_returns_422(self) -> None:
         """Service-level 422 propagates when cancel is attempted within cutoff window."""
@@ -191,6 +193,7 @@ class TestReservationManagement(ApiHandlerLambdaTestCase):
         )
 
         self.assertEqual(status(result), 422)
+        self.assertEqual(body(result)["message"], "Within cutoff window")
 
     def test_invalid_reservation_id_returns_422(self) -> None:
         """Malformed reservationId in path fails request validation."""
@@ -222,3 +225,6 @@ class TestReservationManagement(ApiHandlerLambdaTestCase):
         )
 
         self.assertEqual(status(result), 403)
+        self.assertEqual(
+            body(result)["message"], "You are not allowed to access this reservation"
+        )

@@ -82,7 +82,7 @@ class AbstractLambda(ABC):
             logger.error("Unexpected error", request=event, error=str(e))
             response = LambdaResponse(
                 statusCode=HttpStatusCode.RESPONSE_INTERNAL_SERVER_ERROR,
-                body=json.dumps("Internal server error"),
+                body=json.dumps({"message": "Internal server error"}),
             ).model_dump()
         response["headers"]["Access-Control-Allow-Origin"] = _config.cors_origin
         response["headers"]["Access-Control-Allow-Headers"] = (

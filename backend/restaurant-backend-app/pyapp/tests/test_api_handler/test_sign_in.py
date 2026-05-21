@@ -50,7 +50,7 @@ class TestSignIn(ApiHandlerLambdaTestCase):
         )
         result = self.HANDLER.lambda_handler(make_event(_PATH, "POST", _VALID_BODY), {})
         self.assertEqual(status(result), 401)
-        self.assertEqual(body(result), "Invalid credentials")
+        self.assertEqual(body(result)["message"], "Invalid credentials")
 
     def test_missing_email_returns_422(self) -> None:
         """A request without an email field should return 422."""

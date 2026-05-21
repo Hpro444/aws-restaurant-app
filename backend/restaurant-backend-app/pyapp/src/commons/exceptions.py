@@ -9,6 +9,8 @@ class ApplicationException(Exception):
     def __init__(self, code: int, content: Any) -> None:
         """Store the HTTP status code and response content."""
         self.code = code
+        if isinstance(content, str):
+            content = {"message": content}
         self.content = content
 
     def __str__(self) -> str:
