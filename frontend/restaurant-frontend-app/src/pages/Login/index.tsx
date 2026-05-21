@@ -1,11 +1,10 @@
-import SignupForm from "./components/SignupForm";
-
 import logo from "../../assets/Logo.png";
 import image from "../../assets/signup/Image.png";
+import LoginForm from "./components/LoginForm";
 
-const SignupPage = () => {
+const LoginPage = () => {
   return (
-    <div className="flex flex-col bg-[var(--color-bg-page)] min-h-screen">
+    <div className="flex flex-col bg-[var(--color-background)] min-h-screen">
       <header className="pt-3 pl-10 pb-[18px]">
         <img alt="Green & Tasty" src={logo} />
       </header>
@@ -14,24 +13,24 @@ const SignupPage = () => {
           <div className="flex flex-col justify-center gap-8">
             <div>
               <p className="uppercase font-light text-sm text-[var(--color-text-primary)] leading-6">
-                Let's get you started!
+                Welcome back
               </p>
               <h2 className="font-medium text-2xl leading-10 text-[var(--color-text-primary)]">
-                Create An Account
+                Sign In to Your Account
               </h2>
             </div>
-            <SignupForm />
+            <LoginForm />
           </div>
         </div>
         <div className="flex flex-col justify-center items-center gap-16 px-11">
           <p className="font-bold text-[80px] leading-none align-middle text-[var(--color-brand)]">
-            Green <span className="text-[var(--color-black)]">& Tasty</span>
+            Green <span className="text-black">& Tasty</span>
           </p>
-          <img alt="Register" src={image} />
+          <img alt="Login" src={image} />
         </div>
       </div>
     </div>
   );
 };
 
-export default SignupPage;
+export default LoginPage;
