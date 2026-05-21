@@ -10,6 +10,7 @@ Usage:
 import importlib
 import re
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -142,6 +143,38 @@ def load_syndicate_credentials() -> dict | None:
     return None
 
 
+def _wait_for_tables_active(
+    dynamodb_client, table_names: list[str], timeout: int = 120
+) -> None:
+    """Block until every table in table_names has status ACTIVE.
+
+    Polls every 5 seconds. Raises RuntimeError if timeout is exceeded.
+    """
+    deadline = time.monotonic() + timeout
+    pending = set(table_names)
+    while pending:
+        if time.monotonic() > deadline:
+            raise RuntimeError(
+                f"Tables still not ACTIVE after {timeout}s: {', '.join(pending)}"
+            )
+        still_creating = set()
+        for name in pending:
+            try:
+                resp = dynamodb_client.describe_table(TableName=name)
+                status = resp["Table"]["TableStatus"]
+                if status != "ACTIVE":
+                    still_creating.add(name)
+            except ClientError:
+                still_creating.add(name)
+        if still_creating:
+            print(
+                f"  ⏳ Waiting for {len(still_creating)} table(s) to become ACTIVE "
+                f"({', '.join(sorted(still_creating))})..."
+            )
+            time.sleep(5)
+        pending = still_creating
+
+
 def main():
     """Run seeding orchestration — imports and runs every module in seeds.SEED_ORDER."""
     print("\n" + "=" * 70)
@@ -187,24 +220,36 @@ def main():
             f"\n  ⚠ Tables not found — their seeds will be skipped: {', '.join(missing)}\n"
         )
 
+    # Wait for all resolved tables to be ACTIVE before writing.
+    if resolved_tables:
+        print("▶ Waiting for all tables to be ACTIVE...")
+        try:
+            _wait_for_tables_active(dynamodb_client, list(resolved_tables.values()))
+            print("  ✓ All tables ACTIVE\n")
+        except RuntimeError as e:
+            print(f"  ✗ {e}\n")
+            return 1
+
     # Import and run each seed module in order.
     print("▶ Seeding demo data...")
     context: dict = {}
+    current_module = None
     try:
         for module_name in seeds.SEED_ORDER:
+            current_module = module_name
             module = importlib.import_module(f"seeds.{module_name}")
             try:
                 module.seed(dynamodb, resolved_tables, context)
             except KeyError as e:
                 print(f"  ⚠ Skipping {module_name}: table {e} not available")
     except ClientError as e:
-        print(f"\n  ✗ Seeding failed (AWS ClientError): {e}")
+        print(f"\n  ✗ Seeding failed in '{current_module}' (AWS ClientError): {e}")
         print(
             "     Verify IAM permissions for dynamodb:PutItem/BatchWriteItem and table names.\n"
         )
         return 1
     except Exception as e:
-        print(f"\n  ✗ Seeding failed: {e}\n")
+        print(f"\n  ✗ Seeding failed in '{current_module}': {e}\n")
         import traceback
 
         traceback.print_exc()

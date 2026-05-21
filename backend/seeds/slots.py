@@ -3,12 +3,13 @@
 from datetime import datetime, timedelta, timezone
 
 from domain.slot import Slot  # type: ignore[import-not-found]
+from tqdm import tqdm
 
 from seeds.utils import seed_id
 
 
 def seed(dynamodb, tables: dict, context: dict) -> None:
-    """Seed 90-minute slots from today for the next 7 days.
+    """Seed 90-minute slots for tomorrow based on each location's opening hours.
 
     Requires context['tables'] and context['locations'].
     """
@@ -17,8 +18,6 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
     locations = context["locations"]
 
     slots_list = []
-
-    start_date = datetime.now(timezone.utc).date()
 
     for table_obj in tables_list:
         location = locations.get(table_obj.location_id)
@@ -29,36 +28,29 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         open_time = location.open_time
         close_time = location.close_time
 
-        for day_offset in range(0, 8):
-            target_date = start_date + timedelta(days=day_offset)
-            current_time = datetime.combine(target_date, open_time, tzinfo=timezone.utc)
-            end_of_day = datetime.combine(target_date, close_time, tzinfo=timezone.utc)
+        tomorrow = datetime.now(timezone.utc) + timedelta(days=1)
+        tomorrow_date = tomorrow.date()
+        current_time = datetime.combine(tomorrow_date, open_time, tzinfo=timezone.utc)
+        end_of_day = datetime.combine(tomorrow_date, close_time, tzinfo=timezone.utc)
 
-            while current_time + timedelta(minutes=90) <= end_of_day:
-                start = current_time
-                end = start + timedelta(minutes=90)
+        while current_time + timedelta(minutes=90) <= end_of_day:
+            start = current_time
+            end = start + timedelta(minutes=90)
 
-                s = Slot(
-                    id=seed_id(
-                        "slot",
-                        f"{table_obj.id}:{target_date.isoformat()}:{start.hour}:{start.minute}",
-                    ),
-                    table_id=table_obj.id,
-                    start_time=start,
-                    end_time=end,
-                    date=start,
-                )
-                slots_list.append(s)
+            s = Slot(
+                id=seed_id("slot", f"{table_obj.id}:{start.hour}:{start.minute}"),
+                table_id=table_obj.id,
+                start_time=start,
+                end_time=end,
+                date=start,
+            )
+            slots_list.append(s)
 
-                current_time = end + timedelta(minutes=15)
+            current_time = end + timedelta(minutes=15)
 
     with table.batch_writer() as batch:
-        for s in slots_list:
+        for s in tqdm(slots_list, desc="  Writing slots", unit="slot"):
             batch.put_item(Item=s.model_dump(mode="json"))
 
-    print(
-        "  ✓ Seeded "
-        f"{len(slots_list)} slots dynamically based on restaurant hours "
-        "for today + next 7 days"
-    )
+    print(f"  ✓ Seeded {len(slots_list)} slots dynamically based on restaurant hours")
     context["slots"] = slots_list
