@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import unittest
-from datetime import datetime, time, timedelta, timezone
-from unittest.mock import MagicMock
+from datetime import date, datetime, time, timedelta, timezone
+from unittest.mock import MagicMock, patch
 from uuid import UUID
 
 from pyapp.tests import ImportFromSourceContext
@@ -334,3 +334,96 @@ class TestTableAvailabilityService(unittest.TestCase):
         self.service._slot_repo.find_by_table_ids_and_date.assert_called_once_with(
             {_TABLE_2_ID}, "2026-05-20"
         )
+
+    def test_today_without_from_time_auto_selects_next_free_slot(self) -> None:
+        """For today's date, missing from_time should auto-pick the next free slot."""
+        table1 = _table(_TABLE_1_ID, table_number=1, capacity=4)
+        today = date.today()
+
+        # Create slots: one past (12:00), one future (13:45), one later (15:30)
+        s_past = Slot(
+            id=_SLOT_1_ID,
+            table_id=_TABLE_1_ID,
+            start_time=datetime.combine(today, time(12, 0), tzinfo=timezone.utc),
+            end_time=datetime.combine(today, time(13, 30), tzinfo=timezone.utc),
+            date=datetime.combine(today, time(0, 0), tzinfo=timezone.utc),
+            status=SlotStatus.FREE,
+        )
+        s_next = Slot(
+            id=_SLOT_2_ID,
+            table_id=_TABLE_1_ID,
+            start_time=datetime.combine(today, time(13, 45), tzinfo=timezone.utc),
+            end_time=datetime.combine(today, time(15, 15), tzinfo=timezone.utc),
+            date=datetime.combine(today, time(0, 0), tzinfo=timezone.utc),
+            status=SlotStatus.FREE,
+        )
+        s_later = Slot(
+            id=_SLOT_3_ID,
+            table_id=_TABLE_1_ID,
+            start_time=datetime.combine(today, time(15, 30), tzinfo=timezone.utc),
+            end_time=datetime.combine(today, time(17, 0), tzinfo=timezone.utc),
+            date=datetime.combine(today, time(0, 0), tzinfo=timezone.utc),
+            status=SlotStatus.FREE,
+        )
+
+        self.service._table_repo.find_by_location_id.return_value = [table1]
+        self.service._slot_repo.find_by_table_ids_and_date.return_value = [
+            s_past,
+            s_next,
+            s_later,
+        ]
+
+        # Mock current time to 13:00 (between past and next slots)
+        fixed_now = datetime.combine(today, time(13, 0), tzinfo=timezone.utc)
+        with patch("services.table_availability_service.datetime") as mocked_datetime:
+            mocked_datetime.now.return_value = fixed_now
+            mocked_datetime.strptime = datetime.strptime
+            mocked_datetime.combine = datetime.combine
+
+            response = self.service.get_available_tables(
+                location_id=_LOCATION_ID,
+                booking_date=today.isoformat(),
+                guests_number=2,
+            )
+
+        # Should qualify table and return slots from 13:45 onwards
+        self.assertEqual(len(response.tables), 1)
+        self.assertEqual(response.tables[0].table_id, str(_TABLE_1_ID))
+        slot_times = [s.start_time for s in response.tables[0].available_slots]
+        self.assertEqual(slot_times, ["13:45:00", "15:30:00"])
+
+    def test_today_without_from_time_returns_empty_when_no_future_free_slots(
+        self,
+    ) -> None:
+        """For today's date, no upcoming FREE slots should yield an empty response."""
+        table = _table(_TABLE_1_ID, table_number=1, capacity=4)
+        today = date.today()
+
+        only_past_slot = Slot(
+            id=_SLOT_1_ID,
+            table_id=_TABLE_1_ID,
+            start_time=datetime.combine(today, time(12, 0), tzinfo=timezone.utc),
+            end_time=datetime.combine(today, time(13, 30), tzinfo=timezone.utc),
+            date=datetime.combine(today, time(0, 0), tzinfo=timezone.utc),
+            status=SlotStatus.FREE,
+        )
+
+        self.service._table_repo.find_by_location_id.return_value = [table]
+        self.service._slot_repo.find_by_table_ids_and_date.return_value = [
+            only_past_slot
+        ]
+
+        # Mock current time to 14:00 (after only available slot)
+        fixed_now = datetime.combine(today, time(14, 0), tzinfo=timezone.utc)
+        with patch("services.table_availability_service.datetime") as mocked_datetime:
+            mocked_datetime.now.return_value = fixed_now
+            mocked_datetime.strptime = datetime.strptime
+            mocked_datetime.combine = datetime.combine
+
+            response = self.service.get_available_tables(
+                location_id=_LOCATION_ID,
+                booking_date=today.isoformat(),
+                guests_number=2,
+            )
+
+        self.assertEqual(response.model_dump(), {"tables": []})
