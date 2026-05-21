@@ -26,7 +26,10 @@ const RulesList = ({ items, hasInput }: RulesListProps) => {
 
         return (
           <li key={item.text} className={classes.ruleItem}>
-            <span className={classes.ruleDot} style={{ backgroundColor: color }} />
+            <span
+              className={classes.ruleDot}
+              style={{ backgroundColor: color }}
+            />
             <small className={classes.helper} style={{ color }}>
               {item.text}
             </small>
