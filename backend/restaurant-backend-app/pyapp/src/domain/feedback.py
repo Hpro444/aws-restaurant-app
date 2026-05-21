@@ -17,6 +17,7 @@ class Feedback(DynamoModel, ABC):
     feedback: str
     rate: int | None = None
     date: AwareDatetime
+    user_image: str | None = None
 
 
 class FeedbackCuisine(Feedback):
