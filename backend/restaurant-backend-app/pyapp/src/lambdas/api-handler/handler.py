@@ -508,13 +508,15 @@ class ApiHandler(AbstractLambda):
             - date (required): Booking date in YYYY-MM-DD format.
             - guests_number (required): Minimum number of guests (1-10).
             - from_time (optional): Start time filter in HH:MM format.
-            - to_time (optional): End time filter in HH:MM format.
+                Snapped to the nearest valid slot start; only tables with
+                that slot free are returned, along with all subsequent
+                free slots for the day.
 
         Filtering logic (AND):
             1. Location — only tables at the specified location.
             2. Guest count — only tables with capacity >= guests_number.
             3. Timeslot — only slots on the given date that are not reserved;
-               optionally narrowed to a from_time/to_time window.
+               optionally snapped to from_time and onwards.
 
         Returns available tables with their free time slots,
         or an empty list when no tables match.
@@ -578,7 +580,6 @@ class ApiHandler(AbstractLambda):
                 "date": params.get("date", ""),
                 "guests_number": guests_number,
                 "from_time": params.get("from_time") or params.get("from"),
-                "to_time": params.get("to_time") or params.get("to"),
             },
         )
 
@@ -588,7 +589,6 @@ class ApiHandler(AbstractLambda):
             booking_date=request.date,
             guests_number=request.guests_number,
             from_time=request.from_time,
-            to_time=request.to_time,
         )
 
         return build_response(
@@ -865,7 +865,12 @@ class ApiHandler(AbstractLambda):
         raw_size = params.get("size", "20")
         try:
             page = int(raw_page)
-        except ValueError, TypeError:
+        except ValueError:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                [{"field": "page", "message": "Must be a valid integer"}],
+            )
+        except TypeError:
             raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
                 ValidationErrorResponse(
@@ -874,7 +879,12 @@ class ApiHandler(AbstractLambda):
             )
         try:
             size = int(raw_size)
-        except ValueError, TypeError:
+        except ValueError:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                [{"field": "size", "message": "Must be a valid integer"}],
+            )
+        except TypeError:
             raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
                 ValidationErrorResponse(

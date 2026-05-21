@@ -164,3 +164,34 @@ class TestTableAvailabilityService(unittest.TestCase):
 
         self.mock_table_repo.find_by_location_id.assert_called_once_with(_LOCATION_ID)
         self.mock_slot_repo.find_by_table_ids_and_date.assert_called_once()
+
+
+class TestTableAvailabilityServiceDomain(unittest.TestCase):
+    """Test TableAvailabilityService slot-start snapping logic."""
+
+    def setUp(self) -> None:
+        """Create mocked service for testing snap-to-slot-start behavior."""
+        self.service = TableAvailabilityService()
+        self.service._table_repo = MagicMock()
+        self.service._slot_repo = MagicMock()
+        self.service._location_repo = MagicMock()
+
+    def test_snap_to_slot_start_exact_boundary(self):
+        """_snap_to_slot_start returns from_time unchanged when it is already a slot start."""
+        from datetime import time
+
+        # open_time=12:00 → slots at 12:00, 13:45, 15:30 …
+        result = TableAvailabilityService._snap_to_slot_start(
+            open_time=time(12, 0), from_time_str="12:00"
+        )
+        self.assertEqual(result, time(12, 0))
+
+    def test_snap_to_slot_start_snaps_up_to_next_boundary(self):
+        """_snap_to_slot_start advances to the next slot when from_time is between starts."""
+        from datetime import time
+
+        # open_time=12:00, from_time=12:57 → must snap to 13:45
+        result = TableAvailabilityService._snap_to_slot_start(
+            open_time=time(12, 0), from_time_str="12:57"
+        )
+        self.assertEqual(result, time(13, 45))

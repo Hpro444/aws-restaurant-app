@@ -63,12 +63,11 @@ class TestAvailableTables(ApiHandlerLambdaTestCase):
             booking_date=_TOMORROW,
             guests_number=2,
             from_time=None,
-            to_time=None,
         )
 
-    def test_success_with_time_window_forwards_filters_to_service(self) -> None:
-        """Optional from_time/to_time must be validated and forwarded to the service."""
-        params = {**_VALID_PARAMS, "from_time": "12:00", "to_time": "14:30"}
+    def test_success_with_from_time_forwards_filter_to_service(self) -> None:
+        """Optional from_time must be validated and forwarded to the service."""
+        params = {**_VALID_PARAMS, "from_time": "12:00"}
 
         result = self.HANDLER.lambda_handler(make_get_event(_PATH, params), {})
 
@@ -78,7 +77,6 @@ class TestAvailableTables(ApiHandlerLambdaTestCase):
             booking_date=_TOMORROW,
             guests_number=2,
             from_time="12:00",
-            to_time="14:30",
         )
 
     def test_invalid_guests_number_returns_422(self) -> None:
@@ -174,12 +172,12 @@ class TestAvailableTables(ApiHandlerLambdaTestCase):
         self.assertEqual(status(result), 422)
         self.HANDLER._table_availability_service.get_available_tables.assert_not_called()
 
-    def test_invalid_time_window_returns_422(self) -> None:
-        """to_time earlier than from_time should fail validation."""
+    def test_invalid_from_time_format_bad_value_returns_422(self) -> None:
+        """from_time with invalid format should fail validation and return 422."""
         result = self.HANDLER.lambda_handler(
             make_get_event(
                 _PATH,
-                {**_VALID_PARAMS, "from_time": "14:00", "to_time": "12:00"},
+                {**_VALID_PARAMS, "from_time": "25:00"},
             ),
             {},
         )
