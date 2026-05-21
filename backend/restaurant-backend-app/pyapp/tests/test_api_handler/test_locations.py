@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock
 from uuid import uuid4
 
-from dto.locations import LocationNameResponse, LocationResponse
+from dto.locations import LocationAddressResponse, LocationResponse
 from pyapp.tests.test_api_handler import ApiHandlerLambdaTestCase, body, status
 
 _PATH = "/locations"
@@ -22,19 +22,19 @@ class TestLocationsEndpoint(ApiHandlerLambdaTestCase):
                 id=location_id_1,
                 address="123 Main Street",
                 description="Downtown location",
-                total_capacity="50",
-                average_occupancy="75",
+                total_capacity=50,
+                average_occupancy=75,
                 image_url="https://example.com/downtown.jpg",
-                rating="4.5",
+                rating=4.5,
             ),
             LocationResponse(
                 id=location_id_2,
                 address="456 Airport Boulevard",
                 description="Airport location",
-                total_capacity="40",
-                average_occupancy="60",
+                total_capacity=40,
+                average_occupancy=60,
                 image_url="https://example.com/airport.jpg",
-                rating="4.2",
+                rating=4.2,
             ),
         ]
         self.HANDLER._locations_service.get_locations = MagicMock(
@@ -74,10 +74,10 @@ class TestLocationsEndpoint(ApiHandlerLambdaTestCase):
             id=location_id,
             address="123 Main Street",
             description="Test location",
-            total_capacity="50",
-            average_occupancy="75",
+            total_capacity=50,
+            average_occupancy=75,
             image_url="https://example.com/test.jpg",
-            rating="4.5",
+            rating=4.5,
         )
         self.HANDLER._locations_service.get_locations = MagicMock(
             return_value=[mock_location]
@@ -118,10 +118,10 @@ class TestLocationsEndpoint(ApiHandlerLambdaTestCase):
                 id=str(uuid4()),
                 address="123 Main Street",
                 description="Downtown",
-                total_capacity="50",
-                average_occupancy="75",
+                total_capacity=50,
+                average_occupancy=75,
                 image_url="https://example.com/test.jpg",
-                rating="4.5",
+                rating=4.5,
             )
         ]
         self.HANDLER._locations_service.get_locations = MagicMock(
@@ -145,10 +145,10 @@ class TestLocationsEndpoint(ApiHandlerLambdaTestCase):
             id=location_id,
             address="123 Main Street",
             description="Downtown location",
-            total_capacity="50",
-            average_occupancy="75",
+            total_capacity=50,
+            average_occupancy=75,
             image_url="https://example.com/downtown.jpg",
-            rating="4.5",
+            rating=4.5,
         )
         self.HANDLER._locations_service.get_location_by_id = MagicMock(
             return_value=mock_location
@@ -210,11 +210,11 @@ class TestLocationsEndpoint(ApiHandlerLambdaTestCase):
         location_id_1 = str(uuid4())
         location_id_2 = str(uuid4())
         mock_names = [
-            LocationNameResponse(
+            LocationAddressResponse(
                 location_id=location_id_1,
                 location_address="123 Main Street",
             ),
-            LocationNameResponse(
+            LocationAddressResponse(
                 location_id=location_id_2,
                 location_address="456 Airport Boulevard",
             ),

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from dto.locations import LocationNameResponse, LocationResponse
+from dto.locations import LocationAddressResponse, LocationResponse
 from repositories.feedback_cuisine_repository import FeedbackCuisineRepository
 from repositories.location_repository import LocationRepository
 from repositories.table_repository import TableRepository
@@ -36,7 +36,7 @@ class LocationsService:
                 address=location.address,
                 description=location.description,
                 # TODO: ukoliko se predje na RDS, ovo bi trebalo da se izracunava direktno u upitu
-                total_capacity=str(self._calculate_total_capacity(location.id)),
+                total_capacity=self._calculate_total_capacity(location.id),
                 # TODO: trenutno simulirano zbog demo-a, ovo bi trebalo da se izracunava direktno u upitu
                 average_occupancy=self._simulate_average_occupancy(location.id),
                 image_url=location.image_url,
@@ -46,11 +46,11 @@ class LocationsService:
             for location in locations
         ]
 
-    def get_location_addresses(self) -> list[LocationNameResponse]:
+    def get_location_addresses(self) -> list[LocationAddressResponse]:
         """Return all location ids and addresses for compact picker/filter responses."""
         locations = self._location_repository.scan()
         return [
-            LocationNameResponse(
+            LocationAddressResponse(
                 location_id=str(location.id),
                 location_address=location.address,
             )
@@ -67,14 +67,14 @@ class LocationsService:
             id=str(location.id),
             address=location.address,
             description=location.description,
-            total_capacity=str(self._calculate_total_capacity(location.id)),
+            total_capacity=self._calculate_total_capacity(location.id),
             average_occupancy=self._simulate_average_occupancy(location.id),
             image_url=location.image_url,
             rating=self._calculate_rating(location.id),
         )
 
-    def _calculate_rating(self, location_id) -> str:
-        """Calculate the average rating for a location from cuisine feedback only. Returns as a string with 1 decimal place, or '0' if no ratings."""
+    def _calculate_rating(self, location_id) -> float:
+        """Calculate the average rating for a location from cuisine feedback only. Returns 1 decimal place, or 0.0 if no ratings."""
         feedbacks = list(
             self._feedback_cuisine_repository.find_by_location_id(location_id)
         )
@@ -82,9 +82,9 @@ class LocationsService:
             f.rate for f in feedbacks if hasattr(f, "rate") and f.rate is not None
         ]
         if not ratings:
-            return "0"
+            return 0.0
         avg = sum(ratings) / len(ratings)
-        return f"{avg:.1f}"
+        return round(avg, 1)
 
     def _calculate_total_capacity(self, location_id) -> int:
         """Return total seating capacity for a location as sum of table capacities."""
@@ -92,6 +92,6 @@ class LocationsService:
         return sum(table.capacity for table in tables)
 
     @staticmethod
-    def _simulate_average_occupancy(location_id: UUID) -> str:
+    def _simulate_average_occupancy(location_id: UUID) -> int:
         """Return a stable placeholder occupancy between 25 and 100 inclusive."""
-        return str(25 + (location_id.int % 76))
+        return 25 + (location_id.int % 76)

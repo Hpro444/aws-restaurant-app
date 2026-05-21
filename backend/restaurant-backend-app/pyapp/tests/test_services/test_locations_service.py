@@ -11,7 +11,7 @@ with ImportFromSourceContext():
 
     from domain.location import Location
     from domain.table import Table
-    from dto.locations import LocationNameResponse, LocationResponse
+    from dto.locations import LocationAddressResponse, LocationResponse
     from services.locations_service import LocationsService
 
 
@@ -107,21 +107,21 @@ class TestLocationsService(TestCase):
             self.table_2,
         ]
         result = self.service.get_locations()
-        self.assertEqual(result[0].total_capacity, "10")
+        self.assertEqual(result[0].total_capacity, 10)
 
     def test_get_locations_total_capacity_is_zero_when_no_tables(self) -> None:
-        """LocationResponse.total_capacity must be '0' when a location has no tables."""
+        """LocationResponse.total_capacity must be 0 when a location has no tables."""
         self.mock_location_repo.scan.return_value = [self.location_1]
         self.mock_table_repo.find_by_location_id.return_value = []
         result = self.service.get_locations()
-        self.assertEqual(result[0].total_capacity, "0")
+        self.assertEqual(result[0].total_capacity, 0)
 
     def test_get_locations_sets_hardcoded_average_occupancy(self) -> None:
         """LocationResponse.average_occupancy must be a placeholder between 25 and 100."""
         self.mock_location_repo.scan.return_value = [self.location_1]
         self._mock_empty_tables_for_locations()
         result = self.service.get_locations()
-        occupancy = int(result[0].average_occupancy)
+        occupancy = result[0].average_occupancy
         self.assertGreaterEqual(occupancy, 25)
         self.assertLessEqual(occupancy, 100)
 
@@ -134,11 +134,11 @@ class TestLocationsService(TestCase):
         self.assertEqual(first, second)
 
     def test_get_locations_rating_is_zero_when_no_feedback(self) -> None:
-        """LocationResponse.rating is '0' when there is no culinary feedback."""
+        """LocationResponse.rating is 0.0 when there is no culinary feedback."""
         self.mock_location_repo.scan.return_value = [self.location_1]
         self._mock_empty_tables_for_locations()
         result = self.service.get_locations()
-        self.assertEqual(result[0].rating, "0")
+        self.assertEqual(result[0].rating, 0.0)
 
     def test_get_locations_returns_empty_list_when_no_locations(self) -> None:
         """get_locations should return an empty list when repository returns no locations."""
@@ -182,25 +182,25 @@ class TestLocationsService(TestCase):
             self.assertIsInstance(item, LocationResponse)
 
     def test_get_locations_rating_zero_if_no_culinary_feedback(self) -> None:
-        """LocationResponse.rating is '0' if there is no culinary feedback for the location."""
+        """LocationResponse.rating is 0.0 if there is no culinary feedback for the location."""
         self.mock_location_repo.scan.return_value = [self.location_1]
         self._mock_empty_tables_for_locations()
         self.mock_feedback_cuisine_repo.find_by_location_id.return_value = []
         result = self.service.get_locations()
-        self.assertEqual(result[0].rating, "0")
+        self.assertEqual(result[0].rating, 0.0)
 
     def test_get_locations_rating_single_feedback(self) -> None:
-        """LocationResponse.rating equals the single culinary feedback rating as a decimal string."""
+        """LocationResponse.rating equals the single culinary feedback rating as a 1-decimal float."""
         self.mock_location_repo.scan.return_value = [self.location_1]
         self._mock_empty_tables_for_locations()
         self.mock_feedback_cuisine_repo.find_by_location_id.return_value = [
             MagicMock(rate=4)
         ]
         result = self.service.get_locations()
-        self.assertEqual(result[0].rating, "4.0")
+        self.assertEqual(result[0].rating, 4.0)
 
     def test_get_locations_rating_multiple_feedbacks(self) -> None:
-        """LocationResponse.rating is the average of all culinary feedback ratings, 1 decimal place."""
+        """LocationResponse.rating is the average of all culinary feedback ratings as a 1-decimal float."""
         self.mock_location_repo.scan.return_value = [self.location_1]
         self._mock_empty_tables_for_locations()
         self.mock_feedback_cuisine_repo.find_by_location_id.return_value = [
@@ -209,7 +209,7 @@ class TestLocationsService(TestCase):
             MagicMock(rate=4),
         ]
         result = self.service.get_locations()
-        self.assertEqual(result[0].rating, "4.0")
+        self.assertEqual(result[0].rating, 4.0)
 
     def test_get_locations_rating_ignores_none_ratings(self) -> None:
         """LocationResponse.rating ignores feedbacks with rating=None."""
@@ -221,7 +221,7 @@ class TestLocationsService(TestCase):
             MagicMock(rate=1),
         ]
         result = self.service.get_locations()
-        self.assertEqual(result[0].rating, "3.0")
+        self.assertEqual(result[0].rating, 3.0)
 
     def test_get_location_by_id_success(self) -> None:
         """get_location_by_id returns a LocationResponse when location exists."""
@@ -240,9 +240,9 @@ class TestLocationsService(TestCase):
         self.assertIsNotNone(result)
         assert result is not None
         self.assertEqual(result.id, str(self.location_1.id))
-        self.assertEqual(result.total_capacity, "10")
+        self.assertEqual(result.total_capacity, 10)
         self.assertEqual(result.image_url, self.location_1.image_url)
-        self.assertEqual(result.rating, "4.0")
+        self.assertEqual(result.rating, 4.0)
 
     def test_get_location_by_id_returns_none_when_missing(self) -> None:
         """get_location_by_id returns None when repository has no location for id."""
@@ -253,18 +253,18 @@ class TestLocationsService(TestCase):
         self.assertIsNone(result)
 
     def test_get_location_addresses_success_returns_list(self) -> None:
-        """get_location_addresses should return a list of LocationNameResponse objects."""
+        """get_location_addresses should return a list of LocationAddressResponse objects."""
         self.mock_location_repo.scan.return_value = [self.location_1, self.location_2]
 
         result = self.service.get_location_addresses()
 
         self.assertIsInstance(result, list)
         self.assertEqual(len(result), 2)
-        self.assertIsInstance(result[0], LocationNameResponse)
-        self.assertIsInstance(result[1], LocationNameResponse)
+        self.assertIsInstance(result[0], LocationAddressResponse)
+        self.assertIsInstance(result[1], LocationAddressResponse)
 
     def test_get_location_addresses_maps_location_address_field(self) -> None:
-        """LocationNameResponse.location_address must match Location.address."""
+        """LocationAddressResponse.location_address must match Location.address."""
         self.mock_location_repo.scan.return_value = [self.location_1]
 
         result = self.service.get_location_addresses()
@@ -272,7 +272,7 @@ class TestLocationsService(TestCase):
         self.assertEqual(result[0].location_address, self.location_1.address)
 
     def test_get_location_addresses_maps_location_id_field(self) -> None:
-        """LocationNameResponse.location_id must match Location.id as string."""
+        """LocationAddressResponse.location_id must match Location.id as string."""
         self.mock_location_repo.scan.return_value = [self.location_1]
 
         result = self.service.get_location_addresses()
