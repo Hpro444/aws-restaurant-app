@@ -1,9 +1,9 @@
 """Service-level tests for ReservationManagementService rules."""
 
+import unittest
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-import pytest
 from commons.exceptions import ApplicationException
 from domain.location import Location
 from domain.reservation import Reservation
@@ -138,216 +138,213 @@ def _build_service(start_in_minutes=120):
     return service, reservation, customer_id, waiter_id
 
 
-def test_customer_can_list_dashboard_reservations():
-    """Customer should get own reservations in dashboard response."""
-    service, reservation, customer_id, _ = _build_service()
+class TestReservationManagementService(unittest.TestCase):
+    """Tests for ReservationManagementService cancel/update business rules."""
 
-    response = service.list_for_dashboard(customer_id, UserRole.CUSTOMER.value)
+    def test_customer_can_list_dashboard_reservations(self):
+        """Customer should get own reservations in dashboard response."""
+        service, reservation, customer_id, _ = _build_service()
 
-    assert len(response.reservations) == 1
-    dashboard_item = response.reservations[0]
-    assert dashboard_item.reservation_id == str(reservation.id)
-    assert dashboard_item.status == ReservationStatus.RESERVED.value
-    assert dashboard_item.location_name == "48 Rustaveli Avenue, Tbilisi"
-    assert dashboard_item.date
-    assert dashboard_item.time_from
-    assert dashboard_item.time_to
-    assert dashboard_item.guests_number == 4
+        response = service.list_for_dashboard(customer_id, UserRole.CUSTOMER.value)
 
+        self.assertEqual(len(response.reservations), 1)
+        item = response.reservations[0]
+        self.assertEqual(item.reservation_id, str(reservation.id))
+        self.assertEqual(item.status, ReservationStatus.RESERVED.value)
+        self.assertEqual(item.location_name, "48 Rustaveli Avenue, Tbilisi")
+        self.assertTrue(item.date)
+        self.assertTrue(item.time_from)
+        self.assertTrue(item.time_to)
+        self.assertEqual(item.guests_number, 4)
 
-def test_cancel_fails_within_cutoff_window():
-    """Cancel is blocked when reservation starts within 30 minutes."""
-    service, reservation, customer_id, _ = _build_service(start_in_minutes=20)
+    def test_cancel_fails_within_cutoff_window(self):
+        """Cancel is blocked when reservation starts within 30 minutes."""
+        service, reservation, customer_id, _ = _build_service(start_in_minutes=20)
 
-    with pytest.raises(ApplicationException) as exc:
-        service.cancel_reservation(
+        with self.assertRaises(ApplicationException) as ctx:
+            service.cancel_reservation(
+                reservation_id=reservation.id,
+                actor_id=customer_id,
+                role=UserRole.CUSTOMER.value,
+            )
+
+        self.assertEqual(ctx.exception.code, 422)
+
+    def test_cancel_sets_status_cancelled_and_releases_slot(self):
+        """Successful cancel updates reservation status and frees reserved slots."""
+        service, reservation, customer_id, _ = _build_service(start_in_minutes=120)
+
+        response = service.cancel_reservation(
             reservation_id=reservation.id,
             actor_id=customer_id,
             role=UserRole.CUSTOMER.value,
         )
 
-    assert exc.value.code == 422
+        self.assertEqual(response.status, ReservationStatus.CANCELLED.value)
 
+    def test_assigned_waiter_can_progress_status_to_finished(self):
+        """Assigned waiter can move reservation RESERVED->IN_PROGRESS->FINISHED."""
+        service, reservation, _, waiter_id = _build_service(start_in_minutes=120)
 
-def test_cancel_sets_status_cancelled_and_releases_slot():
-    """Successful cancel updates reservation status and frees reserved slots."""
-    service, reservation, customer_id, _ = _build_service(start_in_minutes=120)
-
-    response = service.cancel_reservation(
-        reservation_id=reservation.id,
-        actor_id=customer_id,
-        role=UserRole.CUSTOMER.value,
-    )
-
-    assert response.status == ReservationStatus.CANCELLED.value
-
-
-def test_assigned_waiter_can_progress_status_to_finished():
-    """Assigned waiter can move reservation RESERVED->IN_PROGRESS->FINISHED."""
-    service, reservation, _, waiter_id = _build_service(start_in_minutes=120)
-
-    in_progress = service.update_reservation(
-        reservation_id=reservation.id,
-        request=UpdateReservationRequest(status=ReservationStatus.IN_PROGRESS),
-        actor_id=waiter_id,
-        role=UserRole.WAITER.value,
-    )
-    assert in_progress.status == ReservationStatus.IN_PROGRESS.value
-
-    finished = service.update_reservation(
-        reservation_id=reservation.id,
-        request=UpdateReservationRequest(status=ReservationStatus.FINISHED),
-        actor_id=waiter_id,
-        role=UserRole.WAITER.value,
-    )
-    assert finished.status == ReservationStatus.FINISHED.value
-
-
-def test_customer_cannot_set_in_progress_status():
-    """Customer must not be allowed to run waiter-only status transitions."""
-    service, reservation, customer_id, _ = _build_service(start_in_minutes=120)
-
-    with pytest.raises(ApplicationException) as exc:
-        service.update_reservation(
+        in_progress = service.update_reservation(
             reservation_id=reservation.id,
             request=UpdateReservationRequest(status=ReservationStatus.IN_PROGRESS),
+            actor_id=waiter_id,
+            role=UserRole.WAITER.value,
+        )
+        self.assertEqual(in_progress.status, ReservationStatus.IN_PROGRESS.value)
+
+        finished = service.update_reservation(
+            reservation_id=reservation.id,
+            request=UpdateReservationRequest(status=ReservationStatus.FINISHED),
+            actor_id=waiter_id,
+            role=UserRole.WAITER.value,
+        )
+        self.assertEqual(finished.status, ReservationStatus.FINISHED.value)
+
+    def test_customer_cannot_set_in_progress_status(self):
+        """Customer must not be allowed to run waiter-only status transitions."""
+        service, reservation, customer_id, _ = _build_service(start_in_minutes=120)
+
+        with self.assertRaises(ApplicationException) as ctx:
+            service.update_reservation(
+                reservation_id=reservation.id,
+                request=UpdateReservationRequest(status=ReservationStatus.IN_PROGRESS),
+                actor_id=customer_id,
+                role=UserRole.CUSTOMER.value,
+            )
+
+        self.assertEqual(ctx.exception.code, 403)
+
+    def test_assigned_waiter_can_cancel(self):
+        """Assigned waiter is permitted to cancel the reservation before cutoff."""
+        service, reservation, _, waiter_id = _build_service(start_in_minutes=120)
+
+        response = service.cancel_reservation(
+            reservation_id=reservation.id,
+            actor_id=waiter_id,
+            role=UserRole.WAITER.value,
+        )
+
+        self.assertEqual(response.status, ReservationStatus.CANCELLED.value)
+
+    def test_unrelated_customer_cannot_cancel(self):
+        """A customer who does not own the reservation receives 403."""
+        service, reservation, _, _ = _build_service(start_in_minutes=120)
+        other_customer_id = uuid4()
+
+        with self.assertRaises(ApplicationException) as ctx:
+            service.cancel_reservation(
+                reservation_id=reservation.id,
+                actor_id=other_customer_id,
+                role=UserRole.CUSTOMER.value,
+            )
+
+        self.assertEqual(ctx.exception.code, 403)
+
+    def test_cancel_already_cancelled_reservation_raises_422(self):
+        """Cancelling a reservation that is already CANCELLED raises 422."""
+        service, reservation, customer_id, _ = _build_service(start_in_minutes=120)
+        reservation.status = ReservationStatus.CANCELLED
+
+        with self.assertRaises(ApplicationException) as ctx:
+            service.cancel_reservation(
+                reservation_id=reservation.id,
+                actor_id=customer_id,
+                role=UserRole.CUSTOMER.value,
+            )
+
+        self.assertEqual(ctx.exception.code, 422)
+
+    def test_cancel_29_minutes_before_start_raises_422(self):
+        """Cancel at 29 minutes before start is inside the 30-minute cutoff window."""
+        service, reservation, customer_id, _ = _build_service(start_in_minutes=29)
+
+        with self.assertRaises(ApplicationException) as ctx:
+            service.cancel_reservation(
+                reservation_id=reservation.id,
+                actor_id=customer_id,
+                role=UserRole.CUSTOMER.value,
+            )
+
+        self.assertEqual(ctx.exception.code, 422)
+
+    def test_cancel_31_minutes_before_start_succeeds(self):
+        """Cancel at 31 minutes before start is just outside the cutoff window."""
+        service, reservation, customer_id, _ = _build_service(start_in_minutes=31)
+
+        response = service.cancel_reservation(
+            reservation_id=reservation.id,
             actor_id=customer_id,
             role=UserRole.CUSTOMER.value,
         )
 
-    assert exc.value.code == 403
+        self.assertEqual(response.status, ReservationStatus.CANCELLED.value)
 
+    def test_cancel_releases_all_slots_in_multi_slot_reservation(self):
+        """Every slot in a multi-slot reservation is set to FREE on cancellation."""
+        customer_id = uuid4()
+        waiter_id = uuid4()
+        location_id = uuid4()
+        table_id = uuid4()
+        slot_id_1, slot_id_2 = uuid4(), uuid4()
 
-def test_assigned_waiter_can_cancel():
-    """Assigned waiter is permitted to cancel the reservation before cutoff."""
-    service, reservation, _, waiter_id = _build_service(start_in_minutes=120)
+        start_time = datetime.now(UTC) + timedelta(minutes=120)
+        boundary = start_time + timedelta(minutes=90)
+        end_time = boundary + timedelta(minutes=90)
 
-    response = service.cancel_reservation(
-        reservation_id=reservation.id,
-        actor_id=waiter_id,
-        role=UserRole.WAITER.value,
-    )
-
-    assert response.status == ReservationStatus.CANCELLED.value
-
-
-def test_unrelated_customer_cannot_cancel():
-    """A customer who does not own the reservation receives 403."""
-    service, reservation, _, _ = _build_service(start_in_minutes=120)
-    other_customer_id = uuid4()
-
-    with pytest.raises(ApplicationException) as exc:
-        service.cancel_reservation(
-            reservation_id=reservation.id,
-            actor_id=other_customer_id,
-            role=UserRole.CUSTOMER.value,
+        reservation = Reservation(
+            id=uuid4(),
+            customer_id=customer_id,
+            waiter_id=waiter_id,
+            created_at=datetime.now(UTC),
+            slot_ids=[slot_id_1, slot_id_2],
+            status=ReservationStatus.RESERVED,
+            number_of_guests=4,
+        )
+        slot1 = Slot(
+            id=slot_id_1,
+            table_id=table_id,
+            start_time=start_time,
+            end_time=boundary,
+            date=start_time,
+            status=SlotStatus.RESERVED,
+        )
+        slot2 = Slot(
+            id=slot_id_2,
+            table_id=table_id,
+            start_time=boundary,
+            end_time=end_time,
+            date=boundary,
+            status=SlotStatus.RESERVED,
+        )
+        table = Table(id=table_id, table_number=3, capacity=4, location_id=location_id)
+        location = Location(
+            id=location_id,
+            name="48 Rustaveli Avenue, Tbilisi",
+            address="48 Rustaveli Avenue, Tbilisi",
+            description="Test location",
+            image_url="https://example.com/location.jpg",
+            open_time=datetime.now(UTC).time(),
+            close_time=datetime.now(UTC).time(),
         )
 
-    assert exc.value.code == 403
+        slot_repo = DummySlotRepo([slot1, slot2])
+        service = ReservationManagementService()
+        service._reservation_repo = DummyReservationRepo(reservation)
+        service._slot_repo = slot_repo
+        service._table_repo = DummyTableRepo(table)
+        service._location_repo = DummyLocationRepo(location)
 
-
-def test_cancel_already_cancelled_reservation_raises_422():
-    """Cancelling a reservation that is already CANCELLED raises 422."""
-    service, reservation, customer_id, _ = _build_service(start_in_minutes=120)
-    reservation.status = ReservationStatus.CANCELLED
-
-    with pytest.raises(ApplicationException) as exc:
         service.cancel_reservation(
             reservation_id=reservation.id,
             actor_id=customer_id,
             role=UserRole.CUSTOMER.value,
         )
 
-    assert exc.value.code == 422
+        self.assertEqual(slot1.status, SlotStatus.FREE)
+        self.assertEqual(slot2.status, SlotStatus.FREE)
 
 
-def test_cancel_29_minutes_before_start_raises_422():
-    """Cancel at 29 minutes before start is inside the 30-minute cutoff window."""
-    service, reservation, customer_id, _ = _build_service(start_in_minutes=29)
-
-    with pytest.raises(ApplicationException) as exc:
-        service.cancel_reservation(
-            reservation_id=reservation.id,
-            actor_id=customer_id,
-            role=UserRole.CUSTOMER.value,
-        )
-
-    assert exc.value.code == 422
-
-
-def test_cancel_31_minutes_before_start_succeeds():
-    """Cancel at 31 minutes before start is just outside the cutoff window."""
-    service, reservation, customer_id, _ = _build_service(start_in_minutes=31)
-
-    response = service.cancel_reservation(
-        reservation_id=reservation.id,
-        actor_id=customer_id,
-        role=UserRole.CUSTOMER.value,
-    )
-
-    assert response.status == ReservationStatus.CANCELLED.value
-
-
-def test_cancel_releases_all_slots_in_multi_slot_reservation():
-    """Every slot in a multi-slot reservation is set to FREE on cancellation."""
-    customer_id = uuid4()
-    waiter_id = uuid4()
-    location_id = uuid4()
-    table_id = uuid4()
-    slot_id_1, slot_id_2 = uuid4(), uuid4()
-
-    start_time = datetime.now(UTC) + timedelta(minutes=120)
-    boundary = start_time + timedelta(minutes=90)
-    end_time = boundary + timedelta(minutes=90)
-
-    reservation = Reservation(
-        id=uuid4(),
-        customer_id=customer_id,
-        waiter_id=waiter_id,
-        created_at=datetime.now(UTC),
-        slot_ids=[slot_id_1, slot_id_2],
-        status=ReservationStatus.RESERVED,
-        number_of_guests=4,
-    )
-    slot1 = Slot(
-        id=slot_id_1,
-        table_id=table_id,
-        start_time=start_time,
-        end_time=boundary,
-        date=start_time,
-        status=SlotStatus.RESERVED,
-    )
-    slot2 = Slot(
-        id=slot_id_2,
-        table_id=table_id,
-        start_time=boundary,
-        end_time=end_time,
-        date=boundary,
-        status=SlotStatus.RESERVED,
-    )
-    table = Table(id=table_id, table_number=3, capacity=4, location_id=location_id)
-    location = Location(
-        id=location_id,
-        name="48 Rustaveli Avenue, Tbilisi",
-        address="48 Rustaveli Avenue, Tbilisi",
-        description="Test location",
-        image_url="https://example.com/location.jpg",
-        open_time=datetime.now(UTC).time(),
-        close_time=datetime.now(UTC).time(),
-    )
-
-    slot_repo = DummySlotRepo([slot1, slot2])
-    service = ReservationManagementService()
-    service._reservation_repo = DummyReservationRepo(reservation)
-    service._slot_repo = slot_repo
-    service._table_repo = DummyTableRepo(table)
-    service._location_repo = DummyLocationRepo(location)
-
-    service.cancel_reservation(
-        reservation_id=reservation.id,
-        actor_id=customer_id,
-        role=UserRole.CUSTOMER.value,
-    )
-
-    assert slot1.status == SlotStatus.FREE
-    assert slot2.status == SlotStatus.FREE
+if __name__ == "__main__":
+    unittest.main()

@@ -15,21 +15,21 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             fname="Alice",
             lname="Smith",
             email="alice@example.com",
-            image_url="https://images.example.com/customers/alice.jpg",
+            image_url="http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/user_img.png",
         ),
         Customer(
             id=seed_id("customer", "bob"),
             fname="Bob",
             lname="Johnson",
             email="bob@example.com",
-            image_url="https://images.example.com/customers/bob.jpg",
+            image_url="http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/user_img.png",
         ),
         Customer(
             id=seed_id("customer", "carol"),
             fname="Carol",
             lname="Williams",
             email="carol@example.com",
-            image_url="https://images.example.com/customers/carol.jpg",
+            image_url="http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/user_img.png",
         ),
     ]
 

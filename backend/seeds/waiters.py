@@ -22,7 +22,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             fname="Lea",
             lname="Martinez",
             email="lea@example.com",
-            image_url="https://images.example.com/waiters/lea.jpg",
+            image_url="http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/user_img.png",
             location_id=locations[downtown_id].id,
         ),
         Waiter(
@@ -30,7 +30,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             fname="Max",
             lname="Fischer",
             email="max@example.com",
-            image_url="https://images.example.com/waiters/max.jpg",
+            image_url="http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/user_img.png",
             location_id=locations[airport_id].id,
         ),
     ]
