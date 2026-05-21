@@ -39,7 +39,7 @@ class TestRefresh(ApiHandlerLambdaTestCase):
         )
         result = self.HANDLER.lambda_handler(make_event(_PATH, "POST", _VALID_BODY), {})
         self.assertEqual(status(result), 401)
-        self.assertEqual(body(result), "Invalid or expired refresh token")
+        self.assertEqual(body(result)["message"], "Invalid or expired refresh token")
 
     def test_missing_refresh_token_returns_422(self) -> None:
         """A request without a refresh_token field should return 422."""

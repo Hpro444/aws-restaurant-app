@@ -123,6 +123,7 @@ class TestCreateBooking(ApiHandlerLambdaTestCase):
         result = self.HANDLER.lambda_handler(event, {})
 
         self.assertEqual(status(result), 401)
+        self.assertEqual(body(result)["message"], "Invalid or expired access token")
         self.HANDLER._booking_service.create_booking.assert_not_called()
 
     def test_non_customer_role_returns_403(self) -> None:
@@ -206,6 +207,9 @@ class TestCreateBooking(ApiHandlerLambdaTestCase):
         result = self.HANDLER.lambda_handler(event, {})
 
         self.assertEqual(status(result), 404)
+        self.assertEqual(
+            body(result)["message"], "Table not found for the specified location"
+        )
 
     def test_capacity_exceeded_returns_422(self) -> None:
         """Guests exceeding capacity is a service-level 422."""
@@ -255,3 +259,6 @@ class TestCreateBooking(ApiHandlerLambdaTestCase):
         result = self.HANDLER.lambda_handler(event, {})
 
         self.assertEqual(status(result), 409)
+        self.assertEqual(
+            body(result)["message"], "One or more selected slots are already reserved"
+        )

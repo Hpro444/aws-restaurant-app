@@ -86,7 +86,7 @@ class TestUserProfile(ApiHandlerLambdaTestCase):
         event = make_event(_PATH, "GET", headers=_HEADERS)
         result = self.HANDLER.lambda_handler(event, {})
         self.assertEqual(status(result), 401)
-        self.assertEqual(body(result), "Invalid or expired access token")
+        self.assertEqual(body(result)["message"], "Invalid or expired access token")
 
     def test_profile_not_found_returns_404(self):
         """Return 404 when profile lookup returns no user record."""
@@ -99,7 +99,7 @@ class TestUserProfile(ApiHandlerLambdaTestCase):
         event = make_event(_PATH, "GET", headers=_HEADERS)
         result = self.HANDLER.lambda_handler(event, {})
         self.assertEqual(status(result), 404)
-        self.assertEqual(body(result), "Profile not found")
+        self.assertEqual(body(result)["message"], "Profile not found")
 
     def test_admin_profile_success(self):
         """Return 200 and admin payload when token resolves to admin role."""
@@ -128,7 +128,7 @@ class TestUserProfile(ApiHandlerLambdaTestCase):
         event = make_event(_PATH, "GET", headers=_HEADERS)
         result = self.HANDLER.lambda_handler(event, {})
         self.assertEqual(status(result), 403)
-        self.assertIn("Role is not supported", body(result))
+        self.assertIn("Role is not supported", body(result)["message"])
 
 
 _UPDATE_BODY = {
