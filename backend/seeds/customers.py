@@ -4,6 +4,8 @@ from domain.user import Customer  # type: ignore[import-not-found]
 
 from seeds.utils import seed_id
 
+_S3 = "https://epam-restaurantapp-dev-eu-west-3-frontend.s3.eu-west-3.amazonaws.com/images"
+
 
 def seed(dynamodb, tables: dict, context: dict) -> None:
     """Seed 3 demo customers and write them to context['customers']."""
@@ -15,21 +17,21 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             fname="Alice",
             lname="Smith",
             email="alice@example.com",
-            image_url="http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/user_img.png",
+            image_url=f"{_S3}/user_avatar_1.png",
         ),
         Customer(
             id=seed_id("customer", "bob"),
             fname="Bob",
             lname="Johnson",
             email="bob@example.com",
-            image_url="http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/user_img.png",
+            image_url=f"{_S3}/user_avatar_2.png",
         ),
         Customer(
             id=seed_id("customer", "carol"),
             fname="Carol",
             lname="Williams",
             email="carol@example.com",
-            image_url="http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/user_img.png",
+            image_url=f"{_S3}/user_avatar_3.png",
         ),
     ]
 

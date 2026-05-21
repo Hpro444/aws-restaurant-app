@@ -112,7 +112,7 @@ class ApiHandler(AbstractLambda):
         if path == "/users/profile" and method == "PUT":
             return self._update_user_profile(event)
 
-        if path == "/locations/names" and method == "GET":
+        if path == "/locations/select-options" and method == "GET":
             return self._get_location_addresses()
 
         # TODO: there should be an universal helper function to handle paths like that end with "/{id}", like here "/locations/{id}"

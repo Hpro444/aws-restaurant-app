@@ -4,6 +4,8 @@ from domain.user import Waiter  # type: ignore[import-not-found]
 
 from seeds.utils import seed_id
 
+_S3 = "https://epam-restaurantapp-dev-eu-west-3-frontend.s3.eu-west-3.amazonaws.com/images"
+
 
 def seed(dynamodb, tables: dict, context: dict) -> None:
     """Seed demo waiters and write them to context['waiters'].
@@ -23,7 +25,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             fname="Lea",
             lname="Martinez",
             email="lea@example.com",
-            image_url="http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/user_img.png",
+            image_url=f"{_S3}/user_avatar_1.png",
             location_id=locations[downtown_id].id,
         ),
         Waiter(
@@ -31,7 +33,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             fname="Max",
             lname="Fischer",
             email="max@example.com",
-            image_url="http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/user_img.png",
+            image_url=f"{_S3}/user_avatar_2.png",
             location_id=locations[airport_id].id,
         ),
         Waiter(
@@ -39,7 +41,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             fname="Nina",
             lname="Beridze",
             email="nina@example.com",
-            image_url="http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com/user_img.png",
+            image_url=f"{_S3}/user_avatar_3.png",
             location_id=locations[old_town_id].id,
         ),
     ]

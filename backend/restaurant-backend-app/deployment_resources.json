@@ -301,7 +301,7 @@
           "enable_proxy": true
         }
       },
-      "/locations/names": {
+      "/locations/select-options": {
         "enable_cors": {
           "state": true,
           "custom_headers": [],
