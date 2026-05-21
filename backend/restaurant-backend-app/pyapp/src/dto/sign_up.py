@@ -54,5 +54,4 @@ class SignUpResponse(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    user_id: str
     message: str

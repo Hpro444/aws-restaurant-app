@@ -22,17 +22,15 @@ class TestSignUp(ApiHandlerLambdaTestCase):
     """Tests for the POST /auth/sign-up registration flow."""
 
     def setUp(self) -> None:
-        """Set up handler with a mocked Cognito service."""
+        """Set up handler with a mocked registration service."""
         super().setUp()
-        self.HANDLER._registration_service.register_user = MagicMock(
-            return_value="test-sub-123"
-        )
+        self.HANDLER._registration_service.register_user = MagicMock(return_value=None)
 
-    def test_success_returns_201_with_user_id(self) -> None:
-        """A valid registration request should return 201 with userId and message."""
+    def test_success_returns_201(self) -> None:
+        """A valid registration request should return 201 with a success message."""
         result = self.HANDLER.lambda_handler(make_event(_PATH, "POST", _VALID_BODY), {})
         self.assertEqual(status(result), 201)
-        self.assertEqual(body(result)["user_id"], "test-sub-123")
+        self.assertNotIn("user_id", body(result))
         self.assertEqual(body(result)["message"], "User registered successfully")
 
     def test_missing_field_returns_422(self) -> None:
