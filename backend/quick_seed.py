@@ -20,6 +20,8 @@ from botocore.exceptions import ClientError, NoCredentialsError
 import seeds
 from seeds.utils import seed_id
 
+SLOT_SEED_DAYS_AHEAD = 30
+
 # Add pyapp/src to path so seed modules can import domain models.
 PYAPP_SRC = Path(__file__).parent / "restaurant-backend-app" / "pyapp" / "src"
 sys.path.insert(0, str(PYAPP_SRC))
@@ -257,9 +259,9 @@ def main():
 
     # Summary.
     today_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    last_seeded_date = (datetime.now(timezone.utc) + timedelta(days=7)).strftime(
-        "%Y-%m-%d"
-    )
+    last_seeded_date = (
+        datetime.now(timezone.utc) + timedelta(days=SLOT_SEED_DAYS_AHEAD)
+    ).strftime("%Y-%m-%d")
     downtown_id = seed_id("location", "downtown")
     airport_id = seed_id("location", "airport")
     old_town_id = seed_id("location", "old-town")

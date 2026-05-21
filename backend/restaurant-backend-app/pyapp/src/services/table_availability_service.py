@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date as date_type
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -36,9 +36,10 @@ class TableAvailabilityService:
         1. Location  — only tables whose location_id matches (GSI query).
         2. Capacity  — only tables with capacity >= guests_number.
         3. Date      — only slots on the requested date (GSI query).
-        4. from_time (optional) — snap to the first valid slot start >=
-           from_time; only tables with that slot FREE qualify; return all
-           free slots from that point onwards.
+        4. from_time (optional, auto-selected for today) — snap to the first
+           valid slot start >= from_time; only tables with that slot FREE
+           qualify; return all free slots from that point onwards. For today
+           without explicit from_time, auto-picks the next FREE future slot.
         5. Availability — only slots with ``status == FREE``.
 
     Query flow (for 3 tables with 7 slots each):
@@ -118,10 +119,35 @@ class TableAvailabilityService:
             logger.info("No slots found", date=booking_date)
             return AvailableTablesResponse(tables=[])
 
-        # ── Step 5: Snap from_time and qualify tables ────────────────
-        if from_time:
-            snapped = self._snap_to_slot_start(location.open_time, from_time)
-            logger.info("Snapped from_time", from_time=from_time, snapped=str(snapped))
+        # ── Step 5: Resolve from_time (explicit or auto-selected for today) ──
+        effective_from_time = from_time
+        if not effective_from_time and booking_date == date_type.today().isoformat():
+            now_utc = datetime.now(timezone.utc)
+            future_slots = [
+                s
+                for s in slots
+                if s.status == SlotStatus.FREE and s.start_time >= now_utc
+            ]
+            if not future_slots:
+                logger.info("No future free slots for today", date=booking_date)
+                return AvailableTablesResponse(tables=[])
+            effective_from_time = min(
+                future_slots, key=lambda s: s.start_time
+            ).start_time.strftime("%H:%M")
+            logger.info(
+                "Auto-selected next free slot for today",
+                date=booking_date,
+                auto_from_time=effective_from_time,
+            )
+
+        # ── Step 6: Snap from_time and qualify tables ────────────────
+        if effective_from_time:
+            snapped = self._snap_to_slot_start(location.open_time, effective_from_time)
+            logger.info(
+                "Snapped from_time",
+                from_time=effective_from_time,
+                snapped=str(snapped),
+            )
 
             # Tables must have the snapped slot FREE
             qualifying_ids = {
@@ -141,7 +167,7 @@ class TableAvailabilityService:
                 if s.table_id in qualifying_ids and s.start_time.time() >= snapped
             ]
 
-        # ── Step 6: Filter by availability — keep only FREE slots ────
+        # ── Step 7: Filter by availability — keep only FREE slots ────
         free_slots = [s for s in slots if s.status == SlotStatus.FREE]
         logger.info(
             "Availability computed",
@@ -149,7 +175,7 @@ class TableAvailabilityService:
             free=len(free_slots),
         )
 
-        # ── Step 7: Build response grouped by table ──────────────────
+        # ── Step 8: Build response grouped by table ──────────────────
         return self._build_response(
             suitable_tables,
             free_slots,
