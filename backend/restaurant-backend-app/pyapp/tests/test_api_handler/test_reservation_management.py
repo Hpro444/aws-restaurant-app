@@ -32,7 +32,7 @@ def _reservation_view() -> ReservationView:
         customer_id=str(uuid4()),
         waiter_id=str(uuid4()),
         location_id=str(uuid4()),
-        location_name="1 Freedom Square, Tbilisi",
+        location_address="1 Freedom Square, Tbilisi",
         table_number=5,
         date="2030-01-01",
         time_from="12:00",
@@ -79,7 +79,7 @@ class TestReservationManagement(ApiHandlerLambdaTestCase):
         self.assertEqual(len(payload["reservations"]), 1)
         item = payload["reservations"][0]
         self.assertEqual(item["status"], "RESERVED")
-        self.assertEqual(item["location_name"], "1 Freedom Square, Tbilisi")
+        self.assertEqual(item["location_address"], "1 Freedom Square, Tbilisi")
         self.assertEqual(item["date"], "2030-01-01")
         self.assertEqual(item["timeFrom"], "12:00")
         self.assertEqual(item["timeTo"], "13:30")

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from dto.locations import LocationResponse
+from dto.locations import LocationNameResponse, LocationResponse
 from repositories.feedback_cuisine_repository import FeedbackCuisineRepository
 from repositories.location_repository import LocationRepository
 from repositories.table_repository import TableRepository
@@ -42,6 +42,17 @@ class LocationsService:
                 image_url=location.image_url,
                 # TODO: ukoliko se predje na RDS, ovo bi trebalo da se izracunava direktno u upitu
                 rating=self._calculate_rating(location.id),
+            )
+            for location in locations
+        ]
+
+    def get_location_addresses(self) -> list[LocationNameResponse]:
+        """Return all location ids and addresses for compact picker/filter responses."""
+        locations = self._location_repository.scan()
+        return [
+            LocationNameResponse(
+                location_id=str(location.id),
+                location_address=location.address,
             )
             for location in locations
         ]

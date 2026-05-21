@@ -301,6 +301,28 @@
           "enable_proxy": true
         }
       },
+      "/locations/names": {
+        "enable_cors": {
+          "state": true,
+          "custom_headers": [],
+          "custom_methods": [],
+          "custom_origins": [
+            "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com"
+          ]
+        },
+        "GET": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
+        }
+      },
       "/locations/{id}": {
         "enable_cors": {
           "state": true,

@@ -25,7 +25,7 @@ class ReservationView(BaseModel):
     customer_id: str | None = Field(None, alias="customerId")
     waiter_id: str | None = Field(None, alias="waiterId")
     location_id: str | None = Field(None, alias="locationId")
-    location_name: str | None = Field(None, alias="location_name")
+    location_address: str | None = Field(None, alias="location_address")
     table_number: int | None = Field(None, alias="tableNumber")
     date: str
     time_from: str = Field(..., alias="timeFrom")

@@ -17,6 +17,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
 
     downtown_id = seed_id("location", "downtown")
     airport_id = seed_id("location", "airport")
+    old_town_id = seed_id("location", "old-town")
 
     def first_slots_for_location(location_id, count: int = 3) -> list:
         """Return the first ``count`` slots belonging to the first table of the given location."""
@@ -29,6 +30,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
 
     lea_id = seed_id("waiter", "lea")
     max_id = seed_id("waiter", "max")
+    nina_id = seed_id("waiter", "nina")
 
     shifts = [
         Shift(
@@ -40,6 +42,11 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             id=seed_id("shift", "max:tomorrow"),
             waiter_id=waiters[max_id].id,
             slots=[s.id for s in first_slots_for_location(airport_id)],
+        ),
+        Shift(
+            id=seed_id("shift", "nina:tomorrow"),
+            waiter_id=waiters[nina_id].id,
+            slots=[s.id for s in first_slots_for_location(old_town_id)],
         ),
     ]
 

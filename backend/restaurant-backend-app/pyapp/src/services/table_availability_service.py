@@ -153,7 +153,7 @@ class TableAvailabilityService:
         return self._build_response(
             suitable_tables,
             free_slots,
-            location_name=location.name if location else None,
+            location_address=location.address if location else None,
         )
 
     # ── Private helpers ──────────────────────────────────────────────
@@ -198,7 +198,7 @@ class TableAvailabilityService:
     def _build_response(
         tables: list[Table],
         free_slots: list[Slot],
-        location_name: str | None = None,
+        location_address: str | None = None,
     ) -> AvailableTablesResponse:
         """Group free slots by table and build the response DTO.
 
@@ -229,7 +229,7 @@ class TableAvailabilityService:
                     table_id=str(table.id),
                     table_number=table.table_number,
                     capacity=table.capacity,
-                    location_name=location_name,
+                    location_address=location_address,
                     available_slots=slot_list,
                 )
             )

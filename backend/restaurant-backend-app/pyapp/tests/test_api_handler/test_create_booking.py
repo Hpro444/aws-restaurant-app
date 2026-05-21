@@ -33,7 +33,7 @@ def _success_response() -> CreateBookingResponse:
         reservation_id=str(uuid4()),
         status="RESERVED",
         location_id=_VALID_BODY["locationId"],
-        location_name="4 Chavchavadze Avenue, Tbilisi",
+        location_address="4 Chavchavadze Avenue, Tbilisi",
         table_number=1,
         date=_TOMORROW,
         time_from="12:15",
@@ -67,7 +67,10 @@ class TestCreateBooking(ApiHandlerLambdaTestCase):
         payload = body(result)
         self.assertEqual(payload["status"], "RESERVED")
         self.assertEqual(payload["tableNumber"], 1)
-        self.assertEqual(payload["location_name"], "4 Chavchavadze Avenue, Tbilisi")
+        self.assertEqual(
+            payload["location_address"],
+            "4 Chavchavadze Avenue, Tbilisi",
+        )
         self.assertEqual(payload["timeFrom"], "12:15")
         self.assertEqual(payload["timeTo"], "14:00")
         self.HANDLER._booking_service.create_booking.assert_called_once()
@@ -82,7 +85,7 @@ class TestCreateBooking(ApiHandlerLambdaTestCase):
             reservation_id=str(uuid4()),
             status="RESERVED",
             location_id=_VALID_BODY["locationId"],
-            location_name="4 Chavchavadze Avenue, Tbilisi",
+            location_address="4 Chavchavadze Avenue, Tbilisi",
             table_number=1,
             date=_TOMORROW,
             time_from="12:15",

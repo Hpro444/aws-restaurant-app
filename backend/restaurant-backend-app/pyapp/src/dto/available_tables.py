@@ -82,7 +82,7 @@ class TableAvailabilityResponse(BaseModel):
     table_id: str
     table_number: int
     capacity: int
-    location_name: str | None = Field(None, alias="location_name")
+    location_address: str | None = Field(None, alias="location_address")
     available_slots: list[SlotResponse]
 
 

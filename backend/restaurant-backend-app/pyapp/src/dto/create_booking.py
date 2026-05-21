@@ -101,7 +101,7 @@ class CreateBookingResponse(BaseModel):
     reservation_id: str = Field(..., alias="reservationId")
     status: str
     location_id: str = Field(..., alias="locationId")
-    location_name: str = Field(..., alias="location_name")
+    location_address: str = Field(..., alias="location_address")
     table_number: int = Field(..., alias="tableNumber")
     date: str
     time_from: str = Field(..., alias="timeFrom")

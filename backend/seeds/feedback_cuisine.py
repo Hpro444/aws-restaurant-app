@@ -17,6 +17,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
 
     downtown_id = seed_id("location", "downtown")
     airport_id = seed_id("location", "airport")
+    old_town_id = seed_id("location", "old-town")
 
     alice_id = seed_id("customer", "alice")
     bob_id = seed_id("customer", "bob")
@@ -68,6 +69,30 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             customer_id=carol_id,
             feedback="Minestrone was hearty and warming. Nice to find a proper home-style soup in an airport.",
             location_id=locations[airport_id].id,
+            rate=4,
+            date="2026-05-20T00:00:00Z",
+        ),
+        FeedbackCuisine(
+            id=seed_id("feedback-cuisine", "alice:old-town"),
+            customer_id=alice_id,
+            feedback="Khachapuri was phenomenal - perfectly baked and rich without being too heavy.",
+            location_id=locations[old_town_id].id,
+            rate=5,
+            date="2026-05-20T00:00:00Z",
+        ),
+        FeedbackCuisine(
+            id=seed_id("feedback-cuisine", "bob:old-town"),
+            customer_id=bob_id,
+            feedback="Khinkali were juicy and flavorful. Great recommendation from the staff.",
+            location_id=locations[old_town_id].id,
+            rate=4,
+            date="2026-05-20T00:00:00Z",
+        ),
+        FeedbackCuisine(
+            id=seed_id("feedback-cuisine", "carol:old-town"),
+            customer_id=carol_id,
+            feedback="Lobio was comforting and well seasoned, though I wanted a bit more spice.",
+            location_id=locations[old_town_id].id,
             rate=4,
             date="2026-05-20T00:00:00Z",
         ),

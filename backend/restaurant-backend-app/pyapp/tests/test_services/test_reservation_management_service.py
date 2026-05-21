@@ -151,7 +151,7 @@ class TestReservationManagementService(unittest.TestCase):
         item = response.reservations[0]
         self.assertEqual(item.reservation_id, str(reservation.id))
         self.assertEqual(item.status, ReservationStatus.RESERVED.value)
-        self.assertEqual(item.location_name, "48 Rustaveli Avenue, Tbilisi")
+        self.assertEqual(item.location_address, "48 Rustaveli Avenue, Tbilisi")
         self.assertTrue(item.date)
         self.assertTrue(item.time_from)
         self.assertTrue(item.time_to)

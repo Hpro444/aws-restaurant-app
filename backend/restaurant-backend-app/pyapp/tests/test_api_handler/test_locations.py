@@ -3,10 +3,11 @@
 from unittest.mock import MagicMock
 from uuid import uuid4
 
-from dto.locations import LocationResponse
+from dto.locations import LocationNameResponse, LocationResponse
 from pyapp.tests.test_api_handler import ApiHandlerLambdaTestCase, body, status
 
 _PATH = "/locations"
+_NAMES_PATH = "/locations/names"
 
 
 class TestLocationsEndpoint(ApiHandlerLambdaTestCase):
@@ -197,6 +198,66 @@ class TestLocationsEndpoint(ApiHandlerLambdaTestCase):
                 "pathParameters": {"id": location_id},
                 "httpMethod": "GET",
             },
+            {},
+        )
+
+        self.assertEqual(status(result), 404)
+
+    def test_get_location_addresses_success_returns_200_with_address_array(
+        self,
+    ) -> None:
+        """GET /locations/names should return 200 with location_id + location_address objects."""
+        location_id_1 = str(uuid4())
+        location_id_2 = str(uuid4())
+        mock_names = [
+            LocationNameResponse(
+                location_id=location_id_1,
+                location_address="123 Main Street",
+            ),
+            LocationNameResponse(
+                location_id=location_id_2,
+                location_address="456 Airport Boulevard",
+            ),
+        ]
+        self.HANDLER._locations_service.get_location_addresses = MagicMock(
+            return_value=mock_names
+        )
+
+        result = self.HANDLER.lambda_handler(
+            {"path": _NAMES_PATH, "httpMethod": "GET"},
+            {},
+        )
+
+        self.assertEqual(status(result), 200)
+        response_body = body(result)
+        self.assertIsInstance(response_body, list)
+        self.assertEqual(response_body[0]["location_id"], location_id_1)
+        self.assertEqual(response_body[0]["location_address"], "123 Main Street")
+        self.assertEqual(response_body[1]["location_id"], location_id_2)
+        self.assertEqual(
+            response_body[1]["location_address"],
+            "456 Airport Boulevard",
+        )
+        self.HANDLER._locations_service.get_location_addresses.assert_called_once()
+
+    def test_get_location_addresses_returns_200_with_empty_array(self) -> None:
+        """GET /locations/names should return 200 with an empty array when no locations exist."""
+        self.HANDLER._locations_service.get_location_addresses = MagicMock(
+            return_value=[]
+        )
+
+        result = self.HANDLER.lambda_handler(
+            {"path": _NAMES_PATH, "httpMethod": "GET"},
+            {},
+        )
+
+        self.assertEqual(status(result), 200)
+        self.assertEqual(body(result), [])
+
+    def test_get_location_addresses_wrong_method_returns_404(self) -> None:
+        """A POST to /locations/names should return 404."""
+        result = self.HANDLER.lambda_handler(
+            {"path": _NAMES_PATH, "httpMethod": "POST", "body": "{}"},
             {},
         )
 

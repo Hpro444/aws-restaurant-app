@@ -9,7 +9,7 @@ from commons.abstract_lambda import AbstractLambda
 from dto.available_tables import AvailableTablesRequest
 from dto.create_booking import CreateBookingRequest
 from dto.error_response import FieldError, ValidationErrorResponse
-from dto.locations import LocationResponse
+from dto.locations import LocationNameResponse, LocationResponse
 from dto.logout import LogoutRequest, LogoutResponse
 from dto.refresh import RefreshRequest, RefreshResponse
 from dto.reservation_management import UpdateReservationRequest
@@ -111,6 +111,9 @@ class ApiHandler(AbstractLambda):
 
         if path == "/users/profile" and method == "PUT":
             return self._update_user_profile(event)
+
+        if path == "/locations/names" and method == "GET":
+            return self._get_location_addresses()
 
         # TODO: there should be an universal helper function to handle paths like that end with "/{id}", like here "/locations/{id}"
         if method == "GET" and (
@@ -371,6 +374,16 @@ class ApiHandler(AbstractLambda):
         locations: list[LocationResponse] = self._locations_service.get_locations()
         return build_response(
             [location.model_dump() for location in locations],
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    def _get_location_addresses(self) -> LambdaResponse:
+        """Return all location addresses for location pickers and filters."""
+        location_options: list[LocationNameResponse] = (
+            self._locations_service.get_location_addresses()
+        )
+        return build_response(
+            [location_option.model_dump() for location_option in location_options],
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 

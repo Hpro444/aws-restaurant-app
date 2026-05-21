@@ -131,7 +131,7 @@ class BookingService:
             reservation_id=str(reservation.id),
             status=reservation.status.value,
             location_id=str(request.location_id),
-            location_name=location.name,
+            location_address=location.address,
             table_number=request.table_number,
             date=request.date,
             time_from=chain[0].start_time.strftime("%H:%M"),

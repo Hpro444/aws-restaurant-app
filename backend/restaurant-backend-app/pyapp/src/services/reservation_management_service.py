@@ -249,7 +249,7 @@ class ReservationManagementService:
             else None,
             waiter_id=str(reservation.waiter_id) if reservation.waiter_id else None,
             location_id=str(table.location_id) if table else None,
-            location_name=location.name if location else None,
+            location_address=location.address if location else None,
             table_number=table.table_number if table else None,
             date=start_time.date().isoformat(),
             time_from=start_time.strftime("%H:%M"),
