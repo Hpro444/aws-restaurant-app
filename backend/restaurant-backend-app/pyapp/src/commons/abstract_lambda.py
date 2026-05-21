@@ -85,4 +85,10 @@ class AbstractLambda(ABC):
                 body=json.dumps("Internal server error"),
             ).model_dump()
         response["headers"]["Access-Control-Allow-Origin"] = _config.cors_origin
+        response["headers"]["Access-Control-Allow-Headers"] = (
+            "Authorization, Content-Type"
+        )
+        response["headers"]["Access-Control-Allow-Methods"] = (
+            "GET, POST, PUT, DELETE, OPTIONS"
+        )
         return response

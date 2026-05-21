@@ -195,11 +195,17 @@ class CognitoService:
             if code == "UsernameExistsException":
                 logger.info("Registration rejected, email already exists", email=email)
                 raise ApplicationException(
-                    code=409, content="Registration failed"
+                    code=409,
+                    content={
+                        "message": "An account with this email address already exists"
+                    },
                 ) from exc
             logger.error("admin_create_user failed", error_code=code, error=str(exc))
             raise ApplicationException(
-                code=500, content="Failed to create user"
+                code=500,
+                content={
+                    "message": "Registration failed due to a server error, please try again later"
+                },
             ) from exc
 
         user_id = next(
@@ -224,7 +230,10 @@ class CognitoService:
                 error=str(exc),
             )
             raise ApplicationException(
-                code=500, content="Failed to confirm user account"
+                code=500,
+                content={
+                    "message": "Registration failed due to a server error, please try again later"
+                },
             ) from exc
 
         try:
@@ -239,7 +248,10 @@ class CognitoService:
                 error=str(exc),
             )
             raise ApplicationException(
-                code=500, content="Failed to assign user role"
+                code=500,
+                content={
+                    "message": "Registration failed due to a server error, please try again later"
+                },
             ) from exc
 
         return user_id

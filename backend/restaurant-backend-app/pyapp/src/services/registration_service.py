@@ -61,7 +61,7 @@ class RegistrationService:
         self._admin_repo = admin_repository or AdminRepository()
         self._admin_emails_repo = admin_emails_repository or AdminEmailsRepository()
 
-    def register_user(self, request: SignUpRequest) -> str:
+    def register_user(self, request: SignUpRequest) -> None:
         """Register a user with automatic role assignment and persistence.
 
         Checks the waiter-emails list to determine if the user should be
@@ -71,9 +71,6 @@ class RegistrationService:
 
         Args:
             request: Validated sign-up request with first/last name, email, password.
-
-        Returns:
-            The Cognito ``sub`` UUID for the newly created user.
 
         Raises:
             ApplicationException: 409 if email already exists, 500 for any error.
@@ -157,5 +154,3 @@ class RegistrationService:
                 error=str(exc),
             )
             raise
-
-        return user_id

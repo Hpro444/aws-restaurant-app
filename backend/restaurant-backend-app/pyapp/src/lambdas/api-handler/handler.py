@@ -94,6 +94,9 @@ class ApiHandler(AbstractLambda):
         method = event.get("httpMethod", "")
         resource = event.get("resource", "")
 
+        if method == "OPTIONS":
+            return build_response("", code=HttpStatusCode.RESPONSE_OK_CODE)
+
         if path == "/auth/sign-up" and method == "POST":
             return self._sign_up(event)
 
@@ -252,12 +255,10 @@ class ApiHandler(AbstractLambda):
         """
         request: SignUpRequest = self._validate(SignUpRequest, self._parse_body(event))
 
-        user_id = self._registration_service.register_user(request)
+        self._registration_service.register_user(request)
 
         return build_response(
-            SignUpResponse(
-                user_id=user_id, message="User registered successfully"
-            ).model_dump(),
+            SignUpResponse(message="User registered successfully").model_dump(),
             code=HttpStatusCode.RESPONSE_CREATED_CODE,
         )
 

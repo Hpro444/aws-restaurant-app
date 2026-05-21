@@ -8,7 +8,7 @@ _S3 = "https://epam-restaurantapp-dev-eu-west-3-frontend.s3.eu-west-3.amazonaws.
 
 
 def seed(dynamodb, tables: dict, context: dict) -> None:
-    """Seed 6 dishes per location.
+    """Seed 8 dishes per location (6 original + 2 additional specialties).
 
     Requires context['locations'] populated by the locations seeder.
     """
@@ -86,6 +86,28 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             price=9.50,
             weight_gram=180,
         ),
+        Dish(
+            id=seed_id("dish", "downtown:truffle-risotto"),
+            location_id=locations[downtown_id].id,
+            name="Truffle Risotto",
+            description="Creamy Arborio risotto finished with black truffle shavings, Parmigiano-Reggiano, and a drizzle of truffle oil.",
+            image_url=f"{_S3}/truffle_risotto.jpg",
+            specialty=True,
+            popular=True,
+            price=22.00,
+            weight_gram=380,
+        ),
+        Dish(
+            id=seed_id("dish", "downtown:creme-brulee"),
+            location_id=locations[downtown_id].id,
+            name="Crème Brûlée",
+            description="Classic French vanilla custard with a perfectly caramelised sugar crust, served with fresh raspberries.",
+            image_url=f"{_S3}/creme_brulee.jpg",
+            specialty=True,
+            popular=False,
+            price=8.50,
+            weight_gram=160,
+        ),
     ]
 
     airport_dishes = [
@@ -155,6 +177,28 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             price=12.00,
             weight_gram=320,
         ),
+        Dish(
+            id=seed_id("dish", "airport:avocado-toast"),
+            location_id=locations[airport_id].id,
+            name="Avocado Toast with Poached Eggs",
+            description="Sourdough toast topped with smashed avocado, two soft-poached eggs, chilli flakes, and microgreens.",
+            image_url=f"{_S3}/avocado_toast.jpg",
+            specialty=True,
+            popular=True,
+            price=13.00,
+            weight_gram=290,
+        ),
+        Dish(
+            id=seed_id("dish", "airport:mango-cheesecake"),
+            location_id=locations[airport_id].id,
+            name="Mango Cheesecake",
+            description="Velvety no-bake cheesecake on a buttery biscuit base, topped with fresh mango coulis and toasted coconut.",
+            image_url=f"{_S3}/mango_cheesecake.jpg",
+            specialty=True,
+            popular=False,
+            price=7.50,
+            weight_gram=170,
+        ),
     ]
 
     old_town_dishes = [
@@ -223,6 +267,28 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             popular=True,
             price=11.50,
             weight_gram=200,
+        ),
+        Dish(
+            id=seed_id("dish", "old-town:ostri"),
+            location_id=locations[old_town_id].id,
+            name="Ostri",
+            description="Traditional Georgian beef stew slow-cooked with tomatoes, walnuts, garlic, and aromatic spices.",
+            image_url=f"{_S3}/ostri.jpg",
+            specialty=True,
+            popular=True,
+            price=16.00,
+            weight_gram=400,
+        ),
+        Dish(
+            id=seed_id("dish", "old-town:pelamushi"),
+            location_id=locations[old_town_id].id,
+            name="Pelamushi",
+            description="Traditional Georgian grape must pudding thickened with cornflour, topped with walnuts and dried fruits.",
+            image_url=f"{_S3}/pelamushi.jpg",
+            specialty=True,
+            popular=False,
+            price=7.00,
+            weight_gram=150,
         ),
     ]
 
