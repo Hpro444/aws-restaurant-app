@@ -87,6 +87,7 @@ class TestTableAvailabilityService(unittest.TestCase):
 
         location = MagicMock()
         location.name = "48 Rustaveli Avenue, Tbilisi"
+        location.address = "48 Rustaveli Avenue, Tbilisi"
         self.mock_location_repo.get.return_value = location
 
         self.service = TableAvailabilityService()
