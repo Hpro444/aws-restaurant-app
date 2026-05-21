@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date as date_type
+from datetime import datetime, time, timedelta
 from typing import Optional
 from uuid import UUID
 
@@ -34,7 +36,9 @@ class TableAvailabilityService:
         1. Location  — only tables whose location_id matches (GSI query).
         2. Capacity  — only tables with capacity >= guests_number.
         3. Date      — only slots on the requested date (GSI query).
-        4. Time window (optional) — only slots within from_time..to_time.
+        4. from_time (optional) — snap to the first valid slot start >=
+           from_time; only tables with that slot FREE qualify; return all
+           free slots from that point onwards.
         5. Availability — only slots with ``status == FREE``.
 
     Query flow (for 3 tables with 7 slots each):
@@ -62,7 +66,6 @@ class TableAvailabilityService:
         booking_date: str,
         guests_number: int,
         from_time: Optional[str] = None,
-        to_time: Optional[str] = None,
     ) -> AvailableTablesResponse:
         """Return tables with free time slots for the given criteria.
 
@@ -70,8 +73,9 @@ class TableAvailabilityService:
             location_id: UUID (or UUID string) of the restaurant location.
             booking_date: Calendar date as "YYYY-MM-DD" (pre-validated).
             guests_number: Minimum table capacity required (pre-validated).
-            from_time: Optional start time filter as "HH:MM".
-            to_time: Optional end time filter as "HH:MM".
+            from_time: Optional filter snapped to the nearest slot start.
+                Only tables that have that slot FREE are returned, along
+                with all their free slots from that point onwards.
 
         Returns:
             Response DTO with available tables and their free slots.
@@ -84,7 +88,6 @@ class TableAvailabilityService:
             date=booking_date,
             guests=guests_number,
             from_time=from_time,
-            to_time=to_time,
         )
 
         # ── Step 1: Parse location UUID ──────────────────────────────
@@ -115,16 +118,28 @@ class TableAvailabilityService:
             logger.info("No slots found", date=booking_date)
             return AvailableTablesResponse(tables=[])
 
-        # ── Step 5: Filter by time window (optional) ─────────────────
-        if from_time or to_time:
-            slots = self._filter_slots_by_time(slots, from_time, to_time)
-            if not slots:
-                logger.info(
-                    "No slots after time filter",
-                    from_time=from_time,
-                    to_time=to_time,
-                )
+        # ── Step 5: Snap from_time and qualify tables ────────────────
+        if from_time:
+            snapped = self._snap_to_slot_start(location.open_time, from_time)
+            logger.info("Snapped from_time", from_time=from_time, snapped=str(snapped))
+
+            # Tables must have the snapped slot FREE
+            qualifying_ids = {
+                s.table_id
+                for s in slots
+                if s.start_time.time() == snapped and s.status == SlotStatus.FREE
+            }
+            if not qualifying_ids:
+                logger.info("No tables with snapped slot free", snapped=str(snapped))
                 return AvailableTablesResponse(tables=[])
+
+            suitable_tables = [t for t in suitable_tables if t.id in qualifying_ids]
+            # Keep only slots >= snapped for qualifying tables
+            slots = [
+                s
+                for s in slots
+                if s.table_id in qualifying_ids and s.start_time.time() >= snapped
+            ]
 
         # ── Step 6: Filter by availability — keep only FREE slots ────
         free_slots = [s for s in slots if s.status == SlotStatus.FREE]
@@ -156,49 +171,28 @@ class TableAvailabilityService:
             return None
 
     @staticmethod
-    def _filter_slots_by_time(
-        slots: list[Slot],
-        from_time: Optional[str],
-        to_time: Optional[str],
-    ) -> list[Slot]:
-        """Filter slots to only include those within the time window.
+    def _snap_to_slot_start(open_time: time, from_time_str: str) -> time:
+        """Return the first valid slot start time >= from_time_str.
 
-        Compares slot start_time and end_time (as HH:MM strings) against
-        the optional from_time and to_time boundaries.
-
-        A slot is included if:
-            - Its start_time >= from_time (when from_time is provided)
-            - Its end_time <= to_time (when to_time is provided)
+        Slot schedule starts at ``open_time``; each slot is 90 minutes
+        followed by a 15-minute break (105-minute period).
 
         Args:
-            slots: List of Slot domain objects to filter.
-            from_time: Minimum start time as "HH:MM", or None.
-            to_time: Maximum end time as "HH:MM", or None.
+            open_time: Location opening time (naive ``datetime.time``).
+            from_time_str: Requested filter time as "HH:MM".
 
         Returns:
-            Filtered list of slots within the time window.
+            The earliest slot start time that is >= from_time_str.
 
         """
-        filtered = []
-        for slot in slots:
-            slot_start = slot.start_time.strftime("%H:%M")
-            slot_end = slot.end_time.strftime("%H:%M")
+        from_time = datetime.strptime(from_time_str, "%H:%M").time()
+        slot_dt = datetime.combine(date_type.min, open_time)
+        target_dt = datetime.combine(date_type.min, from_time)
 
-            if from_time and slot_start < from_time:
-                continue
-            if to_time and slot_end > to_time:
-                continue
+        while slot_dt < target_dt:
+            slot_dt += timedelta(minutes=105)  # 90 min slot + 15 min break
 
-            filtered.append(slot)
-
-        logger.info(
-            "Time window filter applied",
-            from_time=from_time,
-            to_time=to_time,
-            before=len(slots),
-            after=len(filtered),
-        )
-        return filtered
+        return slot_dt.time()
 
     @staticmethod
     def _build_response(
@@ -216,10 +210,12 @@ class TableAvailabilityService:
         # Group slots by table
         slots_by_table: dict[UUID, list[SlotResponse]] = {}
         for slot in free_slots:
+            if slot.table_id not in table_by_id:
+                continue
             sr = SlotResponse(
                 slot_id=str(slot.id),
-                start_time=slot.start_time.isoformat(),
-                end_time=slot.end_time.isoformat(),
+                start_time=slot.start_time.strftime("%H:%M:%S"),
+                end_time=slot.end_time.strftime("%H:%M:%S"),
             )
             slots_by_table.setdefault(slot.table_id, []).append(sr)
 

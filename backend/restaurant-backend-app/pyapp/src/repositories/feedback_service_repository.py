@@ -25,6 +25,7 @@ class FeedbackServiceRepository(DynamoRepository[FeedbackService]):
 
         Args:
             settings: Application config; a fresh instance is created when omitted.
+            waiter_repository: WaiterRepository instance for waiter lookups; created when omitted.
 
         """
         cfg = settings or AppConfig()

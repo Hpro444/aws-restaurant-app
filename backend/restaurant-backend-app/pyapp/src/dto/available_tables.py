@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, ValidationInfo, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 # ── Request DTO ───────────────────────────────────────────────────────
 
@@ -18,8 +18,8 @@ class AvailableTablesRequest(BaseModel):
     as a valid UUID, ``date`` is ISO format with a bookable window,
     and ``guests_number`` is positive and ≤ 10.
 
-    Optional ``from_time`` and ``to_time`` narrow results to a specific
-    time window within the day.
+    Optional ``from_time`` snaps to the first valid slot start >= the
+    entered time and returns all free slots from that point onwards.
 
     """
 
@@ -27,7 +27,6 @@ class AvailableTablesRequest(BaseModel):
     date: str
     guests_number: int = Field(..., gt=0, le=10)
     from_time: Optional[str] = Field(None)
-    to_time: Optional[str] = Field(None)
 
     @field_validator("date")
     @classmethod
@@ -48,10 +47,10 @@ class AvailableTablesRequest(BaseModel):
 
         return v
 
-    @field_validator("from_time", "to_time")
+    @field_validator("from_time")
     @classmethod
     def validate_time(cls, v: Optional[str]) -> Optional[str]:
-        """Validate optional time parameters are in HH:MM format."""
+        """Validate optional time parameter is in HH:MM format."""
         if v is None or v == "":
             return None
         try:
@@ -59,17 +58,6 @@ class AvailableTablesRequest(BaseModel):
         except ValueError:
             raise ValueError("Time must be in HH:MM format")
         return v
-
-    @field_validator("to_time")
-    @classmethod
-    def validate_time_window(
-        cls, to_time: Optional[str], info: ValidationInfo
-    ) -> Optional[str]:
-        """Ensure optional time window boundaries are chronologically valid."""
-        from_time = info.data.get("from_time")
-        if from_time and to_time and to_time < from_time:
-            raise ValueError("to_time must be greater than or equal to from_time")
-        return to_time
 
 
 # ── Response DTOs ─────────────────────────────────────────────────────
