@@ -177,3 +177,44 @@ class TestFeedbacks(ApiHandlerLambdaTestCase):
             page=0,
             size=20,
         )
+
+    def test_page_out_of_range_returns_422(self) -> None:
+        """A requested page greater than last page should return 422 validation error."""
+        self.HANDLER._feedback_service.get_feedbacks.return_value = {
+            "totalPages": 3,
+            "totalElements": 30,
+            "size": 10,
+            "content": [],
+            "number": 20,
+            "sort": ["date,desc"],
+            "first": False,
+            "last": False,
+            "numberOfElements": 0,
+            "pageable": {
+                "offset": 200,
+                "sort": ["date,desc"],
+                "paged": True,
+                "pageSize": 10,
+                "pageNumber": 20,
+                "unpaged": False,
+            },
+            "empty": True,
+        }
+
+        result = self.HANDLER.lambda_handler(
+            {
+                "path": _PATH,
+                "httpMethod": "GET",
+                "queryStringParameters": {
+                    "type": "cuisine",
+                    "page": "20",
+                    "size": "10",
+                },
+            },
+            {},
+        )
+
+        self.assertEqual(status(result), 422)
+        payload = body(result)
+        self.assertEqual(payload["errors"][0]["field"], "page")
+        self.assertEqual(payload["errors"][0]["message"], "Must be between 0 and 2")

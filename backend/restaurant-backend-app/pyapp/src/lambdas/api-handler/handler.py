@@ -794,6 +794,8 @@ class ApiHandler(AbstractLambda):
         """
         location_id_str = self._extract_path_segment(event, 1)
 
+        # TODO: pomeri svu validaciju u servis, ne trpaj handler
+
         if location_id_str is None:
             raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
@@ -935,6 +937,26 @@ class ApiHandler(AbstractLambda):
             page=page,
             size=size,
         )
+
+        total_pages_raw = feedback_page.get("totalPages", 0)
+        try:
+            total_pages = int(total_pages_raw)
+        except (TypeError, ValueError):
+            total_pages = 0
+
+        max_page = max(total_pages - 1, 0)
+        if page > max_page:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                ValidationErrorResponse(
+                    errors=[
+                        FieldError(
+                            field="page",
+                            message=f"Must be between 0 and {max_page}",
+                        )
+                    ]
+                ).model_dump(),
+            )
 
         content = feedback_page.get("content", [])
         feedback_page["content"] = [
