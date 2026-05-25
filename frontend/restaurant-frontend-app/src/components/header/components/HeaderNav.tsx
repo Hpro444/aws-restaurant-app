@@ -1,24 +1,29 @@
 import type { HeaderNavItem } from "../header.config";
-import { Link } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 
 type Props = {
   items: HeaderNavItem[];
 };
 
 const HeaderNav = ({ items }: Props) => {
+  const baseClass =
+    "pb-1.5 text-[20px] font-medium font-poppins align-middle leading-[32px] transition-colors border-b-2 border-transparent text-[var(--color-text-primary)] hover:text-[var(--color-brand)]";
+
   return (
     <nav
       aria-label="Main navigation"
       className="flex items-center justify-center gap-4"
     >
       {items.map((item) => (
-        <Link
+        <NavLink
           key={item.href}
           to={item.href}
-          className="text-[15px] font-medium text-[var(--color-text-primary)] hover:text-[var(--color-brand)] transition-colors font-poppins align-middle"
+          end={item.href === "/"}
+          className={baseClass}
+          style={({ isActive }) => (isActive ? { color: "var(--color-brand)", borderColor: "var(--color-brand)" } : {})}
         >
           {item.label}
-        </Link>
+        </NavLink>
       ))}
     </nav>
   );
