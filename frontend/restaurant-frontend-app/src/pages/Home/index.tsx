@@ -2,9 +2,10 @@
 
 import Header from "../../components/header";
 import section_image from "../../assets/home/section-image.png";
-import DiscCard from "./components/DishCard";
+import DiscCard from "../../components/common/DishCard";
 import Layout from "../../components/layout";
 import LocationCard from "./components/LocationCard";
+import { Link } from "react-router-dom";
 
 const HomePage = () => {
   return (
@@ -59,7 +60,9 @@ const HomePage = () => {
           </h2>
           <div className="grid grid-cols-3 gap-8">
             {Array.from({ length: 3 }).map((_, index) => (
-              <LocationCard key={index} />
+              <Link to={`/restaurant`} key={index}>
+                <LocationCard />
+              </Link>
             ))}
           </div>
         </section>

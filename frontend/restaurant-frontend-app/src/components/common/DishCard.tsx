@@ -1,4 +1,4 @@
-import dish_image from "../../../assets/home/dish.png";
+import dish_image from "../../assets/home/dish.png";
 
 const DiscCard = () => {
   return (
