@@ -4,15 +4,49 @@ import SignupPage from "./pages/Signup";
 import HomePage from "./pages/Home";
 import RestaurantPage from "./pages/Restaurant";
 import AvailableTablesPage from "./pages/AvailableTables";
+import { useAuth } from "./context/AuthContext";
+
+const RequireAuth = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  return children;
+};
+
+const RequireGuest = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated } = useAuth();
+  if (isAuthenticated) return <Navigate to="/" replace />;
+  return children;
+};
 
 function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/signup" element={<SignupPage />} />
+      <Route
+        path="/login"
+        element={
+          <RequireGuest>
+            <LoginPage />
+          </RequireGuest>
+        }
+      />
+      <Route
+        path="/signup"
+        element={
+          <RequireGuest>
+            <SignupPage />
+          </RequireGuest>
+        }
+      />
       <Route path="/restaurant" element={<RestaurantPage />} />
-      <Route path="/book-table" element={<AvailableTablesPage />} />
+      <Route
+        path="/book-table"
+        element={
+          <RequireAuth>
+            <AvailableTablesPage />
+          </RequireAuth>
+        }
+      />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

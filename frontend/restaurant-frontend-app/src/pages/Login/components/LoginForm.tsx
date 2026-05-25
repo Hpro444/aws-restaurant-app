@@ -6,14 +6,12 @@ import { useForm, useWatch } from "react-hook-form";
 
 import eyeClosed from "../../../assets/signup/Eye closed.png";
 import eyeOpen from "../../../assets/signup/Eye.png";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../../context/AuthContext.tsx";
 
 const VALID_COLOR = "#00AD0C";
 const INVALID_COLOR = "#B70B0B";
 const NEUTRAL_COLOR = "#898989";
-
-const ACCOUNT_LOCKED_MESSAGE =
-  "Your account is temporarily locked due to multiple failed login attempts. Please try again later.";
 
 const EMAIL_ERROR =
   "Email address is required. Please enter your email to continue";
@@ -29,9 +27,12 @@ type LoginFormValues = {
 };
 
 const LoginForm = () => {
+  const navigate = useNavigate();
+  const { signIn } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [accountLocked, setAccountLocked] = useState(false);
+  const [showError, setShowError] = useState(false);
 
   const {
     register,
@@ -54,6 +55,9 @@ const LoginForm = () => {
   const hasPasswordValue = (password || "").trim().length > 0;
   const isPasswordValid = !errors.password && hasPasswordValue;
 
+  const globalErrorBorder =
+    errorMessage || accountLocked ? INVALID_COLOR : undefined;
+
   const canSubmit =
     isValid &&
     !accountLocked &&
@@ -72,9 +76,8 @@ const LoginForm = () => {
     !!errors.email,
   );
   const passwordBorder =
-    errorMessage || accountLocked
-      ? INVALID_COLOR
-      : getInvalidBorderColor(touchedFields.password, !!errors.password);
+    globalErrorBorder ??
+    getInvalidBorderColor(touchedFields.password, !!errors.password);
 
   const emailColor = getHelperColor(touchedFields.email, !!errors.email);
 
@@ -85,9 +88,36 @@ const LoginForm = () => {
     touchedFields.password && errors.password ? PASSWORD_ERROR : "";
 
   const onSubmit = async (data: LoginFormValues) => {
-    console.log("Login payload", data);
-    setErrorMessage("");
-    setAccountLocked(false);
+    try {
+      setErrorMessage("");
+      setAccountLocked(false);
+      await signIn({
+        email: data.email,
+        password: data.password,
+      });
+      navigate("/");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Incorrect email or password. Try again or create an account.";
+      if (message.toLowerCase().includes("invalid")) {
+        setErrorMessage(message);
+        setShowError(true);
+        setAccountLocked(false);
+        return;
+      }
+      if (
+        // message === ACCOUNT_LOCKED_MESSAGE ||
+        message.toLowerCase().includes("multiple")
+      ) {
+        setAccountLocked(true);
+        setShowError(true);
+        setErrorMessage(message);
+      } else {
+        setErrorMessage(message);
+      }
+    }
   };
 
   return (
@@ -95,9 +125,9 @@ const LoginForm = () => {
       className={`${classes.form} w-[496px]`}
       onSubmit={handleSubmit(onSubmit)}
     >
-      {accountLocked && (
+      {showError && (
         <div className="bg-[#fde8e8] border border-[#f5c2c7] text-[#b70b0b] rounded-lg p-4 mb-6 text-base font-medium">
-          {ACCOUNT_LOCKED_MESSAGE}
+          {errorMessage}
         </div>
       )}
 
@@ -109,11 +139,12 @@ const LoginForm = () => {
         className="w-full"
         helperText={emailHelper}
         helperColor={emailColor}
-        inputBorderColor={emailBorder}
+        inputBorderColor={globalErrorBorder ?? emailBorder}
         {...register("email", {
-          required: EMAIL_ERROR,
+          required: "Email is required",
           validate: {
-            isValidEmail: (value) => isValidEmail(value) || EMAIL_ERROR,
+            isValidEmail: (value) =>
+              isValidEmail(value) || "Please enter a valid email address",
           },
         })}
       />
@@ -140,9 +171,10 @@ const LoginForm = () => {
             }
             disabled={accountLocked}
             {...register("password", {
-              required: PASSWORD_ERROR,
+              required: "Password is required",
               validate: {
-                hasValue: (value) => value.trim().length > 0 || PASSWORD_ERROR,
+                hasValue: (value) =>
+                  value.trim().length > 0 || "Password cannot be empty",
               },
             })}
           />
