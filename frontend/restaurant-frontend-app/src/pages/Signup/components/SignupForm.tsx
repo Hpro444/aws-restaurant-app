@@ -12,6 +12,7 @@ import { useForm, useWatch } from "react-hook-form";
 
 import eyeClosed from "../../../assets/signup/Eye closed.png";
 import eyeOpen from "../../../assets/signup/Eye.png";
+import { Link } from "react-router-dom";
 
 const VALID_COLOR = "#00AD0C";
 const INVALID_COLOR = "#B70B0B";
@@ -309,11 +310,10 @@ const SignUpForm = () => {
         </button>
 
         <p className={classes.loginText}>
-          Already have an account?
-          <a href="/login" className={classes.loginLink}>
-            {" "}
+          Already have an account?{" "}
+          <Link to="/login" className={classes.loginLink}>
             Login
-          </a>{" "}
+          </Link>{" "}
           instead
         </p>
       </div>

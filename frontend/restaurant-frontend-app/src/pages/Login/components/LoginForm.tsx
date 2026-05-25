@@ -6,6 +6,7 @@ import { useForm, useWatch } from "react-hook-form";
 
 import eyeClosed from "../../../assets/signup/Eye closed.png";
 import eyeOpen from "../../../assets/signup/Eye.png";
+import { Link } from "react-router-dom";
 
 const VALID_COLOR = "#00AD0C";
 const INVALID_COLOR = "#B70B0B";
@@ -176,9 +177,9 @@ const LoginForm = () => {
           {passwordHelper}
         </small>
 
-        <a href="/forgot-password" className={classes.loginLink}>
+        <Link to="/forgot-password" className={classes.loginLink}>
           Forgot password?
-        </a>
+        </Link>
       </div>
 
       <div className={classes.actionWrap}>
@@ -197,9 +198,9 @@ const LoginForm = () => {
 
         <p className={classes.loginText}>
           Don't have an account?{" "}
-          <a href="/signup" className={classes.loginLink}>
+          <Link to="/signup" className={classes.loginLink}>
             Create an Account
-          </a>
+          </Link>
         </p>
       </div>
     </form>
