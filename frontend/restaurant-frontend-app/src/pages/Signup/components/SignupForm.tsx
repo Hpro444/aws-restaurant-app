@@ -9,10 +9,10 @@ import {
 import RulesList from "./RulesList";
 import { useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
+import { Link } from "react-router-dom";
 
 import eyeClosed from "../../../assets/signup/Eye closed.png";
 import eyeOpen from "../../../assets/signup/Eye.png";
-import { Link } from "react-router-dom";
 
 const VALID_COLOR = "#00AD0C";
 const INVALID_COLOR = "#B70B0B";
