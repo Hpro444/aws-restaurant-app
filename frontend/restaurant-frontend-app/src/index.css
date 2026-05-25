@@ -1,10 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap");
 @import "tailwindcss";
 
-@theme {
-  --font-lexend: "Lexend", sans-serif;
-}
-
 :root {
   --color-bg-page: #f7f7f7;
   --color-text-primary: #232323;
@@ -15,6 +11,10 @@
   --color-surface: #ffffff;
   --color-black: #000000;
   --color-link: #1d4ed8;
+}
+
+@theme {
+  --font-lexend: "Lexend", sans-serif;
 }
 
 /* Edge/IE old reveal + clear buttons */
