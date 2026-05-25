@@ -10,11 +10,11 @@ const Header = () => {
   //   const { auth } = useAuth();
 
   //   const role = auth.isAuthenticated ? auth.role : "guest";
-  const navItems = NAV_ITEMS_BY_ROLE["admin"];
-  const actions = ACTIONS_BY_ROLE["admin"];
+  const navItems = NAV_ITEMS_BY_ROLE["guest"];
+  const actions = ACTIONS_BY_ROLE["guest"];
 
   return (
-    <header className="border-b border-[var(--color-border-default)] bg-[var(--color-surface)]">
+    <header className="border-b border-[var(--color-border-default)] bg-[var(--color-surface)] mx-auto max-w-[1440px] font-poppins">
       <div className="w-full flex justify-between items-center py-3 px-10">
         <Link to="/">
           <img src={HeaderLogo} alt="Logo" />

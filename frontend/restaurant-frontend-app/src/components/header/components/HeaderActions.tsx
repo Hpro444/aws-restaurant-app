@@ -20,7 +20,7 @@ const HeaderActions = ({ actions }: Props) => {
             <Link
               key={action}
               to="/login"
-              className="border-[var(--color-brand)] border items-center rounded-lg bg-white text-sm font-semibold text-[var(--color-brand)] hover:opacity-90 transition-opacity rotate-0 opacity-100 px-3 py-2"
+              className="border-[var(--color-brand)] border items-center rounded-lg bg-white text-sm font-semibold text-[var(--color-brand)] hover:opacity-90 transition-opacity rotate-0 text-[14px] leading-[24px] text-center align-middle opacity-100 px-3 py-2"
             >
               Sign In
             </Link>
