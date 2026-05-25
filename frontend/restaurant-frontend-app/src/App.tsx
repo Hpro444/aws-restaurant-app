@@ -3,6 +3,7 @@ import LoginPage from "./pages/Login";
 import SignupPage from "./pages/Signup";
 import HomePage from "./pages/Home";
 import RestaurantPage from "./pages/Restaurant";
+import AvailableTablesPage from "./pages/AvailableTables";
 
 function App() {
   return (
@@ -11,6 +12,7 @@ function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/restaurant" element={<RestaurantPage />} />
+      <Route path="/book-table" element={<AvailableTablesPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
