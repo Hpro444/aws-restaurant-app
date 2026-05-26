@@ -4,7 +4,28 @@ import DateButton from "./DateButton";
 import TimeButton from "./TimeButton";
 import GuestsButton from "./GuestsButton";
 
-const HeaderSection = () => {
+type Filters = {
+  locationId: string;
+  date: string;
+  fromTime: string;
+  guests: number;
+};
+
+type HeaderSectionProps = {
+  filters: Filters;
+  onFiltersChange: (update: Partial<Filters>) => void;
+  onSearch: () => void;
+  isLoading: boolean;
+};
+
+const HeaderSection = ({
+  filters,
+  onFiltersChange,
+  onSearch,
+  isLoading,
+}: HeaderSectionProps) => {
+  const canSearch = Boolean(filters.locationId && filters.date);
+
   return (
     <section
       className="relative flex justify-start font-poppins"
@@ -23,13 +44,28 @@ const HeaderSection = () => {
             Book a Table
           </h1>
           <div className="flex gap-4 max-h-[56px]">
-            <LocationButton />
-            <DateButton />
-            <TimeButton />
-            <GuestsButton />
-
-            <button className="py-4 text-center cursor-pointer bg-[var(--color-brand)] text-white w-full max-w-[252px] rounded-lg hover:bg-[#009a0b]">
-              Find a Table
+            <LocationButton
+              value={filters.locationId}
+              onChange={(locationId) => onFiltersChange({ locationId })}
+            />
+            <DateButton
+              value={filters.date}
+              onChange={(date) => onFiltersChange({ date })}
+            />
+            <TimeButton
+              value={filters.fromTime}
+              onChange={(fromTime) => onFiltersChange({ fromTime })}
+            />
+            <GuestsButton
+              value={filters.guests}
+              onChange={(guests) => onFiltersChange({ guests })}
+            />
+            <button
+              onClick={onSearch}
+              disabled={!canSearch || isLoading}
+              className="py-4 text-center cursor-pointer bg-[var(--color-brand)] text-white w-full max-w-[252px] rounded-lg hover:bg-[#009a0b] disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isLoading ? "Searching..." : "Find a Table"}
             </button>
           </div>
         </div>

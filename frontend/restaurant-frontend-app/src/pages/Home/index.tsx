@@ -1,13 +1,92 @@
-// import Layout from "../../components/layout";
-
+import { useEffect, useState, useCallback } from "react";
 import Header from "../../components/header";
 import section_image from "../../assets/home/section-image.png";
 import DiscCard from "../../components/common/DishCard";
 import Layout from "../../components/layout";
 import LocationCard from "./components/LocationCard";
 import { Link } from "react-router-dom";
+import getApiBaseUrl from "../../config/GetApiBaseUrl";
+
+type Dish = {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  image?: string;
+  weight?: string | number;
+};
+
+type Location = {
+  id: string;
+  name: string;
+  address: string;
+  image?: string;
+  totalCapacity?: number;
+  averageOccupancy?: number;
+};
 
 const HomePage = () => {
+  const [popularDishes, setPopularDishes] = useState<Dish[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [dishesLoading, setDishesLoading] = useState(true);
+  const [locationsLoading, setLocationsLoading] = useState(true);
+  const [dishesError, setDishesError] = useState<string | null>(null);
+  const [locationsError, setLocationsError] = useState<string | null>(null);
+
+  const fetchPopularDishes = useCallback(async () => {
+    try {
+      setDishesLoading(true);
+      setDishesError(null);
+      const response = await fetch(`${getApiBaseUrl()}/dishes/popular`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch popular dishes: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setPopularDishes(data);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch popular dishes";
+      setDishesError(errorMessage);
+      console.error("Error fetching popular dishes:", error);
+    } finally {
+      setDishesLoading(false);
+    }
+  }, []);
+
+  const fetchLocations = useCallback(async () => {
+    try {
+      setLocationsLoading(true);
+      setLocationsError(null);
+      const response = await fetch(`${getApiBaseUrl()}/locations`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch locations: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setLocations(data);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to fetch locations";
+      setLocationsError(errorMessage);
+      console.error("Error fetching locations:", error);
+    } finally {
+      setLocationsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const loadData = async () => {
+      await Promise.all([fetchPopularDishes(), fetchLocations()]);
+    };
+
+    loadData();
+  }, [fetchPopularDishes, fetchLocations]);
+
   return (
     <>
       <Header />
@@ -20,7 +99,6 @@ const HomePage = () => {
         }}
       >
         <div className="max-w-[1440px] w-full mx-auto flex">
-          {/* <img src={section_image} alt="Section Image" className="w-full -z-10 absolute top-0 left-0 right-0 bottom-0" /> */}
           <div className="flex flex-col gap-6 my-10 ml-10 text-white">
             <h1 className="text-[var(--color-brand)] font-poppins font-medium text-[48px] leading-[48px] align-middle">
               Green & Tasty
@@ -49,9 +127,35 @@ const HomePage = () => {
             Most popular Dishes
           </h2>
           <div className="grid grid-cols-4 gap-8">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <DiscCard key={index} />
-            ))}
+            {dishesLoading ? (
+              Array.from({ length: 4 }).map((_, index) => (
+                <div key={`dish-loading-${index}`} className="animate-pulse">
+                  <div className="bg-gray-200 h-48 rounded-lg mb-4"></div>
+                  <div className="bg-gray-200 h-4 rounded mb-2"></div>
+                  <div className="bg-gray-200 h-4 rounded w-3/4"></div>
+                </div>
+              ))
+            ) : dishesError ? (
+              <div className="col-span-4 text-center py-8">
+                <p className="text-red-500 mb-4">
+                  Error loading popular dishes: {dishesError}
+                </p>
+                {/* <button
+                  onClick={fetchPopularDishes}
+                  className="px-4 py-2 bg-[var(--color-brand)] text-white rounded hover:bg-[#009a0b]"
+                >
+                  Try Again
+                </button> */}
+              </div>
+            ) : popularDishes.length > 0 ? (
+              popularDishes
+                .slice(0, 4)
+                .map((dish) => <DiscCard key={dish.id} dish={dish} />)
+            ) : (
+              <div className="col-span-4 text-center py-8">
+                <p className="text-gray-500">No popular dishes available</p>
+              </div>
+            )}
           </div>
         </section>
         <section className="flex flex-col gap-10">
@@ -59,11 +163,40 @@ const HomePage = () => {
             Locations
           </h2>
           <div className="grid grid-cols-3 gap-8">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <Link to={`/restaurant`} key={index}>
-                <LocationCard />
-              </Link>
-            ))}
+            {locationsLoading ? (
+              Array.from({ length: 3 }).map((_, index) => (
+                <div
+                  key={`location-loading-${index}`}
+                  className="animate-pulse"
+                >
+                  <div className="bg-gray-200 h-48 rounded-lg mb-4"></div>
+                  <div className="bg-gray-200 h-4 rounded mb-2"></div>
+                  <div className="bg-gray-200 h-4 rounded w-2/3"></div>
+                </div>
+              ))
+            ) : locationsError ? (
+              <div className="col-span-3 text-center py-8">
+                <p className="text-red-500 mb-4">
+                  Error loading locations: {locationsError}
+                </p>
+                {/* <button
+                  onClick={fetchLocations}
+                  className="px-4 py-2 bg-[var(--color-brand)] text-white rounded hover:bg-[#009a0b]"
+                >
+                  Try Again
+                </button> */}
+              </div>
+            ) : locations.length > 0 ? (
+              locations.slice(0, 3).map((location) => (
+                <Link to={`/restaurant/${location.id}`} key={location.id}>
+                  <LocationCard location={location} />
+                </Link>
+              ))
+            ) : (
+              <div className="col-span-3 text-center py-8">
+                <p className="text-gray-500">No locations available</p>
+              </div>
+            )}
           </div>
         </section>
       </Layout>
