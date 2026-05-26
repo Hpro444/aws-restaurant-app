@@ -17,15 +17,17 @@ export interface ApiErrorResponse {
   message?: string;
 }
 
-// const API_BASE_URL =
-//   "https://pga9t9qu63.execute-api.eu-west-3.amazonaws.com/api/auth";
+const  isApiErrorResponse = (value: unknown): value is ApiErrorResponse => {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
 
-const isApiErrorResponse = (value: unknown): value is ApiErrorResponse => {
-  return typeof value === "object" && value !== null && "message" in value;
+  const maybe = value as Record<string, unknown>;
+  return typeof maybe.message === "string" || typeof maybe.error === "string";
 };
 
 export const loginUser = async (data: LoginPayload): Promise<LoginResponse> => {
-  const response = await fetch(`${getApiBaseUrl()}/auth/sign-in`, {
+  const response = await fetch(getApiBaseUrl() + "/auth/sign-in", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -36,12 +38,11 @@ export const loginUser = async (data: LoginPayload): Promise<LoginResponse> => {
   const payload: unknown = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const message =
-      isApiErrorResponse(payload) && typeof payload.message === "string"
-        ? payload.message
-        : `Login failed with status ${response.status}`;
+    const backendMessage = isApiErrorResponse(payload)
+      ? payload.message || payload.error
+      : undefined;
 
-    throw new Error(message);
+    throw new Error(backendMessage || "Login failed");
   }
 
   return payload as LoginResponse;

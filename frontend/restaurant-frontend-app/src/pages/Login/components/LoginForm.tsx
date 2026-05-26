@@ -13,6 +13,9 @@ const VALID_COLOR = "#00AD0C";
 const INVALID_COLOR = "#B70B0B";
 const NEUTRAL_COLOR = "#898989";
 
+// const ACCOUNT_LOCKED_MESSAGE =
+//   "Your account is temporarily locked due to multiple failed login attempts. Please try again later.";
+
 const EMAIL_ERROR =
   "Email address is required. Please enter your email to continue";
 const PASSWORD_ERROR =
@@ -108,7 +111,6 @@ const LoginForm = () => {
         return;
       }
       if (
-        // message === ACCOUNT_LOCKED_MESSAGE ||
         message.toLowerCase().includes("multiple")
       ) {
         setAccountLocked(true);

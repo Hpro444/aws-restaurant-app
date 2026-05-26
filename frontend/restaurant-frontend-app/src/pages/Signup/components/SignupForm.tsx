@@ -453,7 +453,7 @@ const SignUpForm = () => {
           </button>
 
           <p className={classes.loginText}>
-            Already have an account? {""}
+            Already have an account?{" "}
             <Link to="/login" className={classes.loginLink}>
               Login
             </Link>{" "}

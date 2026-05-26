@@ -1,8 +1,6 @@
 import { ACTIONS_BY_ROLE, NAV_ITEMS_BY_ROLE } from "./header.config";
 import HeaderActions from "./components/HeaderActions";
-// import HeaderLogo from "./HeaderLogo";
 import HeaderNav from "./components/HeaderNav";
-// import { useAuth } from "../../contexts/AuthContext";
 import HeaderLogo from "../../assets/Logo.png";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
