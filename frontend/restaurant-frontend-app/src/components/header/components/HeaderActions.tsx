@@ -1,4 +1,3 @@
-// import { AccountIcon, BellIcon, CartIcon } from "./HeaderIcons";
 import type { HeaderAction } from "../header.config";
 import CartIcon from "../../../assets/header/Cart.png";
 import BellIcon from "../../../assets/header/Notification.png";

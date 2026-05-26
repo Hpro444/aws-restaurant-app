@@ -1,29 +1,51 @@
-import location from "../../../assets/home/location.jpg";
+import locationImg from "../../../assets/home/location.jpg";
 import location_icon from "../../../assets/home/location-icon.png";
 
-const LocationCard = () => {
+type Location = {
+  id: string;
+  name: string;
+  address: string;
+  image?: string;
+  totalCapacity?: number;
+  averageOccupancy?: number;
+};
+
+type LocationCardProps = {
+  location?: Location;
+};
+
+const LocationCard = ({ location }: LocationCardProps) => {
+  const locationName = location?.name || "48 Text";
+  const locationAddress = location?.address || locationName;
+  const locationImage = location?.image || locationImg;
+  const totalCapacity = location?.totalCapacity || 100;
+  const averageOccupancy = location?.averageOccupancy || 75;
+
   return (
     <div className="max-h-[256px] w-[432px]">
       <div className="h-[140px]">
         <img
-          src={location}
-          alt="Image"
+          src={locationImage}
+          alt={locationName}
           className="rotate-0 object-cover h-full opacity-100 w-full rounded-tl-[24px] rounded-tr-[24px]"
+          onError={(e) => {
+            e.currentTarget.src = locationImg;
+          }}
         />
       </div>
       <div className="flex gap-5 flex-col rotate-0 opacity-100 p-6 rounded-br-[24px] rounded-bl-[24px] shadow-[0px_0px_10px_4px_#DADADAB2]">
         <div className="flex gap-2 items-center">
           <img src={location_icon} alt="Location" />
           <p className="font-medium text-[14px] leading-[24px] align-middle">
-            <span>48 Text</span>
+            <span>{locationAddress}</span>
           </p>
         </div>
         <div className="flex justify-between font-poppins font-medium text-[14px] leading-[24px] align-middle">
           <p className="flex gap-2">
-            <span>Total capacity:</span> <span>100 tables</span>
+            <span>Total capacity:</span> <span>{totalCapacity} tables</span>
           </p>
           <p className="flex gap-2">
-            <span>Average occupancy:</span> <span>75%</span>
+            <span>Average occupancy:</span> <span>{averageOccupancy}%</span>
           </p>
         </div>
       </div>

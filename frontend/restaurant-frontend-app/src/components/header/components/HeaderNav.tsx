@@ -19,8 +19,9 @@ const HeaderNav = ({ items }: Props) => {
           key={item.href}
           to={item.href}
           end={item.href === "/"}
-          className={baseClass}
-          style={({ isActive }) => (isActive ? { color: "var(--color-brand)", borderColor: "var(--color-brand)" } : {})}
+          className={({ isActive }) =>
+            `${baseClass} ${isActive && "border-[var(--color-brand)] text-[var(--color-brand)]"}`
+          }
         >
           {item.label}
         </NavLink>

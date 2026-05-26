@@ -1,0 +1,113 @@
+import getApiBaseUrl from "../../config/GetApiBaseUrl";
+
+// GET /bookings/tables
+
+export interface AvailableSlot {
+  slot_id: string;
+  start_time: string;
+  end_time: string;
+}
+
+export interface TableResult {
+  table_id: string;
+  table_number: number;
+  capacity: number;
+  available_slots: AvailableSlot[];
+}
+
+export interface GetTablesParams {
+  location_id: string;
+  date: string;
+  guests_number: number;
+  from_time?: string;
+  to_time?: string;
+}
+
+export interface GetTablesResponse {
+  tables: TableResult[];
+}
+
+export const getAvailableTables = async (
+  params: GetTablesParams,
+  accessToken: string,
+): Promise<GetTablesResponse> => {
+  const query = new URLSearchParams({
+    location_id: params.location_id,
+    date: params.date,
+    guests_number: String(params.guests_number),
+    ...(params.from_time ? { from_time: params.from_time } : {}),
+    ...(params.to_time ? { to_time: params.to_time } : {}),
+  });
+
+  const response = await fetch(
+    `${getApiBaseUrl()}/bookings/tables?${query.toString()}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+
+  const payload: unknown = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const maybe = payload as Record<string, unknown> | null;
+    const message =
+      (typeof maybe?.message === "string" && maybe.message) ||
+      (typeof maybe?.error === "string" && maybe.error) ||
+      `Failed to fetch tables (${response.status})`;
+    throw new Error(message);
+  }
+
+  return payload as GetTablesResponse;
+};
+
+// POST /bookings/client
+
+export interface CreateBookingPayload {
+  locationId: string;
+  tableNumber: number;
+  date: string;
+  guestsNumber: number;
+  timeFrom: string;
+  timeTo: string;
+}
+
+export interface CreateBookingResponse {
+  reservationId: string;
+  status: "RESERVED";
+  locationId: string;
+  tableNumber: number;
+  date: string;
+  timeFrom: string;
+  timeTo: string;
+  guestsNumber: number;
+}
+
+export const createBooking = async (
+  payload: CreateBookingPayload,
+  accessToken: string,
+): Promise<CreateBookingResponse> => {
+  const response = await fetch(`${getApiBaseUrl()}/bookings/client`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data: unknown = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const maybe = data as Record<string, unknown> | null;
+    const message =
+      (typeof maybe?.message === "string" && maybe.message) ||
+      (typeof maybe?.error === "string" && maybe.error) ||
+      `Failed to create booking (${response.status})`;
+    throw new Error(message);
+  }
+
+  return data as CreateBookingResponse;
+};
