@@ -13,9 +13,6 @@ export interface SignupResponse {
   user_id: string;
 }
 
-// const API_BASE_URL =
-//   "https://pga9t9qu63.execute-api.eu-west-3.amazonaws.com/api/auth";
-
 export const signupUser = async (
   data: SignupPayload,
 ): Promise<SignupResponse> => {

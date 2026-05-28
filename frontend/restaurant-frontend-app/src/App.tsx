@@ -48,14 +48,7 @@ function App() {
           </RequireAuth>
         }
       />
-      <Route
-        path="/reservations"
-        element={
-          // <RequireAuth>
-            <ReservationsPage />
-          // </RequireAuth>
-        }
-      />
+      <Route path="/reservations" element={<ReservationsPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

@@ -140,12 +140,6 @@ const HomePage = () => {
                 <p className="text-red-500 mb-4">
                   Error loading popular dishes: {dishesError}
                 </p>
-                {/* <button
-                  onClick={fetchPopularDishes}
-                  className="px-4 py-2 bg-[var(--color-brand)] text-white rounded hover:bg-[#009a0b]"
-                >
-                  Try Again
-                </button> */}
               </div>
             ) : popularDishes.length > 0 ? (
               popularDishes
@@ -179,12 +173,6 @@ const HomePage = () => {
                 <p className="text-red-500 mb-4">
                   Error loading locations: {locationsError}
                 </p>
-                {/* <button
-                  onClick={fetchLocations}
-                  className="px-4 py-2 bg-[var(--color-brand)] text-white rounded hover:bg-[#009a0b]"
-                >
-                  Try Again
-                </button> */}
               </div>
             ) : locations.length > 0 ? (
               locations.slice(0, 3).map((location) => (

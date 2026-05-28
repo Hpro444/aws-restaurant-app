@@ -107,9 +107,7 @@ const LoginForm = () => {
         setAccountLocked(false);
         return;
       }
-      if (
-        message.toLowerCase().includes("multiple")
-      ) {
+      if (message.toLowerCase().includes("multiple")) {
         setAccountLocked(true);
         setShowError(true);
         setErrorMessage(message);

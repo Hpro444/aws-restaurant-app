@@ -1,7 +1,6 @@
 import Header from "../../components/header";
 import locationImg from "../../assets/restaurant/location.png";
 import DiscCard from "../../components/common/DishCard";
-// import Layout from "../../components/layout";
 import userAvatar from "../../assets/restaurant/user-image.png";
 import star_icon from "../../assets/restaurant/star-icon.png";
 import location_icon from "../../assets/restaurant/location-icon.png";
@@ -11,9 +10,7 @@ const RestaurantPage = () => {
   return (
     <>
       <Header />
-      {/* <Layout> */}
       <div className="max-w-[1440px] px-10 mx-auto flex flex-col gap-16 mb-7 font-poppins">
-        {/* Breadcrumb */}
         <section className="flex gap-2 mt-2 font-light text-[14px] leading-[24px] tracking-normal">
           <span className="cursor-pointer">Main page</span>
           <span>{">"}</span>

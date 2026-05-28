@@ -1,16 +1,11 @@
-// pages/Reservations/Reservations.tsx
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
 import {
   getReservations,
   type ReservationResponse,
-  //   cancelReservation,
-  //   ReservationResponse,
 } from "./reservations.services";
 import ReservationCard from "./components/ReservationCard";
 import Header from "../../components/header";
-// import LoadingSpinner from "../../components/LoadingSpinner"; // Create this component
-// import ErrorMessage from "../../components/ErrorMessage"; // Create this component
 import logoWhite from "../../assets/logoWhite.png";
 import subheading from "../../assets/reservations/subheading.png";
 import Layout from "../../components/layout";
@@ -92,7 +87,6 @@ const ReservationsPage = () => {
   const [reservations, setReservations] = useState<ReservationResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  //   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   const fetchReservations = useCallback(async () => {
     if (!accessToken) {
@@ -170,21 +164,6 @@ const ReservationsPage = () => {
     // navigate(`/reservations/${reservationId}/feedback`);
   };
 
-  //   if (!isAuthenticated) {
-  //     return (
-  //       <div className="max-w-4xl mx-auto px-4 py-8">
-  //         <div className="text-center">
-  //           <h1 className="text-2xl font-bold text-gray-900 mb-4">
-  //             Access Denied
-  //           </h1>
-  //           <p className="text-gray-600">
-  //             Please log in to view your reservations.
-  //           </p>
-  //         </div>
-  //       </div>
-  //     );
-  //   }
-
   return (
     <>
       <Header />
@@ -241,72 +220,7 @@ const ReservationsPage = () => {
             />
           ))}
         </div>
-        {/* )} */}
       </Layout>
-
-      {/* Loading State
-      {loading && (
-        <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
-          <span className="ml-2 text-gray-600">Loading reservations...</span>
-        </div>
-      )} */}
-
-      {/* Reservations Grid */}
-      {/* {!loading && !error && ( */}
-      <>
-        {/* {reservations.length === 0 ? ( */}
-        {/* <div>
-          <svg
-            className="w-16 h-16 text-gray-300 mx-auto mb-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-            />
-          </svg>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            No reservations found
-          </h3>
-          <p className="text-gray-600 mb-4">
-            You haven't made any reservations yet.
-          </p>
-          <button className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors">
-            Make a Reservation
-          </button>
-        </div> */}
-        {/* ) : ( */}
-        {/* <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {reservations.map((reservation) => (
-            <ReservationCard
-              key={reservation.id}
-              reservation={reservation}
-              onEdit={handleEditReservation}
-              // onCancel={handleCancelReservation}
-              onFeedback={handleLeaveFeedback}
-            />
-          ))}
-        </div> */}
-        {/* )} */}
-      </>
-      {/* )} */}
-
-      {/* Refresh Button
-      {!loading && (
-        <div className="mt-8 text-center">
-          <button
-            onClick={fetchReservations}
-            className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-          >
-            Refresh Reservations
-          </button>
-        </div>
-      )} */}
     </>
   );
 };

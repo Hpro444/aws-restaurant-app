@@ -1,7 +1,5 @@
 import getApiBaseUrl from "../../config/GetApiBaseUrl";
 
-// GET /bookings/tables
-
 export interface AvailableSlot {
   slot_id: string;
   start_time: string;
@@ -62,8 +60,6 @@ export const getAvailableTables = async (
 
   return payload as GetTablesResponse;
 };
-
-// POST /bookings/client
 
 export interface CreateBookingPayload {
   locationId: string;
