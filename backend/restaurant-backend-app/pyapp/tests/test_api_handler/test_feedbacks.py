@@ -31,9 +31,13 @@ class TestFeedbacks(ApiHandlerLambdaTestCase):
                 _FeedbackItem(
                     {
                         "id": "11111111-1111-4111-8111-111111111111",
+                        "customer_id": "22222222-2222-4222-8222-222222222222",
                         "feedback": "Great service",
                         "rate": 5,
                         "date": "2026-05-20T10:00:00Z",
+                        "user_name": "Alice Johnson",
+                        "user_image_url": "https://images.example.com/users/alice.png",
+                        "waiter_id": "33333333-3333-4333-8333-333333333333",
                     }
                 )
             ],
@@ -72,6 +76,11 @@ class TestFeedbacks(ApiHandlerLambdaTestCase):
         self.assertEqual(payload["totalElements"], 1)
         self.assertEqual(payload["content"][0]["feedback"], "Great service")
         self.assertEqual(payload["content"][0]["rate"], 5)
+        self.assertEqual(payload["content"][0]["user_name"], "Alice Johnson")
+        self.assertEqual(
+            payload["content"][0]["user_image_url"],
+            "https://images.example.com/users/alice.png",
+        )
         self.HANDLER._feedback_service.get_feedbacks.assert_called_once_with(
             location_id=UUID(_LOCATION_ID),
             type="service",

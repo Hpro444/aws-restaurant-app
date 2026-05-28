@@ -9,6 +9,7 @@ from commons.abstract_lambda import AbstractLambda
 from dto.available_tables import AvailableTablesRequest
 from dto.create_booking import CreateBookingRequest
 from dto.error_response import FieldError, ValidationErrorResponse
+from dto.feedbacks import PageFeedbackResponse
 from dto.locations import LocationAddressResponse, LocationResponse
 from dto.logout import LogoutRequest, LogoutResponse
 from dto.refresh import RefreshRequest, RefreshResponse
@@ -939,13 +940,15 @@ class ApiHandler(AbstractLambda):
             size=size,
         )
 
-        total_pages_raw = feedback_page.get("totalPages", 0)
-        try:
-            total_pages = int(total_pages_raw)
-        except TypeError:
-            total_pages = 0
-        except ValueError:
-            total_pages = 0
+        if isinstance(feedback_page, dict):
+            content = feedback_page.get("content", [])
+            feedback_page["content"] = [
+                item.model_dump(mode="json") if hasattr(item, "model_dump") else item
+                for item in content
+            ]
+            feedback_page = PageFeedbackResponse.model_validate(feedback_page)
+
+        total_pages = feedback_page.total_pages
 
         max_page = max(total_pages - 1, 0)
         if page > max_page:
@@ -955,20 +958,14 @@ class ApiHandler(AbstractLambda):
                     errors=[
                         FieldError(
                             field="page",
-                            message=f"Must be between 0 and {max_page}",
+                            message=f"Requested page {page} exceeds available pages.",
                         )
                     ]
                 ).model_dump(),
             )
 
-        content = feedback_page.get("content", [])
-        feedback_page["content"] = [
-            item.model_dump(mode="json") if hasattr(item, "model_dump") else item
-            for item in content
-        ]
-
         return build_response(
-            feedback_page,
+            feedback_page.model_dump(by_alias=True, mode="json"),
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 
