@@ -50,7 +50,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "alice:lea"),
             customer_id=alice_id,
-            user_image=_AVATAR["alice"],
+            user_image_url=_AVATAR["alice"],
             feedback="Lea was wonderful — very attentive, friendly, and knew the menu inside out. Made our evening special.",
             waiter_id=waiters[lea_id].id,
             rate=5,
@@ -59,7 +59,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "alice:lea:2"),
             customer_id=alice_id,
-            user_image=_AVATAR["alice"],
+            user_image_url=_AVATAR["alice"],
             feedback="Another excellent experience with Lea. Prompt and attentive as always. A true asset to the restaurant.",
             waiter_id=waiters[lea_id].id,
             rate=4,
@@ -68,7 +68,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "bob:lea"),
             customer_id=bob_id,
-            user_image=_AVATAR["bob"],
+            user_image_url=_AVATAR["bob"],
             feedback="Professional service throughout. Lea kept our glasses topped up without being asked. Highly recommend.",
             waiter_id=waiters[lea_id].id,
             rate=4,
@@ -77,7 +77,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "bob:lea:2"),
             customer_id=bob_id,
-            user_image=_AVATAR["bob"],
+            user_image_url=_AVATAR["bob"],
             feedback="Lea remembered our preferences from a previous visit — impressive attention to detail and genuine warmth.",
             waiter_id=waiters[lea_id].id,
             rate=5,
@@ -86,7 +86,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "carol:lea"),
             customer_id=carol_id,
-            user_image=_AVATAR["carol"],
+            user_image_url=_AVATAR["carol"],
             feedback="Very warm and welcoming. Lea remembered my dietary preferences from a previous visit — impressive.",
             waiter_id=waiters[lea_id].id,
             rate=5,
@@ -95,7 +95,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "carol:lea:2"),
             customer_id=carol_id,
-            user_image=_AVATAR["carol"],
+            user_image_url=_AVATAR["carol"],
             feedback="Returned and had Lea again. Consistently good service — polite, efficient, and attentive throughout.",
             waiter_id=waiters[lea_id].id,
             rate=4,
@@ -104,7 +104,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "david:lea"),
             customer_id=david_id,
-            user_image=_AVATAR["david"],
+            user_image_url=_AVATAR["david"],
             feedback="Very slow service. Waited over 20 minutes to even be noticed. Completely unacceptable on a quiet evening.",
             waiter_id=waiters[lea_id].id,
             rate=1,
@@ -113,7 +113,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "david:lea:2"),
             customer_id=david_id,
-            user_image=_AVATAR["david"],
+            user_image_url=_AVATAR["david"],
             feedback="Service was marginally better this time but still too slow. Had to wait long periods without any attention.",
             waiter_id=waiters[lea_id].id,
             rate=2,
@@ -122,7 +122,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "emma:lea"),
             customer_id=emma_id,
-            user_image=_AVATAR["emma"],
+            user_image_url=_AVATAR["emma"],
             feedback="Lea got our order wrong twice and seemed distracted throughout the meal. Disappointing experience.",
             waiter_id=waiters[lea_id].id,
             rate=2,
@@ -131,7 +131,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "emma:lea:2"),
             customer_id=emma_id,
-            user_image=_AVATAR["emma"],
+            user_image_url=_AVATAR["emma"],
             feedback="Improved compared to last visit. Lea was more focused and got the order right this time. Passable.",
             waiter_id=waiters[lea_id].id,
             rate=3,
@@ -140,7 +140,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "frank:lea"),
             customer_id=frank_id,
-            user_image=_AVATAR["frank"],
+            user_image_url=_AVATAR["frank"],
             feedback="Exceptional service from Lea tonight. Went above and beyond to make our anniversary dinner truly special.",
             waiter_id=waiters[lea_id].id,
             rate=5,
@@ -149,7 +149,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "frank:lea:2"),
             customer_id=frank_id,
-            user_image=_AVATAR["frank"],
+            user_image_url=_AVATAR["frank"],
             feedback="Another great visit. Lea continues to provide thoughtful and professional service. Always a pleasure.",
             waiter_id=waiters[lea_id].id,
             rate=4,
@@ -158,7 +158,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "grace:lea"),
             customer_id=grace_id,
-            user_image=_AVATAR["grace"],
+            user_image_url=_AVATAR["grace"],
             feedback="Friendly and efficient. Lea recommended the daily special which turned out to be excellent.",
             waiter_id=waiters[lea_id].id,
             rate=4,
@@ -167,7 +167,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "grace:lea:2"),
             customer_id=grace_id,
-            user_image=_AVATAR["grace"],
+            user_image_url=_AVATAR["grace"],
             feedback="Lea was exceptional again — went out of her way to accommodate a last-minute dietary change without any fuss.",
             waiter_id=waiters[lea_id].id,
             rate=5,
@@ -176,7 +176,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "henry:lea"),
             customer_id=henry_id,
-            user_image=_AVATAR["henry"],
+            user_image_url=_AVATAR["henry"],
             feedback="Service was average. Nothing went wrong but nothing stood out either. Polite but not engaging.",
             waiter_id=waiters[lea_id].id,
             rate=3,
@@ -185,7 +185,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "henry:lea:2"),
             customer_id=henry_id,
-            user_image=_AVATAR["henry"],
+            user_image_url=_AVATAR["henry"],
             feedback="Much better this time — Lea was proactive and engaging. Made the dinner a much more pleasant experience.",
             waiter_id=waiters[lea_id].id,
             rate=4,
@@ -194,7 +194,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "iris:lea"),
             customer_id=iris_id,
-            user_image=_AVATAR["iris"],
+            user_image_url=_AVATAR["iris"],
             feedback="Lea made us feel so welcome from the moment we arrived. Truly excellent hospitality.",
             waiter_id=waiters[lea_id].id,
             rate=5,
@@ -203,7 +203,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "iris:lea:2"),
             customer_id=iris_id,
-            user_image=_AVATAR["iris"],
+            user_image_url=_AVATAR["iris"],
             feedback="Lea provided warm and attentive service throughout. She really has a talent for making guests feel at home.",
             waiter_id=waiters[lea_id].id,
             rate=4,
@@ -212,7 +212,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "james:lea"),
             customer_id=james_id,
-            user_image=_AVATAR["james"],
+            user_image_url=_AVATAR["james"],
             feedback="Had to ask multiple times for the bill. Service felt rushed and inattentive during peak hours.",
             waiter_id=waiters[lea_id].id,
             rate=2,
@@ -221,7 +221,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "james:lea:2"),
             customer_id=james_id,
-            user_image=_AVATAR["james"],
+            user_image_url=_AVATAR["james"],
             feedback="Still struggling with responsiveness. Had to ask twice for basic items. Not the standard expected here.",
             waiter_id=waiters[lea_id].id,
             rate=2,
@@ -230,7 +230,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "kate:lea"),
             customer_id=kate_id,
-            user_image=_AVATAR["kate"],
+            user_image_url=_AVATAR["kate"],
             feedback="Lea was friendly and knowledgeable. She handled our large group with ease and kept everything running smoothly.",
             waiter_id=waiters[lea_id].id,
             rate=4,
@@ -239,7 +239,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "kate:lea:2"),
             customer_id=kate_id,
-            user_image=_AVATAR["kate"],
+            user_image_url=_AVATAR["kate"],
             feedback="Lea was absolutely brilliant — managed a busy section effortlessly while making every table feel like the priority.",
             waiter_id=waiters[lea_id].id,
             rate=5,
@@ -249,7 +249,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "alice:max"),
             customer_id=alice_id,
-            user_image=_AVATAR["alice"],
+            user_image_url=_AVATAR["alice"],
             feedback="Max was efficient and knowledgeable about the menu. Quick service, which is exactly what you need at an airport.",
             waiter_id=waiters[max_id].id,
             rate=4,
@@ -258,7 +258,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "alice:max:2"),
             customer_id=alice_id,
-            user_image=_AVATAR["alice"],
+            user_image_url=_AVATAR["alice"],
             feedback="Max truly excelled on this visit — fast, friendly, and genuinely helpful with menu recommendations.",
             waiter_id=waiters[max_id].id,
             rate=5,
@@ -267,7 +267,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "bob:max"),
             customer_id=bob_id,
-            user_image=_AVATAR["bob"],
+            user_image_url=_AVATAR["bob"],
             feedback="Max was professional and efficient. He kept the pace well during a busy service — good work.",
             waiter_id=waiters[max_id].id,
             rate=4,
@@ -276,7 +276,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "bob:max:2"),
             customer_id=bob_id,
-            user_image=_AVATAR["bob"],
+            user_image_url=_AVATAR["bob"],
             feedback="Adequate service. Max was polite but seemed stretched thin, leading to some delays in our order.",
             waiter_id=waiters[max_id].id,
             rate=3,
@@ -285,7 +285,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "carol:max"),
             customer_id=carol_id,
-            user_image=_AVATAR["carol"],
+            user_image_url=_AVATAR["carol"],
             feedback="Max handled a large group smoothly and kept everyone's orders straight. Great under pressure.",
             waiter_id=waiters[max_id].id,
             rate=3,
@@ -294,7 +294,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "carol:max:2"),
             customer_id=carol_id,
-            user_image=_AVATAR["carol"],
+            user_image_url=_AVATAR["carol"],
             feedback="Max maintained a high standard on our second visit — professional and attentive throughout the meal.",
             waiter_id=waiters[max_id].id,
             rate=4,
@@ -303,7 +303,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "david:max"),
             customer_id=david_id,
-            user_image=_AVATAR["david"],
+            user_image_url=_AVATAR["david"],
             feedback="Max was rude and dismissive when we asked about allergens. Completely unprofessional attitude.",
             waiter_id=waiters[max_id].id,
             rate=1,
@@ -312,7 +312,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "david:max:2"),
             customer_id=david_id,
-            user_image=_AVATAR["david"],
+            user_image_url=_AVATAR["david"],
             feedback="Service was still poor. Max remained dismissive when asked questions and the attitude was unwelcoming.",
             waiter_id=waiters[max_id].id,
             rate=2,
@@ -321,7 +321,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "emma:max"),
             customer_id=emma_id,
-            user_image=_AVATAR["emma"],
+            user_image_url=_AVATAR["emma"],
             feedback="Order took far too long and arrived cold. Max offered no explanation or apology whatsoever.",
             waiter_id=waiters[max_id].id,
             rate=2,
@@ -330,7 +330,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "emma:max:2"),
             customer_id=emma_id,
-            user_image=_AVATAR["emma"],
+            user_image_url=_AVATAR["emma"],
             feedback="Better this time. The order was correct and Max kept us informed about wait times. Passable experience.",
             waiter_id=waiters[max_id].id,
             rate=3,
@@ -339,7 +339,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "frank:max"),
             customer_id=frank_id,
-            user_image=_AVATAR["frank"],
+            user_image_url=_AVATAR["frank"],
             feedback="Outstanding service from Max. Handled a complicated multi-course order with grace and great humour.",
             waiter_id=waiters[max_id].id,
             rate=5,
@@ -348,7 +348,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "frank:max:2"),
             customer_id=frank_id,
-            user_image=_AVATAR["frank"],
+            user_image_url=_AVATAR["frank"],
             feedback="Once again Max delivered exceptional service — attentive, warm, and highly professional throughout.",
             waiter_id=waiters[max_id].id,
             rate=5,
@@ -357,7 +357,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "grace:max"),
             customer_id=grace_id,
-            user_image=_AVATAR["grace"],
+            user_image_url=_AVATAR["grace"],
             feedback="Max was helpful and kept us informed about wait times. Good professional attitude throughout.",
             waiter_id=waiters[max_id].id,
             rate=4,
@@ -366,7 +366,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "grace:max:2"),
             customer_id=grace_id,
-            user_image=_AVATAR["grace"],
+            user_image_url=_AVATAR["grace"],
             feedback="Max kept our table well-managed throughout a very busy service. Reliable and professional as always.",
             waiter_id=waiters[max_id].id,
             rate=4,
@@ -375,7 +375,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "henry:max"),
             customer_id=henry_id,
-            user_image=_AVATAR["henry"],
+            user_image_url=_AVATAR["henry"],
             feedback="Max is a star — attentive, knowledgeable, and genuinely made the whole layover experience enjoyable.",
             waiter_id=waiters[max_id].id,
             rate=5,
@@ -384,7 +384,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "henry:max:2"),
             customer_id=henry_id,
-            user_image=_AVATAR["henry"],
+            user_image_url=_AVATAR["henry"],
             feedback="Max continues to impress — always present when needed and full of helpful suggestions. Outstanding.",
             waiter_id=waiters[max_id].id,
             rate=5,
@@ -393,7 +393,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "iris:max"),
             customer_id=iris_id,
-            user_image=_AVATAR["iris"],
+            user_image_url=_AVATAR["iris"],
             feedback="Adequate service. Max was polite but not particularly engaging or proactive. Got the job done.",
             waiter_id=waiters[max_id].id,
             rate=3,
@@ -402,7 +402,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "iris:max:2"),
             customer_id=iris_id,
-            user_image=_AVATAR["iris"],
+            user_image_url=_AVATAR["iris"],
             feedback="A bit more engaging this time though still quite functional. Gets the job done efficiently.",
             waiter_id=waiters[max_id].id,
             rate=3,
@@ -411,7 +411,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "james:max"),
             customer_id=james_id,
-            user_image=_AVATAR["james"],
+            user_image_url=_AVATAR["james"],
             feedback="Forgotten order, no apology, and wrong dish delivered as the replacement. Terrible experience.",
             waiter_id=waiters[max_id].id,
             rate=1,
@@ -420,7 +420,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "james:max:2"),
             customer_id=james_id,
-            user_image=_AVATAR["james"],
+            user_image_url=_AVATAR["james"],
             feedback="Improvement was minimal. The order was correct but the service felt rushed and impersonal throughout.",
             waiter_id=waiters[max_id].id,
             rate=2,
@@ -429,7 +429,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "kate:max"),
             customer_id=kate_id,
-            user_image=_AVATAR["kate"],
+            user_image_url=_AVATAR["kate"],
             feedback="Efficient service. Max kept our table well attended despite being clearly very busy.",
             waiter_id=waiters[max_id].id,
             rate=4,
@@ -438,7 +438,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "kate:max:2"),
             customer_id=kate_id,
-            user_image=_AVATAR["kate"],
+            user_image_url=_AVATAR["kate"],
             feedback="Outstanding service from Max again. He anticipated our needs and made the whole experience feel effortless.",
             waiter_id=waiters[max_id].id,
             rate=5,
@@ -448,7 +448,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "alice:nina"),
             customer_id=alice_id,
-            user_image=_AVATAR["alice"],
+            user_image_url=_AVATAR["alice"],
             feedback="Nina was very kind and gave excellent pairing suggestions for local dishes.",
             waiter_id=waiters[nina_id].id,
             rate=5,
@@ -457,7 +457,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "alice:nina:2"),
             customer_id=alice_id,
-            user_image=_AVATAR["alice"],
+            user_image_url=_AVATAR["alice"],
             feedback="Returned and Nina was just as attentive and pleasant as before. Truly an asset to the team.",
             waiter_id=waiters[nina_id].id,
             rate=4,
@@ -466,7 +466,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "bob:nina"),
             customer_id=bob_id,
-            user_image=_AVATAR["bob"],
+            user_image_url=_AVATAR["bob"],
             feedback="Quick and friendly service from Nina, everything arrived hot and on time.",
             waiter_id=waiters[nina_id].id,
             rate=4,
@@ -475,7 +475,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "bob:nina:2"),
             customer_id=bob_id,
-            user_image=_AVATAR["bob"],
+            user_image_url=_AVATAR["bob"],
             feedback="Nina exceeded expectations again — professional, warm, and full of excellent food and wine recommendations.",
             waiter_id=waiters[nina_id].id,
             rate=5,
@@ -484,7 +484,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "carol:nina"),
             customer_id=carol_id,
-            user_image=_AVATAR["carol"],
+            user_image_url=_AVATAR["carol"],
             feedback="Nina was attentive and welcoming. She handled our dietary requirements with care and expertise.",
             waiter_id=waiters[nina_id].id,
             rate=4,
@@ -493,7 +493,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "carol:nina:2"),
             customer_id=carol_id,
-            user_image=_AVATAR["carol"],
+            user_image_url=_AVATAR["carol"],
             feedback="Nina was exceptional on this visit — anticipated our needs and made the whole dinner feel very special.",
             waiter_id=waiters[nina_id].id,
             rate=5,
@@ -502,7 +502,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "david:nina"),
             customer_id=david_id,
-            user_image=_AVATAR["david"],
+            user_image_url=_AVATAR["david"],
             feedback="Nina was nowhere to be found for most of our meal. Had to flag down other staff repeatedly.",
             waiter_id=waiters[nina_id].id,
             rate=1,
@@ -511,7 +511,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "david:nina:2"),
             customer_id=david_id,
-            user_image=_AVATAR["david"],
+            user_image_url=_AVATAR["david"],
             feedback="Still impossible to get Nina's attention when needed. Service quality has not improved at all.",
             waiter_id=waiters[nina_id].id,
             rate=1,
@@ -520,7 +520,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "emma:nina"),
             customer_id=emma_id,
-            user_image=_AVATAR["emma"],
+            user_image_url=_AVATAR["emma"],
             feedback="Our food arrived at different times and Nina seemed unbothered about it. Not a great experience.",
             waiter_id=waiters[nina_id].id,
             rate=2,
@@ -529,7 +529,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "emma:nina:2"),
             customer_id=emma_id,
-            user_image=_AVATAR["emma"],
+            user_image_url=_AVATAR["emma"],
             feedback="Noticeably better this time. Nina was more attentive and the food arrived together. Decent improvement.",
             waiter_id=waiters[nina_id].id,
             rate=3,
@@ -538,7 +538,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "frank:nina"),
             customer_id=frank_id,
-            user_image=_AVATAR["frank"],
+            user_image_url=_AVATAR["frank"],
             feedback="Nina provided the best restaurant service I have experienced in a long time. Truly wonderful.",
             waiter_id=waiters[nina_id].id,
             rate=5,
@@ -547,7 +547,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "frank:nina:2"),
             customer_id=frank_id,
-            user_image=_AVATAR["frank"],
+            user_image_url=_AVATAR["frank"],
             feedback="Another great experience with Nina. Her warmth and professionalism continue to set a high standard.",
             waiter_id=waiters[nina_id].id,
             rate=4,
@@ -556,7 +556,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "grace:nina"),
             customer_id=grace_id,
-            user_image=_AVATAR["grace"],
+            user_image_url=_AVATAR["grace"],
             feedback="Nina was warm and attentive. Her recommendation for the Georgian wine was absolutely perfect.",
             waiter_id=waiters[nina_id].id,
             rate=4,
@@ -565,7 +565,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "grace:nina:2"),
             customer_id=grace_id,
-            user_image=_AVATAR["grace"],
+            user_image_url=_AVATAR["grace"],
             feedback="Nina was outstanding — her knowledge of the wine list is impressive and her table manner is second to none.",
             waiter_id=waiters[nina_id].id,
             rate=5,
@@ -574,7 +574,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "henry:nina"),
             customer_id=henry_id,
-            user_image=_AVATAR["henry"],
+            user_image_url=_AVATAR["henry"],
             feedback="Absolutely charming service. Nina made the whole dinner feel like a special occasion.",
             waiter_id=waiters[nina_id].id,
             rate=5,
@@ -583,7 +583,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "henry:nina:2"),
             customer_id=henry_id,
-            user_image=_AVATAR["henry"],
+            user_image_url=_AVATAR["henry"],
             feedback="Consistently excellent service from Nina. She manages to be both efficient and genuinely welcoming.",
             waiter_id=waiters[nina_id].id,
             rate=4,
@@ -592,7 +592,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "iris:nina"),
             customer_id=iris_id,
-            user_image=_AVATAR["iris"],
+            user_image_url=_AVATAR["iris"],
             feedback="Decent but forgettable service. Nina was polite but not particularly helpful or attentive.",
             waiter_id=waiters[nina_id].id,
             rate=3,
@@ -601,7 +601,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "iris:nina:2"),
             customer_id=iris_id,
-            user_image=_AVATAR["iris"],
+            user_image_url=_AVATAR["iris"],
             feedback="Better than the last visit. Nina was proactive and engaged, making the experience much more enjoyable.",
             waiter_id=waiters[nina_id].id,
             rate=4,
@@ -610,7 +610,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "james:nina"),
             customer_id=james_id,
-            user_image=_AVATAR["james"],
+            user_image_url=_AVATAR["james"],
             feedback="Nina seemed more interested in chatting with coworkers than attending to our table. Frustrating.",
             waiter_id=waiters[nina_id].id,
             rate=2,
@@ -619,7 +619,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "james:nina:2"),
             customer_id=james_id,
-            user_image=_AVATAR["james"],
+            user_image_url=_AVATAR["james"],
             feedback="Service remained poor. Nina continued to prioritise other activities over attending to our table.",
             waiter_id=waiters[nina_id].id,
             rate=2,
@@ -628,7 +628,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "kate:nina"),
             customer_id=kate_id,
-            user_image=_AVATAR["kate"],
+            user_image_url=_AVATAR["kate"],
             feedback="Very pleasant service. Nina was knowledgeable about the menu and genuinely friendly throughout.",
             waiter_id=waiters[nina_id].id,
             rate=4,
@@ -637,7 +637,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         FeedbackService(
             id=seed_id("feedback-service", "kate:nina:2"),
             customer_id=kate_id,
-            user_image=_AVATAR["kate"],
+            user_image_url=_AVATAR["kate"],
             feedback="Nina was brilliant from start to finish. Every detail was handled with care and professionalism.",
             waiter_id=waiters[nina_id].id,
             rate=5,
