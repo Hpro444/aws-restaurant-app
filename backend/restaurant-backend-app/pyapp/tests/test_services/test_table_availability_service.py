@@ -74,28 +74,28 @@ class TestSnapToSlotStart(unittest.TestCase):
         """When from_time equals a slot start, it should be returned unchanged."""
         # open_time=12:00 → slots at 12:00, 13:45, 15:30 …
         result = TableAvailabilityService._snap_to_slot_start(
-            open_time=time(12, 0), from_time_str="12:00"
+            open_time=time(12, 0), requested_time=time(12, 0)
         )
         self.assertEqual(result, time(12, 0))
 
     def test_from_time_between_slots_snaps_up_to_next_slot(self) -> None:
         """12:57 is between 12:00 and 13:45, so should snap to 13:45."""
         result = TableAvailabilityService._snap_to_slot_start(
-            open_time=time(12, 0), from_time_str="12:57"
+            open_time=time(12, 0), requested_time=time(12, 57)
         )
         self.assertEqual(result, time(13, 45))
 
     def test_from_time_exactly_on_second_slot_returns_second_slot(self) -> None:
         """13:45 is exactly the second slot start; should return 13:45."""
         result = TableAvailabilityService._snap_to_slot_start(
-            open_time=time(12, 0), from_time_str="13:45"
+            open_time=time(12, 0), requested_time=time(13, 45)
         )
         self.assertEqual(result, time(13, 45))
 
     def test_from_time_just_after_second_slot_snaps_to_third(self) -> None:
         """13:46 is just past 13:45, should snap forward to 15:30."""
         result = TableAvailabilityService._snap_to_slot_start(
-            open_time=time(12, 0), from_time_str="13:46"
+            open_time=time(12, 0), requested_time=time(13, 46)
         )
         self.assertEqual(result, time(15, 30))
 
@@ -103,7 +103,7 @@ class TestSnapToSlotStart(unittest.TestCase):
         """Snap correctly when the location opens at a non-standard time."""
         # open_time=09:00 → slots at 09:00, 10:45, 12:30 …
         result = TableAvailabilityService._snap_to_slot_start(
-            open_time=time(9, 0), from_time_str="11:00"
+            open_time=time(9, 0), requested_time=time(11, 0)
         )
         self.assertEqual(result, time(12, 30))
 
@@ -186,15 +186,15 @@ class TestTableAvailabilityService(unittest.TestCase):
             location_id=_LOCATION_ID,
             booking_date="2026-05-20",
             guests_number=2,
-            from_time="13:45",
+            from_time="2026-05-20T13:45:00Z",
         )
 
         self.assertEqual(len(response.tables), 1)
         self.assertEqual(response.tables[0].table_id, str(_TABLE_1_ID))
         slot_times = [s.start_time for s in response.tables[0].available_slots]
-        self.assertIn("13:45:00", slot_times)
-        self.assertIn("15:30:00", slot_times)
-        self.assertNotIn("12:00:00", slot_times)
+        self.assertIn("2026-05-20T13:45:00Z", slot_times)
+        self.assertIn("2026-05-20T15:30:00Z", slot_times)
+        self.assertNotIn("2026-05-20T12:00:00Z", slot_times)
 
     def test_from_time_between_slots_snaps_up_and_filters_correctly(self) -> None:
         """from_time=12:57 is between 12:00 and 13:45; snaps to 13:45.
@@ -218,12 +218,15 @@ class TestTableAvailabilityService(unittest.TestCase):
             location_id=_LOCATION_ID,
             booking_date="2026-05-20",
             guests_number=2,
-            from_time="12:57",
+            from_time="2026-05-20T12:57:00Z",
         )
 
         self.assertEqual(len(response.tables), 1)
         slot_times = [s.start_time for s in response.tables[0].available_slots]
-        self.assertEqual(slot_times, ["13:45:00", "15:30:00"])
+        self.assertEqual(
+            slot_times,
+            ["2026-05-20T13:45:00Z", "2026-05-20T15:30:00Z"],
+        )
 
     def test_snapped_slot_reserved_returns_empty(self) -> None:
         """If the snapped slot is RESERVED the table must not qualify."""
@@ -242,7 +245,7 @@ class TestTableAvailabilityService(unittest.TestCase):
             location_id=_LOCATION_ID,
             booking_date="2026-05-20",
             guests_number=2,
-            from_time="13:45",
+            from_time="2026-05-20T13:45:00Z",
         )
 
         self.assertEqual(response.model_dump(), {"tables": []})
@@ -267,11 +270,14 @@ class TestTableAvailabilityService(unittest.TestCase):
             location_id=_LOCATION_ID,
             booking_date="2026-05-20",
             guests_number=2,
-            from_time="13:45",
+            from_time="2026-05-20T13:45:00Z",
         )
 
         slot_times = [s.start_time for s in response.tables[0].available_slots]
-        self.assertEqual(slot_times, ["13:45:00", "17:15:00"])
+        self.assertEqual(
+            slot_times,
+            ["2026-05-20T13:45:00Z", "2026-05-20T17:15:00Z"],
+        )
 
     def test_excludes_reserved_slots_and_returns_empty_when_none_free(self) -> None:
         """Slots with status != FREE must be removed from the response."""
@@ -325,7 +331,7 @@ class TestTableAvailabilityService(unittest.TestCase):
             location_id=_LOCATION_ID,
             booking_date="2026-05-20",
             guests_number=4,
-            from_time="13:45",
+            from_time="2026-05-20T13:45:00Z",
         )
 
         self.assertEqual(len(response.tables), 1)
@@ -379,6 +385,7 @@ class TestTableAvailabilityService(unittest.TestCase):
             mocked_datetime.now.return_value = fixed_now
             mocked_datetime.strptime = datetime.strptime
             mocked_datetime.combine = datetime.combine
+            mocked_datetime.fromisoformat = datetime.fromisoformat
 
             response = self.service.get_available_tables(
                 location_id=_LOCATION_ID,
@@ -390,7 +397,13 @@ class TestTableAvailabilityService(unittest.TestCase):
         self.assertEqual(len(response.tables), 1)
         self.assertEqual(response.tables[0].table_id, str(_TABLE_1_ID))
         slot_times = [s.start_time for s in response.tables[0].available_slots]
-        self.assertEqual(slot_times, ["13:45:00", "15:30:00"])
+        self.assertEqual(
+            slot_times,
+            [
+                f"{today.isoformat()}T13:45:00Z",
+                f"{today.isoformat()}T15:30:00Z",
+            ],
+        )
 
     def test_today_without_from_time_returns_empty_when_no_future_free_slots(
         self,
@@ -419,6 +432,7 @@ class TestTableAvailabilityService(unittest.TestCase):
             mocked_datetime.now.return_value = fixed_now
             mocked_datetime.strptime = datetime.strptime
             mocked_datetime.combine = datetime.combine
+            mocked_datetime.fromisoformat = datetime.fromisoformat
 
             response = self.service.get_available_tables(
                 location_id=_LOCATION_ID,

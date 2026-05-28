@@ -183,7 +183,7 @@ class TestTableAvailabilityServiceDomain(unittest.TestCase):
 
         # open_time=12:00 → slots at 12:00, 13:45, 15:30 …
         result = TableAvailabilityService._snap_to_slot_start(
-            open_time=time(12, 0), from_time_str="12:00"
+            open_time=time(12, 0), requested_time=time(12, 0)
         )
         self.assertEqual(result, time(12, 0))
 
@@ -193,6 +193,6 @@ class TestTableAvailabilityServiceDomain(unittest.TestCase):
 
         # open_time=12:00, from_time=12:57 → must snap to 13:45
         result = TableAvailabilityService._snap_to_slot_start(
-            open_time=time(12, 0), from_time_str="12:57"
+            open_time=time(12, 0), requested_time=time(12, 57)
         )
         self.assertEqual(result, time(13, 45))

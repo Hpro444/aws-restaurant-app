@@ -97,9 +97,12 @@ class BookingService:
             )
 
         chain = self._resolve_slot_chain(
-            slots_for_day, request.time_from, request.time_to
+            slots_for_day,
+            request.time_from,
+            request.time_to,
         )
         self._check_within_operating_hours(chain, location)
+        self._ensure_start_time_in_future(chain)
         self._ensure_all_free(chain)
         self._claim_slots(chain)
         assigned_waiter_id = self._pick_waiter_for_location(table.location_id)
@@ -134,8 +137,8 @@ class BookingService:
             location_address=location.address,
             table_number=request.table_number,
             date=request.date,
-            time_from=chain[0].start_time.strftime("%H:%M"),
-            time_to=chain[-1].end_time.strftime("%H:%M"),
+            time_from=self._format_utc(chain[0].start_time),
+            time_to=self._format_utc(chain[-1].end_time),
             guests_number=request.guests_number,
         )
 
@@ -215,10 +218,13 @@ class BookingService:
         """
         start_slot: Slot | None = None
         end_slot: Slot | None = None
+        parsed_time_from = BookingService._parse_utc_datetime(time_from)
+        parsed_time_to = BookingService._parse_utc_datetime(time_to)
+
         for slot in slots_for_day:
-            if slot.start_time.strftime("%H:%M") == time_from:
+            if slot.start_time == parsed_time_from:
                 start_slot = slot
-            if slot.end_time.strftime("%H:%M") == time_to:
+            if slot.end_time == parsed_time_to:
                 end_slot = slot
 
         if start_slot is None:
@@ -306,52 +312,6 @@ class BookingService:
             )
 
     @staticmethod
-    def _validate_slot_chain_duration(chain: list[Slot]) -> None:
-        """Validate reservation duration formula for the selected slot chain.
-
-        The business rule is:
-            total_duration = 90*n + 15*(n-1) minutes, n >= 1
-
-        where ``n`` is the number of booked slots.
-
-        Raises:
-            ApplicationException(422): Chain violates slot duration,
-                inter-slot break, or total elapsed duration constraints.
-
-        """
-        if not chain:
-            raise ApplicationException(
-                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                "Invalid time range for the selected slots",
-            )
-
-        slot_length = timedelta(minutes=90)
-        pause_length = timedelta(minutes=15)
-
-        for slot in chain:
-            if slot.end_time - slot.start_time != slot_length:
-                raise ApplicationException(
-                    HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                    "Invalid time range for the selected slots",
-                )
-
-        for previous, current in zip(chain, chain[1:]):
-            if current.start_time - previous.end_time != pause_length:
-                raise ApplicationException(
-                    HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                    "Invalid time range for the selected slots",
-                )
-
-        n_slots = len(chain)
-        expected_total = slot_length * n_slots + pause_length * (n_slots - 1)
-        actual_total = chain[-1].end_time - chain[0].start_time
-        if actual_total != expected_total:
-            raise ApplicationException(
-                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                "Invalid time range for the selected slots",
-            )
-
-    @staticmethod
     def _check_within_operating_hours(chain: list[Slot], location) -> None:
         """Raise 422 if the last slot's end_time exceeds location's close_time.
 
@@ -371,6 +331,34 @@ class BookingService:
                     }
                 ],
             )
+
+    @staticmethod
+    def _ensure_start_time_in_future(
+        chain: list[Slot],
+    ) -> None:
+        """Raise 422 when the reservation starts in the past or at the current time."""
+        first_slot_start = chain[0].start_time
+        now_utc = datetime.now(UTC)
+        if first_slot_start <= now_utc:
+            raise ApplicationException(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                [
+                    {
+                        "field": "timeFrom",
+                        "message": "Cannot book a slot that starts in the past",
+                    }
+                ],
+            )
+
+    @staticmethod
+    def _format_utc(dt: datetime) -> str:
+        """Format datetime as UTC ISO string for API response."""
+        return dt.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+    @staticmethod
+    def _parse_utc_datetime(raw_value: str) -> datetime:
+        """Parse UTC datetime string for slot matching."""
+        return datetime.fromisoformat(raw_value.replace("Z", "+00:00")).astimezone(UTC)
 
     @staticmethod
     def _ensure_all_free(chain: list[Slot]) -> None:

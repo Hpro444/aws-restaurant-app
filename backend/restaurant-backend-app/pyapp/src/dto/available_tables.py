@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -18,8 +18,10 @@ class AvailableTablesRequest(BaseModel):
     as a valid UUID, ``date`` is ISO format with a bookable window,
     and ``guests_number`` is positive and ≤ 10.
 
-    Optional ``from_time`` snaps to the first valid slot start >= the
-    entered time and returns all free slots from that point onwards.
+    Optional ``from_time`` must be a UTC ISO datetime string
+    (example: ``2026-05-27T11:45:00Z``). It is snapped to the first
+    valid slot start >= that time and returns all free slots from
+    that point onwards.
 
     """
 
@@ -41,7 +43,7 @@ class AvailableTablesRequest(BaseModel):
         except ValueError:
             raise ValueError("Date must be in YYYY-MM-DD format")
 
-        today = date.today()
+        today = datetime.now(timezone.utc).date()
         if parsed < today:
             raise ValueError("Cannot book a table in the past")
         if parsed > today + timedelta(days=30):
@@ -52,14 +54,20 @@ class AvailableTablesRequest(BaseModel):
     @field_validator("from_time")
     @classmethod
     def validate_time(cls, v: Optional[str]) -> Optional[str]:
-        """Validate optional time parameter is in HH:MM format."""
+        """Validate optional UTC datetime parameter in ISO-8601 format."""
         if v is None or v == "":
             return None
         try:
-            datetime.strptime(v, "%H:%M")
-        except ValueError:
-            raise ValueError("Time must be in HH:MM format")
-        return v
+            parsed = datetime.fromisoformat(v.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError(
+                "from_time must be a UTC ISO datetime (e.g. 2026-05-27T11:45:00Z)"
+            ) from exc
+
+        if parsed.tzinfo is None or parsed.utcoffset() != timedelta(0):
+            raise ValueError("from_time must be in UTC (offset +00:00 or Z)")
+
+        return parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 # ── Response DTOs ─────────────────────────────────────────────────────

@@ -90,6 +90,7 @@ class TableAvailabilityService:
             guests=guests_number,
             from_time=from_time,
         )
+        now_utc = datetime.now(timezone.utc)
 
         # ── Step 1: Parse location UUID ──────────────────────────────
         location_uuid = self._parse_uuid(location_id)
@@ -121,19 +122,19 @@ class TableAvailabilityService:
 
         # ── Step 5: Resolve from_time (explicit or auto-selected for today) ──
         effective_from_time = from_time
-        if not effective_from_time and booking_date == date_type.today().isoformat():
-            now_utc = datetime.now(timezone.utc)
+        today_utc = now_utc.date()
+        if not effective_from_time and booking_date == today_utc.isoformat():
             future_slots = [
                 s
                 for s in slots
-                if s.status == SlotStatus.FREE and s.start_time >= now_utc
+                if s.status == SlotStatus.FREE and s.start_time > now_utc
             ]
             if not future_slots:
                 logger.info("No future free slots for today", date=booking_date)
                 return AvailableTablesResponse(tables=[])
-            effective_from_time = min(
-                future_slots, key=lambda s: s.start_time
-            ).start_time.strftime("%H:%M")
+            effective_from_time = self._format_utc(
+                min(future_slots, key=lambda s: s.start_time).start_time
+            )
             logger.info(
                 "Auto-selected next free slot for today",
                 date=booking_date,
@@ -142,12 +143,24 @@ class TableAvailabilityService:
 
         # ── Step 6: Snap from_time and qualify tables ────────────────
         if effective_from_time:
-            snapped = self._snap_to_slot_start(location.open_time, effective_from_time)
+            requested_time = self._extract_requested_time(effective_from_time)
+            snapped = self._snap_to_slot_start(location.open_time, requested_time)
             logger.info(
                 "Snapped from_time",
                 from_time=effective_from_time,
                 snapped=str(snapped),
             )
+
+            # For today, reject snapped times that are already in the past
+            if booking_date == today_utc.isoformat():
+                snapped_dt = datetime.combine(today_utc, snapped, tzinfo=timezone.utc)
+                if snapped_dt <= now_utc:
+                    logger.info(
+                        "Snapped slot is in the past for today",
+                        snapped=str(snapped),
+                        now=now_utc.isoformat(),
+                    )
+                    return AvailableTablesResponse(tables=[])
 
             # Tables must have the snapped slot FREE
             qualifying_ids = {
@@ -168,7 +181,15 @@ class TableAvailabilityService:
             ]
 
         # ── Step 7: Filter by availability — keep only FREE slots ────
+        # For today, also exclude any slots that have already started
         free_slots = [s for s in slots if s.status == SlotStatus.FREE]
+        if booking_date == today_utc.isoformat():
+            free_slots = [s for s in free_slots if s.start_time > now_utc]
+            logger.info(
+                "Filtered out past slots for today",
+                before_filter=len([s for s in slots if s.status == SlotStatus.FREE]),
+                after_filter=len(free_slots),
+            )
         logger.info(
             "Availability computed",
             total_slots=len(slots),
@@ -197,28 +218,38 @@ class TableAvailabilityService:
             return None
 
     @staticmethod
-    def _snap_to_slot_start(open_time: time, from_time_str: str) -> time:
-        """Return the first valid slot start time >= from_time_str.
+    def _snap_to_slot_start(open_time: time, requested_time: time) -> time:
+        """Return the first valid slot start time >= requested_time.
 
         Slot schedule starts at ``open_time``; each slot is 90 minutes
         followed by a 15-minute break (105-minute period).
 
         Args:
             open_time: Location opening time (naive ``datetime.time``).
-            from_time_str: Requested filter time as "HH:MM".
+            requested_time: Requested filter time in UTC.
 
         Returns:
-            The earliest slot start time that is >= from_time_str.
+            The earliest slot start time that is >= requested_time.
 
         """
-        from_time = datetime.strptime(from_time_str, "%H:%M").time()
         slot_dt = datetime.combine(date_type.min, open_time)
-        target_dt = datetime.combine(date_type.min, from_time)
+        target_dt = datetime.combine(date_type.min, requested_time)
 
         while slot_dt < target_dt:
             slot_dt += timedelta(minutes=105)  # 90 min slot + 15 min break
 
         return slot_dt.time()
+
+    @staticmethod
+    def _extract_requested_time(from_time_value: str) -> time:
+        """Parse requested time from a UTC datetime string."""
+        parsed = datetime.fromisoformat(from_time_value.replace("Z", "+00:00"))
+        return parsed.astimezone(timezone.utc).time()
+
+    @staticmethod
+    def _format_utc(dt: datetime) -> str:
+        """Format datetime as UTC ISO string with trailing Z."""
+        return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
     @staticmethod
     def _build_response(
@@ -240,8 +271,8 @@ class TableAvailabilityService:
                 continue
             sr = SlotResponse(
                 slot_id=str(slot.id),
-                start_time=slot.start_time.strftime("%H:%M:%S"),
-                end_time=slot.end_time.strftime("%H:%M:%S"),
+                start_time=TableAvailabilityService._format_utc(slot.start_time),
+                end_time=TableAvailabilityService._format_utc(slot.end_time),
             )
             slots_by_table.setdefault(slot.table_id, []).append(sr)
 

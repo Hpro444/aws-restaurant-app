@@ -407,11 +407,31 @@
       "item": [
         {
           "name": "Get Available Tables",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const now = new Date();",
+                  "const yyyy = String(now.getUTCFullYear());",
+                  "const mm = String(now.getUTCMonth() + 1).padStart(2, '0');",
+                  "const dd = String(now.getUTCDate()).padStart(2, '0');",
+                  "const bookingDate = `${yyyy}-${mm}-${dd}`;",
+                  "const fromTime = now.toISOString().slice(0, 19) + 'Z';",
+                  "pm.request.url.query.upsert({ key: 'date', value: bookingDate });",
+                  "pm.request.url.query.upsert({ key: 'from_time', value: fromTime });",
+                  "pm.environment.set('booking_date', bookingDate);",
+                  "pm.environment.set('from_time', fromTime);"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "https://your-api-id.execute-api.us-east-1.amazonaws.com/api/bookings/tables?location_id=00000000-0000-0000-0000-000000000001&date=2026-05-28&guests_number=2&from_time=12:00",
+              "raw": "https://your-api-id.execute-api.us-east-1.amazonaws.com/api/bookings/tables?location_id=00000000-0000-0000-0000-000000000001&date={{booking_date}}&guests_number=2&from_time={{from_time}}",
               "protocol": "https",
               "host": ["your-api-id", "execute-api", "us-east-1", "amazonaws", "com"],
               "path": ["api", "bookings", "tables"],
@@ -423,7 +443,7 @@
                 },
                 {
                   "key": "date",
-                  "value": "2026-05-28",
+                  "value": "{{booking_date}}",
                   "description": "Required. YYYY-MM-DD. Must not be in the past; max 30 days ahead."
                 },
                 {
@@ -433,12 +453,12 @@
                 },
                 {
                   "key": "from_time",
-                  "value": "12:00",
-                  "description": "Optional. HH:MM – snaps to nearest valid slot start."
+                  "value": "{{from_time}}",
+                  "description": "Optional. UTC ISO datetime (e.g. 2026-05-27T13:45:00Z)."
                 }
               ]
             },
-            "description": "Returns tables with available 90-minute slots that fit the requested party size, date, and optional start time."
+            "description": "Returns tables with available 90-minute slots that fit the requested party size, date, and optional start time.\n\n`date` and `from_time` are auto-filled on each send by a pre-request script (UTC), so you don't need to set them manually in Postman."
           },
           "response": [
             {
@@ -446,7 +466,7 @@
               "status": "OK",
               "code": 200,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
-              "body": "{\n  \"tables\": [\n    {\n      \"table_id\": \"tb000001-0000-0000-0000-000000000001\",\n      \"table_number\": 5,\n      \"capacity\": 4,\n      \"location_address\": \"48 Rustaveli Avenue, Tbilisi\",\n      \"available_slots\": [\n        {\n          \"slot_id\": \"sl000001-0000-0000-0000-000000000001\",\n          \"start_time\": \"12:00\",\n          \"end_time\": \"13:30\"\n        },\n        {\n          \"slot_id\": \"sl000001-0000-0000-0000-000000000002\",\n          \"start_time\": \"14:00\",\n          \"end_time\": \"15:30\"\n        }\n      ]\n    }\n  ]\n}"
+              "body": "{\n  \"tables\": [\n    {\n      \"table_id\": \"tb000001-0000-0000-0000-000000000001\",\n      \"table_number\": 5,\n      \"capacity\": 4,\n      \"location_address\": \"48 Rustaveli Avenue, Tbilisi\",\n      \"available_slots\": [\n        {\n          \"slot_id\": \"sl000001-0000-0000-0000-000000000001\",\n          \"start_time\": \"2026-05-28T12:00:00Z\",\n          \"end_time\": \"2026-05-28T13:30:00Z\"\n        },\n        {\n          \"slot_id\": \"sl000001-0000-0000-0000-000000000002\",\n          \"start_time\": \"2026-05-28T14:00:00Z\",\n          \"end_time\": \"2026-05-28T15:30:00Z\"\n        }\n      ]\n    }\n  ]\n}"
             },
             {
               "name": "422 Unprocessable Entity",
@@ -459,6 +479,32 @@
         },
         {
           "name": "Create Booking",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.environment.get('booking_date')) {",
+                  "  const now = new Date();",
+                  "  const yyyy = String(now.getUTCFullYear());",
+                  "  const mm = String(now.getUTCMonth() + 1).padStart(2, '0');",
+                  "  const dd = String(now.getUTCDate()).padStart(2, '0');",
+                  "  pm.environment.set('booking_date', `${yyyy}-${mm}-${dd}`);",
+                  "}",
+                  "if (!pm.environment.get('guests')) pm.environment.set('guests', '2');",
+                  "if (!pm.environment.get('location_id')) pm.environment.set('location_id', '00000000-0000-0000-0000-000000000001');",
+                  "if (!pm.environment.get('table_number')) pm.environment.set('table_number', '1');",
+                  "const now = new Date();",
+                  "if (!pm.environment.get('from_time') || !pm.environment.get('to_time')) {",
+                  "  const end = new Date(now.getTime() + 90 * 60 * 1000);",
+                  "  if (!pm.environment.get('from_time')) pm.environment.set('from_time', now.toISOString().slice(0, 19) + 'Z');",
+                  "  if (!pm.environment.get('to_time')) pm.environment.set('to_time', end.toISOString().slice(0, 19) + 'Z');",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -467,7 +513,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"locationId\": \"00000000-0000-0000-0000-000000000001\",\n  \"tableNumber\": 5,\n  \"date\": \"2026-05-28\",\n  \"guestsNumber\": 2,\n  \"timeFrom\": \"12:00\",\n  \"timeTo\": \"13:30\"\n}",
+              "raw": "{\n  \"locationId\": \"{{location_id}}\",\n  \"tableNumber\": {{table_number}},\n  \"date\": \"{{booking_date}}\",\n  \"guestsNumber\": {{guests}},\n  \"timeFrom\": \"{{from_time}}\",\n  \"timeTo\": \"{{to_time}}\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -476,7 +522,7 @@
               "host": ["your-api-id", "execute-api", "us-east-1", "amazonaws", "com"],
               "path": ["api", "bookings", "client"]
             },
-            "description": "Create a new reservation. **Customer role required.** Slots are 90 minutes long.\n\n**Auth:** Bearer token required.\n\n### Body fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| `locationId` | UUID | yes | |\n| `tableNumber` | integer | yes | > 0 |\n| `date` | string | yes | YYYY-MM-DD, not in the past, max 30 days ahead |\n| `guestsNumber` | integer | yes | 1-10 |\n| `timeFrom` | string | yes | HH:MM |\n| `timeTo` | string | yes | HH:MM, must be greater than `timeFrom` |"
+            "description": "Create a new reservation. **Customer role required.** Slots are 90 minutes long.\n\n**Auth:** Bearer token required.\n\nThis request uses Postman environment variables (`location_id`, `table_number`, `booking_date`, `guests`, `from_time`, `to_time`).\nUse values from `Get Available Tables` so booking times stay aligned with backend UTC validation.\n\n### Body fields\n| Field | Type | Required | Rules |\n|---|---|---|---|\n| `locationId` | UUID | yes | |\n| `tableNumber` | integer | yes | > 0 |\n| `date` | string | yes | YYYY-MM-DD, not in the past, max 30 days ahead |\n| `guestsNumber` | integer | yes | 1-10 |\n| `timeFrom` | string | yes | UTC ISO datetime (`YYYY-MM-DDTHH:MM:SSZ`) |\n| `timeTo` | string | yes | UTC ISO datetime (`YYYY-MM-DDTHH:MM:SSZ`), must be greater than `timeFrom` |"
           },
           "response": [
             {
@@ -484,7 +530,7 @@
               "status": "OK",
               "code": 200,
               "header": [{ "key": "Content-Type", "value": "application/json" }],
-              "body": "{\n  \"reservationId\": \"res00001-0000-0000-0000-000000000001\",\n  \"status\": \"RESERVED\",\n  \"locationId\": \"00000000-0000-0000-0000-000000000001\",\n  \"location_address\": \"48 Rustaveli Avenue, Tbilisi\",\n  \"tableNumber\": 5,\n  \"date\": \"2026-05-28\",\n  \"timeFrom\": \"12:00\",\n  \"timeTo\": \"13:30\",\n  \"guestsNumber\": 2\n}"
+              "body": "{\n  \"reservationId\": \"res00001-0000-0000-0000-000000000001\",\n  \"status\": \"RESERVED\",\n  \"locationId\": \"00000000-0000-0000-0000-000000000001\",\n  \"location_address\": \"48 Rustaveli Avenue, Tbilisi\",\n  \"tableNumber\": 5,\n  \"date\": \"2026-05-28\",\n  \"timeFrom\": \"2026-05-28T12:00:00Z\",\n  \"timeTo\": \"2026-05-28T13:30:00Z\",\n  \"guestsNumber\": 2\n}"
             },
             {
               "name": "403 Forbidden (non-Customer role)",
