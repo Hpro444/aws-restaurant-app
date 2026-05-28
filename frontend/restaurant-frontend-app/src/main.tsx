@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import "./index.css";
 import App from "./App.tsx";
 import { AuthProvider } from "./context/AuthContext.tsx";
+import { IntlProvider } from "react-intl";
 
 type RuntimeConfig = {
   apiBaseUrl: string;
@@ -29,11 +30,13 @@ const bootstrap = async () => {
 
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
-      <AuthProvider>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
-      </AuthProvider>
+      <IntlProvider locale={navigator.language || "en-US"}>
+        <AuthProvider>
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+        </AuthProvider>
+      </IntlProvider>
     </StrictMode>,
   );
 };

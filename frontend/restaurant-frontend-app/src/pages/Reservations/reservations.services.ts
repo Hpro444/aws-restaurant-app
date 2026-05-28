@@ -1,29 +1,30 @@
 import getApiBaseUrl from "../../config/GetApiBaseUrl";
 
 export interface AllowedActions {
-  canEdit: boolean;
-  canCancel: boolean;
+  can_edit: boolean;
+  can_cancel: boolean;
 }
 
 export interface ReservationResponse {
-  id: string;
+  reservation_id: string;
   status: string;
-  customerId?: string;
-  waiterId?: string;
-  locationId?: string;
-  tableNumber?: number;
+  customer_id?: string;
+  waiter_id?: string;
+  location_id?: string;
+  location_address?: string;
+  table_number?: number;
   date: string;
-  timeFrom: string;
-  timeTo: string;
-  guestsNumber: number;
-  allowedActions: AllowedActions;
-  cutoffReason?: string;
+  time_from: string;
+  time_to: string;
+  guests_number: number;
+  allowed_actions: AllowedActions;
+  cutoff_reason?: string;
 }
 
 export const getReservations = async (
   accessToken: string,
 ): Promise<ReservationResponse[]> => {
-  const response = await fetch(`${getApiBaseUrl()}/booking/client`, {
+  const response = await fetch(`${getApiBaseUrl()}/bookings/client`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${accessToken}`,

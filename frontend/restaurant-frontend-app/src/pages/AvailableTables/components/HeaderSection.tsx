@@ -4,6 +4,16 @@ import DateButton from "./DateButton";
 import TimeButton from "./TimeButton";
 import GuestsButton from "./GuestsButton";
 
+import { type LocationSelectOption } from "../availableTables.services";
+
+type HeaderSectionProps = {
+  filters: Filters;
+  onFiltersChange: (update: Partial<Filters>) => void;
+  onSearch: () => void;
+  isLoading: boolean;
+  locations: LocationSelectOption[];
+};
+
 type Filters = {
   locationId: string;
   date: string;
@@ -11,17 +21,11 @@ type Filters = {
   guests: number;
 };
 
-type HeaderSectionProps = {
-  filters: Filters;
-  onFiltersChange: (update: Partial<Filters>) => void;
-  onSearch: () => void;
-  isLoading: boolean;
-};
-
 const HeaderSection = ({
   filters,
   onFiltersChange,
   onSearch,
+  locations,
   isLoading,
 }: HeaderSectionProps) => {
   const canSearch = Boolean(filters.locationId && filters.date);
@@ -46,6 +50,7 @@ const HeaderSection = ({
           <div className="flex gap-4 max-h-[56px]">
             <LocationButton
               value={filters.locationId}
+              locations={locations}
               onChange={(locationId) => onFiltersChange({ locationId })}
             />
             <DateButton

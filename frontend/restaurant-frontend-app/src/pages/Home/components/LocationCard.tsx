@@ -6,8 +6,8 @@ type Location = {
   name: string;
   address: string;
   image?: string;
-  totalCapacity?: number;
-  averageOccupancy?: number;
+  total_capacity?: number;
+  average_occupancy?: number;
 };
 
 type LocationCardProps = {
@@ -18,8 +18,8 @@ const LocationCard = ({ location }: LocationCardProps) => {
   const locationName = location?.name || "48 Text";
   const locationAddress = location?.address || locationName;
   const locationImage = location?.image || locationImg;
-  const totalCapacity = location?.totalCapacity || 100;
-  const averageOccupancy = location?.averageOccupancy || 75;
+  const totalCapacity = location?.total_capacity || 100;
+  const averageOccupancy = location?.average_occupancy || 75;
 
   return (
     <div className="max-h-[256px] w-[432px]">

@@ -21,36 +21,45 @@ const RequireGuest = ({ children }: { children: React.ReactNode }) => {
 
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route
-        path="/login"
-        element={
-          <RequireGuest>
-            <LoginPage />
-          </RequireGuest>
-        }
-      />
-      <Route
-        path="/signup"
-        element={
-          <RequireGuest>
-            <SignupPage />
-          </RequireGuest>
-        }
-      />
-      <Route path="/restaurant" element={<RestaurantPage />} />
-      <Route
-        path="/book-table"
-        element={
-          <RequireAuth>
-            <AvailableTablesPage />
-          </RequireAuth>
-        }
-      />
-      <Route path="/reservations" element={<ReservationsPage />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route
+          path="/login"
+          element={
+            <RequireGuest>
+              <LoginPage />
+            </RequireGuest>
+          }
+        />
+        <Route
+          path="/signup"
+          element={
+            <RequireGuest>
+              <SignupPage />
+            </RequireGuest>
+          }
+        />
+        <Route path="/restaurant/:id" element={<RestaurantPage />} />
+        <Route
+          path="/book-table"
+          element={
+            <RequireAuth>
+              <AvailableTablesPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/reservations"
+          element={
+            <RequireAuth>
+              <ReservationsPage />
+            </RequireAuth>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 }
 

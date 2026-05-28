@@ -1,3 +1,5 @@
+// import type { IntlShape } from "react-intl";
+
 export const getStatusColor = (status: string): string => {
   switch (status.toLowerCase()) {
     case "reserved":
@@ -14,26 +16,6 @@ export const getStatusColor = (status: string): string => {
   }
 };
 
-export const formatDate = (dateString: string): string => {
-  try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  } catch {
-    return dateString;
-  }
-};
-
-export const formatTimeSlot = (timeSlot: string): string => {
-  if (timeSlot.includes(" - ")) {
-    return timeSlot;
-  }
-  return timeSlot;
-};
-
 export const canEditReservation = (status: string): boolean => {
   return status.toLowerCase() === "reserved";
 };
@@ -47,4 +29,50 @@ export const canLeaveFeedback = (
   feedbackId: string,
 ): boolean => {
   return status.toLowerCase() === "finished" && !feedbackId;
+};
+
+export const formatSlotTime = (value: string): string => {
+  const trimmed = value.trim();
+  if (!trimmed) return value;
+
+  const hasZone = /(?:Z|[+-]\d{2}:\d{2})$/i.test(trimmed);
+  const dateTimeNoZone = /^\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}(?::\d{2})?$/i.test(
+    trimmed,
+  );
+  const timeOnly = /^(\d{2}):(\d{2})(?::\d{2})?$/i.exec(trimmed);
+
+  let date: Date | null = null;
+
+  if (dateTimeNoZone && !hasZone) {
+    date = new Date(`${trimmed.replace(" ", "T")}Z`);
+  } else if (hasZone || trimmed.includes("T") || trimmed.includes(" ")) {
+    date = new Date(trimmed);
+  } else if (timeOnly) {
+    const hour = Number(timeOnly[1]);
+    const minute = Number(timeOnly[2]);
+    date = new Date(Date.UTC(1970, 0, 1, hour, minute, 0));
+  }
+
+  if (!date || Number.isNaN(date.getTime())) return value;
+
+  const formatted = new Intl.DateTimeFormat("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).format(date);
+
+  return formatted.replace(" AM", " a.m").replace(" PM", " p.m");
+};
+
+export const formatDate = (dateString: string): string => {
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      month: "numeric",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return dateString;
+  }
 };
