@@ -22,8 +22,8 @@ _VALID_BODY = {
     "tableNumber": "1",
     "date": _TOMORROW,
     "guestsNumber": "4",
-    "timeFrom": "12:15",
-    "timeTo": "14:00",
+    "timeFrom": f"{_TOMORROW}T12:15:00Z",
+    "timeTo": f"{_TOMORROW}T14:00:00Z",
 }
 
 
@@ -36,8 +36,8 @@ def _success_response() -> CreateBookingResponse:
         location_address="4 Chavchavadze Avenue, Tbilisi",
         table_number=1,
         date=_TOMORROW,
-        time_from="12:15",
-        time_to="14:00",
+        time_from=f"{_TOMORROW}T12:15:00Z",
+        time_to=f"{_TOMORROW}T14:00:00Z",
         guests_number=4,
     )
 
@@ -71,8 +71,8 @@ class TestCreateBooking(ApiHandlerLambdaTestCase):
             payload["location_address"],
             "4 Chavchavadze Avenue, Tbilisi",
         )
-        self.assertEqual(payload["timeFrom"], "12:15")
-        self.assertEqual(payload["timeTo"], "14:00")
+        self.assertEqual(payload["timeFrom"], f"{_TOMORROW}T12:15:00Z")
+        self.assertEqual(payload["timeTo"], f"{_TOMORROW}T14:00:00Z")
         self.HANDLER._booking_service.create_booking.assert_called_once()
         kwargs = self.HANDLER._booking_service.create_booking.call_args.kwargs
         self.assertEqual(kwargs["customer_id"], self.customer_id)
@@ -88,18 +88,18 @@ class TestCreateBooking(ApiHandlerLambdaTestCase):
             location_address="4 Chavchavadze Avenue, Tbilisi",
             table_number=1,
             date=_TOMORROW,
-            time_from="12:15",
-            time_to="15:30",
+            time_from=f"{_TOMORROW}T12:15:00Z",
+            time_to=f"{_TOMORROW}T15:30:00Z",
             guests_number=4,
         )
         self.HANDLER._booking_service.create_booking = MagicMock(return_value=multi)
-        body_ = {**_VALID_BODY, "timeTo": "15:30"}
+        body_ = {**_VALID_BODY, "timeTo": f"{_TOMORROW}T15:30:00Z"}
 
         event = make_event(_PATH, "POST", body=body_, headers=_VALID_HEADERS)
         result = self.HANDLER.lambda_handler(event, {})
 
         self.assertEqual(status(result), 200)
-        self.assertEqual(body(result)["timeTo"], "15:30")
+        self.assertEqual(body(result)["timeTo"], f"{_TOMORROW}T15:30:00Z")
 
     # ── Authentication / authorisation ──────────────────────────────
 
@@ -159,7 +159,7 @@ class TestCreateBooking(ApiHandlerLambdaTestCase):
         self.HANDLER._booking_service.create_booking.assert_not_called()
 
     def test_invalid_time_format_returns_422(self) -> None:
-        """TimeFrom outside HH:MM is a 422."""
+        """TimeFrom outside UTC ISO datetime format is a 422."""
         bad = {**_VALID_BODY, "timeFrom": "12pm"}
         event = make_event(_PATH, "POST", body=bad, headers=_VALID_HEADERS)
         result = self.HANDLER.lambda_handler(event, {})
@@ -169,7 +169,11 @@ class TestCreateBooking(ApiHandlerLambdaTestCase):
 
     def test_inverted_time_window_returns_422(self) -> None:
         """TimeTo not strictly greater than timeFrom is rejected upfront."""
-        bad = {**_VALID_BODY, "timeFrom": "14:00", "timeTo": "12:15"}
+        bad = {
+            **_VALID_BODY,
+            "timeFrom": f"{_TOMORROW}T14:00:00Z",
+            "timeTo": f"{_TOMORROW}T12:15:00Z",
+        }
         event = make_event(_PATH, "POST", body=bad, headers=_VALID_HEADERS)
         result = self.HANDLER.lambda_handler(event, {})
 

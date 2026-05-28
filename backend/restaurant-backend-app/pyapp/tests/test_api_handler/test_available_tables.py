@@ -67,7 +67,7 @@ class TestAvailableTables(ApiHandlerLambdaTestCase):
 
     def test_success_with_from_time_forwards_filter_to_service(self) -> None:
         """Optional from_time must be validated and forwarded to the service."""
-        params = {**_VALID_PARAMS, "from_time": "12:00"}
+        params = {**_VALID_PARAMS, "from_time": f"{_TOMORROW}T12:00:00Z"}
 
         result = self.HANDLER.lambda_handler(make_get_event(_PATH, params), {})
 
@@ -76,7 +76,7 @@ class TestAvailableTables(ApiHandlerLambdaTestCase):
             location_id=UUID(_VALID_PARAMS["location_id"]),
             booking_date=_TOMORROW,
             guests_number=2,
-            from_time="12:00",
+            from_time=f"{_TOMORROW}T12:00:00Z",
         )
 
     def test_invalid_guests_number_returns_422(self) -> None:
@@ -165,7 +165,7 @@ class TestAvailableTables(ApiHandlerLambdaTestCase):
         self.HANDLER._table_availability_service.get_available_tables.assert_not_called()
 
     def test_invalid_from_time_format_returns_422(self) -> None:
-        """from_time must be in HH:MM format."""
+        """from_time must be a UTC ISO datetime string."""
         result = self.HANDLER.lambda_handler(
             make_get_event(_PATH, {**_VALID_PARAMS, "from_time": "9am"}), {}
         )

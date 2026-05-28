@@ -91,10 +91,15 @@ class DummyWaiterRepo:
         ]
 
 
-def make_slot(start, status=SlotStatus.FREE):
-    """Create a test Slot with timezone-aware datetime."""
-    dt = datetime.combine(date.today(), time(hour=start, minute=0, tzinfo=timezone.utc))
-    slot_date = datetime.combine(date.today(), time.min, tzinfo=timezone.utc)
+def make_slot(start, status=SlotStatus.FREE, days_offset=1):
+    """Create a test Slot with timezone-aware datetime.
+
+    By default slots are generated for tomorrow so tests are stable regardless
+    of the current UTC hour.
+    """
+    slot_day = date.today() + timedelta(days=days_offset)
+    dt = datetime.combine(slot_day, time(hour=start, minute=0, tzinfo=timezone.utc))
+    slot_date = datetime.combine(slot_day, time.min, tzinfo=timezone.utc)
     return Slot(
         id=uuid4(),
         table_id=uuid4(),
@@ -133,6 +138,11 @@ class TestBookingService(unittest.TestCase):
         """Set up service with dummy repositories before each test."""
         self.service, self.table, self.location = _build_service()
 
+    @staticmethod
+    def _utc(dt: datetime) -> str:
+        """Format datetime as UTC ISO string expected by booking DTO."""
+        return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
     def test_single_slot_booking_success(self):
         """Test successful booking of a single 90-minute slot."""
         slot = make_slot(12)
@@ -142,8 +152,8 @@ class TestBookingService(unittest.TestCase):
             table_number=1,
             date=date.today().isoformat(),
             guests_number=2,
-            time_from=slot.start_time.strftime("%H:%M"),
-            time_to=slot.end_time.strftime("%H:%M"),
+            time_from=self._utc(slot.start_time),
+            time_to=self._utc(slot.end_time),
         )
         resp = self.service.create_booking(req, uuid4())
         self.assertEqual(resp.status, "RESERVED")
@@ -161,8 +171,8 @@ class TestBookingService(unittest.TestCase):
             table_number=1,
             date=date.today().isoformat(),
             guests_number=2,
-            time_from=slot1.start_time.strftime("%H:%M"),
-            time_to=slot2.end_time.strftime("%H:%M"),
+            time_from=self._utc(slot1.start_time),
+            time_to=self._utc(slot2.end_time),
         )
         resp = self.service.create_booking(req, uuid4())
         self.assertEqual(resp.status, "RESERVED")
@@ -177,8 +187,8 @@ class TestBookingService(unittest.TestCase):
             table_number=1,
             date=date.today().isoformat(),
             guests_number=2,
-            time_from=slot1.start_time.strftime("%H:%M"),
-            time_to=slot2.end_time.strftime("%H:%M"),
+            time_from=self._utc(slot1.start_time),
+            time_to=self._utc(slot2.end_time),
         )
         with self.assertRaises(ApplicationException) as ctx:
             self.service.create_booking(req, uuid4())
@@ -196,8 +206,8 @@ class TestBookingService(unittest.TestCase):
             table_number=1,
             date=date.today().isoformat(),
             guests_number=2,
-            time_from=slot1.start_time.strftime("%H:%M"),
-            time_to=slot2.end_time.strftime("%H:%M"),
+            time_from=self._utc(slot1.start_time),
+            time_to=self._utc(slot2.end_time),
         )
         with self.assertRaises(ApplicationException) as ctx:
             self.service.create_booking(req, uuid4())
@@ -212,12 +222,35 @@ class TestBookingService(unittest.TestCase):
             table_number=1,
             date=date.today().isoformat(),
             guests_number=2,
-            time_from=slot1.start_time.strftime("%H:%M"),
-            time_to=slot1.end_time.strftime("%H:%M"),
+            time_from=self._utc(slot1.start_time),
+            time_to=self._utc(slot1.end_time),
         )
         with self.assertRaises(ApplicationException) as ctx:
             self.service.create_booking(req, uuid4())
         self.assertIn("beyond location closing time", str(ctx.exception))
+
+    def test_booking_start_in_past_fails(self):
+        """Test that booking is rejected when the selected start time is in the past."""
+        slot = make_slot(10, days_offset=0)
+        self.service._slot_repo = DummySlotRepo([slot])
+        req = CreateBookingRequest(
+            location_id=self.table.location_id,
+            table_number=1,
+            date=date.today().isoformat(),
+            guests_number=2,
+            time_from=self._utc(slot.start_time),
+            time_to=self._utc(slot.end_time),
+        )
+
+        fixed_now = datetime.combine(date.today(), time(11, 0), tzinfo=timezone.utc)
+        with patch("services.booking_service.datetime") as mocked_datetime:
+            mocked_datetime.now.return_value = fixed_now
+            mocked_datetime.fromisoformat = datetime.fromisoformat
+            with self.assertRaises(ApplicationException) as ctx:
+                self.service.create_booking(req, uuid4())
+
+        self.assertEqual(ctx.exception.code, 422)
+        self.assertIn("starts in the past", str(ctx.exception))
 
     def test_slot_with_non_90_min_duration_fails(self):
         """Test that chain is rejected when any selected slot is not 90 minutes long."""
@@ -229,8 +262,8 @@ class TestBookingService(unittest.TestCase):
             table_number=1,
             date=date.today().isoformat(),
             guests_number=2,
-            time_from=slot1.start_time.strftime("%H:%M"),
-            time_to=slot1.end_time.strftime("%H:%M"),
+            time_from=self._utc(slot1.start_time),
+            time_to=self._utc(slot1.end_time),
         )
         with self.assertRaises(ApplicationException) as ctx:
             self.service.create_booking(req, uuid4())
@@ -321,8 +354,8 @@ class TestBookingService(unittest.TestCase):
             table_number=1,
             date=date.today().isoformat(),
             guests_number=2,
-            time_from=slot1.start_time.strftime("%H:%M"),
-            time_to=slot2.end_time.strftime("%H:%M"),
+            time_from=self._utc(slot1.start_time),
+            time_to=self._utc(slot2.end_time),
         )
         resp = self.service.create_booking(req, uuid4())
         self.assertEqual(resp.status, "RESERVED")
@@ -339,8 +372,8 @@ class TestBookingService(unittest.TestCase):
             table_number=1,
             date=date.today().isoformat(),
             guests_number=2,
-            time_from=slot1.start_time.strftime("%H:%M"),
-            time_to=slot2.end_time.strftime("%H:%M"),
+            time_from=self._utc(slot1.start_time),
+            time_to=self._utc(slot2.end_time),
         )
         with self.assertRaises(ApplicationException) as ctx:
             self.service.create_booking(req, uuid4())

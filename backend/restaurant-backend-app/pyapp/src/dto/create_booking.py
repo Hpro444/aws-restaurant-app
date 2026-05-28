@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
@@ -62,7 +62,7 @@ class CreateBookingRequest(BaseModel):
         except ValueError as exc:
             raise ValueError("Date must be in YYYY-MM-DD format") from exc
 
-        today = date.today()
+        today = datetime.now(timezone.utc).date()
         if parsed < today:
             raise ValueError("Cannot book a table in the past")
         if parsed > today + timedelta(days=30):
@@ -73,22 +73,31 @@ class CreateBookingRequest(BaseModel):
     @field_validator("time_from", "time_to")
     @classmethod
     def validate_time(cls, v: str) -> str:
-        """Validate that time fields are present and in HH:MM format."""
+        """Validate that time fields are UTC ISO datetimes."""
         if not v:
             raise ValueError("Time is required")
         try:
-            datetime.strptime(v, "%H:%M")
+            parsed = datetime.fromisoformat(v.replace("Z", "+00:00"))
         except ValueError as exc:
-            raise ValueError("Time must be in HH:MM format") from exc
-        return v
+            raise ValueError(
+                "Time must be a UTC ISO datetime (e.g. 2026-05-27T11:45:00Z)"
+            ) from exc
+
+        if parsed.tzinfo is None or parsed.utcoffset() != timedelta(0):
+            raise ValueError("Time must be in UTC (offset +00:00 or Z)")
+
+        return parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
     @field_validator("time_to")
     @classmethod
     def validate_time_window(cls, time_to: str, info: ValidationInfo) -> str:
         """Ensure ``timeTo`` is strictly greater than ``timeFrom``."""
         time_from = info.data.get("time_from")
-        if time_from and time_to <= time_from:
-            raise ValueError("timeTo must be greater than timeFrom")
+        if time_from:
+            parsed_from = datetime.fromisoformat(time_from.replace("Z", "+00:00"))
+            parsed_to = datetime.fromisoformat(time_to.replace("Z", "+00:00"))
+            if parsed_to <= parsed_from:
+                raise ValueError("timeTo must be greater than timeFrom")
         return time_to
 
 

@@ -521,7 +521,8 @@ class ApiHandler(AbstractLambda):
             - location_id (required): UUID of the restaurant location.
             - date (required): Booking date in YYYY-MM-DD format.
             - guests_number (required): Minimum number of guests (1-10).
-            - from_time (optional): Start time filter in HH:MM format.
+            - from_time (optional): UTC datetime filter in ISO format.
+                Example: 2026-05-27T11:45:00Z.
                 Snapped to the nearest valid slot start; only tables with
                 that slot free are returned, along with all subsequent
                 free slots for the day.
@@ -593,7 +594,7 @@ class ApiHandler(AbstractLambda):
                 "location_id": params.get("location_id", ""),
                 "date": params.get("date", ""),
                 "guests_number": guests_number,
-                "from_time": params.get("from_time") or params.get("from"),
+                "from_time": params.get("from_time"),
             },
         )
 
@@ -941,7 +942,9 @@ class ApiHandler(AbstractLambda):
         total_pages_raw = feedback_page.get("totalPages", 0)
         try:
             total_pages = int(total_pages_raw)
-        except (TypeError, ValueError):
+        except TypeError:
+            total_pages = 0
+        except ValueError:
             total_pages = 0
 
         max_page = max(total_pages - 1, 0)
