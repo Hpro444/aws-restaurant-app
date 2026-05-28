@@ -17,11 +17,6 @@ from pathlib import Path
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
 
-import seeds
-from seeds.utils import seed_id
-
-SLOT_SEED_DAYS_AHEAD = 30
-
 # Add pyapp/src to path so seed modules can import domain models.
 PYAPP_SRC = Path(__file__).parent / "restaurant-backend-app" / "pyapp" / "src"
 sys.path.insert(0, str(PYAPP_SRC))
@@ -29,7 +24,9 @@ sys.path.insert(0, str(PYAPP_SRC))
 # Add the backend directory so the seeds package is importable.
 sys.path.insert(0, str(Path(__file__).parent))
 
-AWS_REGION = "eu-west-3"
+import seeds
+from seeds.config import AWS_REGION, SLOT_SEED_DAYS_AHEAD
+from seeds.utils import seed_id
 
 SYNDICATE_CONFIG = (
     Path(__file__).parent
@@ -234,7 +231,11 @@ def main():
 
     # Import and run each seed module in order.
     print("▶ Seeding demo data...")
-    context: dict = {}
+    context: dict = {
+        "aws_credentials": credentials or {},
+        "aws_region": AWS_REGION,
+        "slot_seed_days_ahead": SLOT_SEED_DAYS_AHEAD,
+    }
     current_module = None
     try:
         for module_name in seeds.SEED_ORDER:

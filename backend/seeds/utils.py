@@ -3,12 +3,12 @@
 from decimal import Decimal
 from uuid import UUID, uuid5
 
-NAMESPACE = UUID("a1b2c3d4-e5f6-7890-abcd-ef1234567890")
+from seeds.config import SEED_NAMESPACE
 
 
 def seed_id(entity_type: str, natural_key: str) -> UUID:
     """Generate deterministic UUID5 for reproducible seeding."""
-    return uuid5(NAMESPACE, f"{entity_type}:{natural_key}")
+    return uuid5(SEED_NAMESPACE, f"{entity_type}:{natural_key}")
 
 
 def to_item(model) -> dict:
