@@ -1,13 +1,9 @@
-// components/ReservationCard.tsx
-// import React from "react";
 import { type ReservationResponse } from "../reservations.services";
 import {
   getStatusColor,
   formatDate,
-  // formatTimeSlot,
   canEditReservation,
   canCancelReservation,
-  // canLeaveFeedback,
 } from "../../../utils/reservationHelpers";
 import location_icon from "../../../assets/reservations/location-icon.png";
 import calendar_icon from "../../../assets/reservations/Calendar.png";
@@ -25,19 +21,8 @@ const ReservationCard = ({
   reservation,
   onEdit,
   onCancel,
-  // onFeedback,
 }: ReservationCardProps) => {
-  const {
-    id,
-    status,
-    // locationAddress,
-    date,
-    // timeFrom,
-    // timeTo,
-    guestsNumber,
-    // allowedActions,
-    // feedbackId,
-  } = reservation;
+  const { id, status, date, guestsNumber } = reservation;
   return (
     <div className="flex flex-col gap-12 shadow-[0px_0px_10px_4px_#DADADAB2] p-6 rounded-3xl font-medium text-sm leading-6 tracking-normal align-middle">
       <div className="flex justify-between">

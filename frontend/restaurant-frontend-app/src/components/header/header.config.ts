@@ -1,5 +1,3 @@
-// import type { HeaderViewerRole } from "../../contexts/AuthContext";
-
 export type HeaderNavItem = {
   label: string;
   href: string;

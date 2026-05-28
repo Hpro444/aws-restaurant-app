@@ -1,4 +1,3 @@
-// utils/reservationHelpers.ts
 export const getStatusColor = (status: string): string => {
   switch (status.toLowerCase()) {
     case "reserved":
@@ -29,11 +28,9 @@ export const formatDate = (dateString: string): string => {
 };
 
 export const formatTimeSlot = (timeSlot: string): string => {
-  // Handle different time formats
   if (timeSlot.includes(" - ")) {
     return timeSlot;
   }
-  // Add formatting logic based on your backend format
   return timeSlot;
 };
 
