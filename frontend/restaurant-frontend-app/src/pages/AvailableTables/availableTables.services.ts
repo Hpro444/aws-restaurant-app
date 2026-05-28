@@ -25,6 +25,35 @@ export interface GetTablesResponse {
   tables: TableResult[];
 }
 
+export interface LocationSelectOption {
+  location_id: string;
+  location_address: string;
+}
+
+export const getLocationSelectOptions = async (
+  accessToken?: string,
+): Promise<LocationSelectOption[]> => {
+  const response = await fetch(`${getApiBaseUrl()}/locations/select-options`, {
+    method: "GET",
+    headers: {
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+  });
+
+  const payload: unknown = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const maybe = payload as Record<string, unknown> | null;
+    const message =
+      (typeof maybe?.message === "string" && maybe.message) ||
+      (typeof maybe?.error === "string" && maybe.error) ||
+      `Failed to fetch location options (${response.status})`;
+    throw new Error(message);
+  }
+
+  return payload as LocationSelectOption[];
+};
+
 export const getAvailableTables = async (
   params: GetTablesParams,
   accessToken: string,

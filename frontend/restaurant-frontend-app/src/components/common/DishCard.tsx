@@ -6,7 +6,7 @@ type Dish = {
   description?: string;
   price: number;
   image?: string;
-  weight?: string | number;
+  weight_gram?: string | number;
 };
 
 type DiscCardProps = {
@@ -16,7 +16,7 @@ type DiscCardProps = {
 const DiscCard = ({ dish }: DiscCardProps) => {
   const dishName = dish?.name || "Some text";
   const dishPrice = dish?.price ? `${dish.price}$` : "17$";
-  const dishWeight = dish?.weight ? `${dish.weight}g` : "430g";
+  const dishWeight = dish?.weight_gram ? `${dish.weight_gram}g` : "430g";
   const dishImage = dish?.image || dish_image;
 
   return (

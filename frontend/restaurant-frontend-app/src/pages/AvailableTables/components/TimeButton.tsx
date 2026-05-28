@@ -5,17 +5,21 @@ import arrow_down from "../../../assets/restaurant/arrow-down-icon.png";
 
 type TimeButtonProps = {
   value: string;
+  style?: React.CSSProperties;
   onChange: (time: string) => void;
 };
 
-const TIME_OPTIONS = ["10:00", "12:00", "14:00", "16:00", "18:00", "20:00"];
+const TIME_OPTIONS = Array.from({ length: 18 }, (_, i) => {
+  const hour = i + 6;
+  return String(hour).padStart(2, "0") + ":00";
+});
 
-const TimeButton = ({ value, onChange }: TimeButtonProps) => {
+const TimeButton = ({ value, style, onChange }: TimeButtonProps) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="relative w-full max-w-[200px]">
-      <div className="border-2 rounded-lg overflow-hidden h-full">
+    <div className="relative w-full max-w-[200px]" style={style}>
+      <div className="border-2 border-[#dadada] rounded-lg overflow-hidden h-full">
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="w-full cursor-pointer flex items-center justify-between px-6 py-4 bg-white hover:bg-gray-50"
@@ -33,7 +37,7 @@ const TimeButton = ({ value, onChange }: TimeButtonProps) => {
       </div>
 
       {isOpen && (
-        <ul className="absolute w-full mt-1 border border-gray-200 rounded-lg overflow-hidden bg-white text-black z-10">
+        <ul className="absolute w-full mt-1 border border-gray-200 rounded-lg overflow-hidden overflow-y-auto max-h-56 bg-white text-black z-10">
           {TIME_OPTIONS.map((time) => (
             <li
               key={time}

@@ -1,16 +1,13 @@
 import Card from "./Card";
 import { type TableResult } from "../availableTables.services";
-import { LOCATIONS } from "../availableTables.config";
 
 type FoundResultsProps = {
   tables: TableResult[];
-  locationId: string;
+  locationAddress: string;
   date: string;
 };
 
-const FoundResults = ({ tables, locationId, date }: FoundResultsProps) => {
-  const location = LOCATIONS.find((l) => l.id === locationId);
-
+const FoundResults = ({ tables, locationAddress, date }: FoundResultsProps) => {
   return (
     <>
       <p>
@@ -21,7 +18,7 @@ const FoundResults = ({ tables, locationId, date }: FoundResultsProps) => {
           <Card
             key={table.table_id}
             table={table}
-            locationAddress={location?.address ?? ""}
+            locationAddress={locationAddress}
             date={date}
           />
         ))}
