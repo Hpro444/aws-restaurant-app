@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-05-28
+
+### Added
+- `dto/feedbacks.py` — three new Pydantic DTOs for the feedbacks endpoint: `FeedbackResponse` (single item), `FeedbackPageableResponse` (pagination metadata), and `PageFeedbackResponse` (full paginated wrapper); all fields use camelCase aliases for JSON serialization via `model_dump(by_alias=True)`
+- `FeedbackService._build_feedback_response()` — private helper that maps a `Feedback` domain object to `FeedbackResponse`; when `customer_id` is set it looks up the customer record and overwrites `user_name` / `user_image_url` with the customer's actual profile data
+- `CustomerRepository` injected into `FeedbackService` for customer profile enrichment during response construction
+- Structured logging added to `FeedbackService.get_feedbacks()` — logs retrieval parameters, repository result count, and final page metadata
+
+### Changed
+- `Feedback` base domain model: `user_image` field renamed to `user_image_url`; new `user_name` field added alongside it
+- `FeedbackService.get_feedbacks()` return type changed from `dict[str, Any]` to the typed `PageFeedbackResponse`; internally builds the response via `_build_feedback_response()` instead of assembling a raw dict
+- `handler.py` feedbacks route: validates the service response through `PageFeedbackResponse.model_validate()` and serializes with `model_dump(by_alias=True, mode="json")` so all paginated fields are emitted in camelCase
+- Pagination out-of-range error message updated to `"Requested page {page} exceeds available pages."` (was `"Must be between 0 and {max_page}"`)
+- Swagger UI schema updated to reflect the new `FeedbackResponse` shape (`user_name`, `user_image_url`) and camelCase paginated response fields
+- Seed data updated in `feedback_cuisine.py` and `feedback_service.py` to use the renamed `user_image_url` and new `user_name` fields
+
+## [1.4.0] - 2026-05-28
+
+### Added
+- `seeds/config.py` — single source of truth for all seed constants (`AWS_REGION`, `SLOT_SEED_DAYS_AHEAD`, `SLOT_DURATION_MINUTES`, `SLOT_BREAK_MINUTES`, `THREAD_WORKERS`, `DYNAMO_RETRY_CONFIG`, `SEED_NAMESPACE`); all seed modules and `quick_seed.py` import from here instead of defining their own copies
+- `http://localhost:5173` added to the CORS allowed-origins list in `AppConfig`; `AbstractLambda` now reflects the request `Origin` header back when it matches the allowlist, falling back to the primary S3 origin otherwise
+
+### Changed
+- Slot seeding parallelised with `ThreadPoolExecutor(max_workers=7)` — one worker per calendar day; each worker opens its own `boto3.session.Session` and dedicated DynamoDB connection, writes all slots for that day via `batch_writer`, then explicitly closes the connection
+- On any `ClientError` during a day's write the worker closes the bad connection and opens a fresh one before retrying, so throttling errors or transient failures always get a clean connection
+- DynamoDB resource created with `botocore.config.Config(retries={"mode": "adaptive", "max_attempts": 20})` so each worker self-limits its request rate under `ProvisionedThroughputExceededException` instead of failing after the default retry budget
+- `SEED_NAMESPACE` UUID moved from `seeds/utils.py` into `seeds/config.py`; `seeds/utils.py` now imports it from there
+
 ## [1.3.0] - 2026-05-21
 
 ### Added

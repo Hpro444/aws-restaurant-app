@@ -226,4 +226,7 @@ class TestFeedbacks(ApiHandlerLambdaTestCase):
         self.assertEqual(status(result), 422)
         payload = body(result)
         self.assertEqual(payload["errors"][0]["field"], "page")
-        self.assertEqual(payload["errors"][0]["message"], "Must be between 0 and 2")
+        self.assertEqual(
+            payload["errors"][0]["message"],
+            "Requested page 20 exceeds available pages.",
+        )

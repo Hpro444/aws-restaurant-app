@@ -84,7 +84,15 @@ class AbstractLambda(ABC):
                 statusCode=HttpStatusCode.RESPONSE_INTERNAL_SERVER_ERROR,
                 body=json.dumps({"message": "Internal server error"}),
             ).model_dump()
-        response["headers"]["Access-Control-Allow-Origin"] = _config.cors_origin
+        request_origin = (event.get("headers") or {}).get(
+            "origin", (event.get("headers") or {}).get("Origin", "")
+        )
+        allowed_origin = (
+            request_origin
+            if request_origin in _config.cors_origins
+            else _config.cors_origins[0]
+        )
+        response["headers"]["Access-Control-Allow-Origin"] = allowed_origin
         response["headers"]["Access-Control-Allow-Headers"] = (
             "Authorization, Content-Type"
         )

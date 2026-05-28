@@ -31,7 +31,10 @@ class AppConfig(BaseSettings):
     admin_emails_table: str = "admin-emails"
 
     # CORS
-    cors_origin: str = "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com"
+    cors_origins: list[str] = [
+        "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com",
+        "http://localhost:5173",
+    ]
 
     # Login attempt tracking
     max_login_attempts: int = 5
