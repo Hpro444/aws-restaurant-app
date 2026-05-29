@@ -19,7 +19,7 @@ dev = [
     "pydantic-settings==2.0.0",
     "argon2-cffi==23.1.0",
     "boto3==1.38.12",
-    "ruff",
+    "ruff==0.15.15",
     "pytest==9.0.3",
     "structlog==25.5.0",
     "pytest-cov>=7.1.0",
