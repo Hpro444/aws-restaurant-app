@@ -19,20 +19,21 @@ class SignUpRequest(BaseModel):
 
     @field_validator("email", mode="before")
     @classmethod
-    def normalize_email(cls, v: object) -> object:
+    def normalize_email(cls, email_value: object) -> object:
         """Strip whitespace and lowercase the email, then enforce that the local part starts with a letter."""
-        if isinstance(v, str):
-            v = v.strip().lower()
-            local = v.split("@")[0]
+        if isinstance(email_value, str):
+            normalized_email = email_value.strip().lower()
+            local = normalized_email.split("@")[0]
             if not local or not local[0].isalpha():
                 raise ValueError("email local part must start with a letter")
-        return v
+            return normalized_email
+        return email_value
 
     @field_validator("password")
     @classmethod
-    def validate_password_policy(cls, v: SecretStr) -> SecretStr:
+    def validate_password_policy(cls, password_value: SecretStr) -> SecretStr:
         """Enforce password complexity: 8–16 chars, upper, lower, digit, special char."""
-        raw = v.get_secret_value()
+        raw = password_value.get_secret_value()
         violations = []
         if not (8 <= len(raw) <= 16):
             violations.append("must be 8–16 characters")
@@ -46,7 +47,7 @@ class SignUpRequest(BaseModel):
             violations.append("must contain at least one special character")
         if violations:
             raise ValueError(", ".join(violations))
-        return v
+        return password_value
 
 
 class SignUpResponse(BaseModel):

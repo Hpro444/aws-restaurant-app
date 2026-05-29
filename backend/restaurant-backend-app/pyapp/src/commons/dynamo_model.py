@@ -26,11 +26,11 @@ class DynamoModel(BaseModel):
 
     @field_validator("*", mode="before")
     @classmethod
-    def _convert_decimals(cls, v: object) -> object:
+    def _convert_decimals(cls, raw_value: object) -> object:
         """Convert Decimal (returned by TypeDeserializer for N fields) to int or float."""
-        if isinstance(v, Decimal):
-            return int(v) if v % 1 == 0 else float(v)
-        return v
+        if isinstance(raw_value, Decimal):
+            return int(raw_value) if raw_value % 1 == 0 else float(raw_value)
+        return raw_value
 
     def to_dynamodb_item(self) -> dict[str, Any]:
         """Serialize this model to a DynamoDB low-level item map."""

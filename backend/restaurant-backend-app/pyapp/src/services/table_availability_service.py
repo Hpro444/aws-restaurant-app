@@ -91,6 +91,7 @@ class TableAvailabilityService:
             from_time=from_time,
         )
         now_utc = datetime.now(timezone.utc)
+        is_today = booking_date == now_utc.date().isoformat()
 
         # ── Step 1: Parse location UUID ──────────────────────────────
         location_uuid = self._parse_uuid(location_id)
@@ -122,8 +123,7 @@ class TableAvailabilityService:
 
         # ── Step 5: Resolve from_time (explicit or auto-selected for today) ──
         effective_from_time = from_time
-        today_utc = now_utc.date()
-        if not effective_from_time and booking_date == today_utc.isoformat():
+        if not effective_from_time and is_today:
             future_slots = [
                 s
                 for s in slots
@@ -152,8 +152,10 @@ class TableAvailabilityService:
             )
 
             # For today, reject snapped times that are already in the past
-            if booking_date == today_utc.isoformat():
-                snapped_dt = datetime.combine(today_utc, snapped, tzinfo=timezone.utc)
+            if is_today:
+                snapped_dt = datetime.combine(
+                    now_utc.date(), snapped, tzinfo=timezone.utc
+                )
                 if snapped_dt <= now_utc:
                     logger.info(
                         "Snapped slot is in the past for today",
@@ -183,11 +185,12 @@ class TableAvailabilityService:
         # ── Step 7: Filter by availability — keep only FREE slots ────
         # For today, also exclude any slots that have already started
         free_slots = [s for s in slots if s.status == SlotStatus.FREE]
-        if booking_date == today_utc.isoformat():
+        before_filter = len(free_slots)
+        if is_today:
             free_slots = [s for s in free_slots if s.start_time > now_utc]
             logger.info(
                 "Filtered out past slots for today",
-                before_filter=len([s for s in slots if s.status == SlotStatus.FREE]),
+                before_filter=before_filter,
                 after_filter=len(free_slots),
             )
         logger.info(

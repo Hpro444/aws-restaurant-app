@@ -175,7 +175,7 @@ class CognitoService:
                 500 for any other Cognito error.
 
         """
-        logger.info("Registering user", email=email, role=role.value)
+        logger.info("Registering user", email=email, role=role)
         pool_id = self._resolve_pool_id()
 
         try:
@@ -238,9 +238,9 @@ class CognitoService:
 
         try:
             self._client.admin_add_user_to_group(
-                UserPoolId=pool_id, Username=email, GroupName=role.value
+                UserPoolId=pool_id, Username=email, GroupName=role
             )
-            logger.info("Assigned user to group", email=email, group=role.value)
+            logger.info("Assigned user to group", email=email, group=role)
         except ClientError as exc:
             logger.error(
                 "admin_add_user_to_group failed",
@@ -513,7 +513,7 @@ class CognitoService:
             groups = [groups] if isinstance(groups, str) else []
 
         for role in UserRole:
-            if role.value in groups:
+            if role in groups:
                 return sub, role
 
         raise ApplicationException(

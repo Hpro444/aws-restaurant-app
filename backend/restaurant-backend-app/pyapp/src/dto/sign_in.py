@@ -13,19 +13,19 @@ class SignInRequest(BaseModel):
 
     @field_validator("email", mode="before")
     @classmethod
-    def normalize_email(cls, v: object) -> object:
+    def normalize_email(cls, email_value: object) -> object:
         """Strip whitespace and lowercase the email before format validation."""
-        if isinstance(v, str):
-            return v.strip().lower()
-        return v
+        if isinstance(email_value, str):
+            return email_value.strip().lower()
+        return email_value
 
     @field_validator("password")
     @classmethod
-    def password_not_empty(cls, v: SecretStr) -> SecretStr:
+    def password_not_empty(cls, password_value: SecretStr) -> SecretStr:
         """Reject empty/whitespace-only passwords."""
-        if not v.get_secret_value().strip():
+        if not password_value.get_secret_value().strip():
             raise ValueError("must not be empty")
-        return v
+        return password_value
 
 
 class SignInResponse(BaseModel):
