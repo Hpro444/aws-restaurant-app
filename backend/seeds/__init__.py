@@ -9,6 +9,7 @@ SEED_ORDER = [
     "locations",
     "customers",
     "waiters",
+    "admin_emails",
     "waiter_emails",
     "tables",
     "dishes",
