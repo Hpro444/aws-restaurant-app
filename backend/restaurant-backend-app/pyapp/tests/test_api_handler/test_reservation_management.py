@@ -51,7 +51,7 @@ class TestReservationManagement(ApiHandlerLambdaTestCase):
         super().setUp()
         self.customer_id = str(uuid4())
         self.HANDLER._cognito_service.get_identity_from_access_token = MagicMock(
-            return_value=(self.customer_id, UserRole.CUSTOMER.value)
+            return_value=(self.customer_id, UserRole.CUSTOMER)
         )
         self.HANDLER._reservation_management_service.list_for_dashboard = MagicMock(
             return_value=ReservationListResponse(reservations=[_reservation_view()])
@@ -131,7 +131,7 @@ class TestReservationManagement(ApiHandlerLambdaTestCase):
         self.HANDLER._reservation_management_service.cancel_reservation.assert_called_once_with(
             reservation_id=_RESERVATION_ID,
             actor_id=self.customer_id,
-            role=UserRole.CUSTOMER.value,
+            role=UserRole.CUSTOMER,
         )
 
     def test_cancel_reservation_missing_auth_returns_401(self) -> None:

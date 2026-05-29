@@ -119,9 +119,9 @@ class ApiHandler(AbstractLambda):
         if path == "/locations/select-options" and method == "GET":
             return self._get_location_addresses()
 
-        # TODO: there should be an universal helper function to handle paths like that end with "/{id}", like here "/locations/{id}"
         if method == "GET" and (
-            resource == "/locations/{id}" or self._is_single_location_path(path)
+            resource == "/locations/{id}"
+            or self._is_resource_with_single_id_path(path, "locations")
         ):
             return self._get_location_by_id(event)
 
@@ -192,6 +192,11 @@ class ApiHandler(AbstractLambda):
                 "Missing or invalid Authorization header",
             )
         return token
+
+    def _get_actor_context(self, event: dict) -> tuple[str, str]:
+        """Return authenticated actor id and role from access token."""
+        access_token = self._extract_access_token(event)
+        return self._cognito_service.get_identity_from_access_token(access_token)
 
     def _parse_body(self, event: dict) -> dict:
         """Parse and return the JSON request body.
@@ -425,17 +430,24 @@ class ApiHandler(AbstractLambda):
         )
 
     @staticmethod
-    def _is_single_location_path(path: str) -> bool:
-        """Return True only for concrete paths shaped as /locations/{id}."""
+    def _is_resource_with_single_id_path(path: str, resource_name: str) -> bool:
+        """Return True for concrete paths shaped as /{resource}/{id}."""
         parts = [part for part in path.split("/") if part]
-        return len(parts) == 2 and parts[0] == "locations"
+        return len(parts) == 2 and parts[0] == resource_name
+
+    @staticmethod
+    def _extract_path_segment_from_path(path: str, position: int) -> str | None:
+        """Extract a path segment from a raw path string."""
+        parts = [part for part in path.split("/") if part]
+        if position < len(parts):
+            return parts[position]
+        return None
 
     @staticmethod
     def _parse_query_params(event: dict) -> dict:
         """Extract query string parameters from API Gateway event."""
         return event.get("queryStringParameters") or {}
 
-    # TODO: ovo treba da zameni sa _extract_path_segment da se koristi univerzalna funkcija
     @staticmethod
     def _extract_booking_id(path: str, suffix: str | None = None) -> str:
         """Extract booking UUID from path and validate format.
@@ -461,7 +473,19 @@ class ApiHandler(AbstractLambda):
                 )
             tail = tail[: -len(expected_suffix)]
 
-        reservation_id = tail.strip("/")
+        reservation_id = ApiHandler._extract_path_segment_from_path(f"/{tail}", 0)
+        if reservation_id is None:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                ValidationErrorResponse(
+                    errors=[
+                        FieldError(
+                            field="reservationId", message="Must be a valid UUID"
+                        )
+                    ]
+                ).model_dump(),
+            )
+
         try:
             UUID(reservation_id)
         except ValueError:
@@ -509,11 +533,7 @@ class ApiHandler(AbstractLambda):
             return path_params.get("id")
 
         path = event.get("path", "")
-        parts = [part for part in path.split("/") if part]
-        if position < len(parts):
-            return parts[position]
-
-        return None
+        return ApiHandler._extract_path_segment_from_path(path, position)
 
     def _get_available_tables(self, event: dict):
         """Handle GET /bookings/tables.
@@ -608,7 +628,7 @@ class ApiHandler(AbstractLambda):
         )
 
         return build_response(
-            response.model_dump(by_alias=True),
+            response.model_dump(by_alias=True, mode="json"),
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 
@@ -625,11 +645,8 @@ class ApiHandler(AbstractLambda):
                confirmation.
 
         """
-        access_token = self._extract_access_token(event)
-        user_id, role = self._cognito_service.get_identity_from_access_token(
-            access_token
-        )
-        if role != UserRole.CUSTOMER.value:
+        user_id, role = self._get_actor_context(event)
+        if role != UserRole.CUSTOMER:
             raise_error_response(
                 HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
                 "Only customers can create a client reservation",
@@ -645,32 +662,26 @@ class ApiHandler(AbstractLambda):
         )
 
         return build_response(
-            response.model_dump(by_alias=True),
+            response.model_dump(by_alias=True, mode="json"),
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 
     def _list_dashboard_bookings(self, event: dict) -> LambdaResponse:
         """Handle GET /bookings/client for customer/waiter dashboard reservations."""
-        access_token = self._extract_access_token(event)
-        user_id, role = self._cognito_service.get_identity_from_access_token(
-            access_token
-        )
+        user_id, role = self._get_actor_context(event)
 
         response = self._reservation_management_service.list_for_dashboard(
             actor_id=user_id,
             role=role,
         )
         return build_response(
-            response.model_dump(by_alias=True),
+            response.model_dump(by_alias=True, mode="json"),
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 
     def _get_booking(self, event: dict) -> LambdaResponse:
         """Handle GET /bookings/client/{reservationId}."""
-        access_token = self._extract_access_token(event)
-        user_id, role = self._cognito_service.get_identity_from_access_token(
-            access_token
-        )
+        user_id, role = self._get_actor_context(event)
         reservation_id = self._extract_booking_id(event.get("path", ""))
 
         response = self._reservation_management_service.get_reservation(
@@ -680,16 +691,13 @@ class ApiHandler(AbstractLambda):
         )
 
         return build_response(
-            response.model_dump(by_alias=True),
+            response.model_dump(by_alias=True, mode="json"),
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 
     def _update_booking(self, event: dict) -> LambdaResponse:
         """Handle PUT /bookings/client/{reservationId}."""
-        access_token = self._extract_access_token(event)
-        user_id, role = self._cognito_service.get_identity_from_access_token(
-            access_token
-        )
+        user_id, role = self._get_actor_context(event)
         reservation_id = self._extract_booking_id(event.get("path", ""))
         request: UpdateReservationRequest = self._validate(
             UpdateReservationRequest, self._parse_body(event)
@@ -703,16 +711,13 @@ class ApiHandler(AbstractLambda):
         )
 
         return build_response(
-            response.model_dump(by_alias=True),
+            response.model_dump(by_alias=True, mode="json"),
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 
     def _cancel_booking(self, event: dict) -> LambdaResponse:
         """Handle PUT /bookings/client/{reservationId}/cancel."""
-        access_token = self._extract_access_token(event)
-        user_id, role = self._cognito_service.get_identity_from_access_token(
-            access_token
-        )
+        user_id, role = self._get_actor_context(event)
         reservation_id = self._extract_booking_id(
             event.get("path", ""), suffix="cancel"
         )
@@ -724,7 +729,7 @@ class ApiHandler(AbstractLambda):
         )
 
         return build_response(
-            response.model_dump(by_alias=True),
+            response.model_dump(by_alias=True, mode="json"),
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 
@@ -795,8 +800,6 @@ class ApiHandler(AbstractLambda):
 
         """
         location_id_str = self._extract_path_segment(event, 1)
-
-        # TODO: pomeri svu validaciju u servis, ne trpaj handler
 
         if location_id_str is None:
             raise_error_response(

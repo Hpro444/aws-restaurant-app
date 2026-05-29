@@ -51,7 +51,7 @@ class TestUserProfile(ApiHandlerLambdaTestCase):
     def test_customer_profile_success(self):
         """Return 200 and customer payload when token resolves to customer role."""
         self.HANDLER._cognito_service.get_identity_from_access_token = MagicMock(
-            return_value=(str(self.mock_customer.id), UserRole.CUSTOMER.value)
+            return_value=(str(self.mock_customer.id), UserRole.CUSTOMER)
         )
         self.HANDLER._user_profile_service.get_user_profile = MagicMock(
             return_value=self.mock_customer
@@ -60,12 +60,12 @@ class TestUserProfile(ApiHandlerLambdaTestCase):
         result = self.HANDLER.lambda_handler(event, {})
         self.assertEqual(status(result), 200)
         self.assertEqual(body(result)["email"], self.mock_customer.email)
-        self.assertEqual(body(result)["role"], UserRole.CUSTOMER.value)
+        self.assertEqual(body(result)["role"], UserRole.CUSTOMER)
 
     def test_waiter_profile_success(self):
         """Return 200 and waiter payload when token resolves to waiter role."""
         self.HANDLER._cognito_service.get_identity_from_access_token = MagicMock(
-            return_value=(str(self.mock_waiter.id), UserRole.WAITER.value)
+            return_value=(str(self.mock_waiter.id), UserRole.WAITER)
         )
         self.HANDLER._user_profile_service.get_user_profile = MagicMock(
             return_value=self.mock_waiter
@@ -74,7 +74,7 @@ class TestUserProfile(ApiHandlerLambdaTestCase):
         result = self.HANDLER.lambda_handler(event, {})
         self.assertEqual(status(result), 200)
         self.assertEqual(body(result)["email"], self.mock_waiter.email)
-        self.assertEqual(body(result)["role"], UserRole.WAITER.value)
+        self.assertEqual(body(result)["role"], UserRole.WAITER)
 
     def test_invalid_token_returns_401(self):
         """Return 401 when access token validation fails."""
@@ -91,7 +91,7 @@ class TestUserProfile(ApiHandlerLambdaTestCase):
     def test_profile_not_found_returns_404(self):
         """Return 404 when profile lookup returns no user record."""
         self.HANDLER._cognito_service.get_identity_from_access_token = MagicMock(
-            return_value=(str(self.mock_customer.id), UserRole.CUSTOMER.value)
+            return_value=(str(self.mock_customer.id), UserRole.CUSTOMER)
         )
         self.HANDLER._user_profile_service.get_user_profile = MagicMock(
             side_effect=ApplicationException(code=404, content="Profile not found")
@@ -104,7 +104,7 @@ class TestUserProfile(ApiHandlerLambdaTestCase):
     def test_admin_profile_success(self):
         """Return 200 and admin payload when token resolves to admin role."""
         self.HANDLER._cognito_service.get_identity_from_access_token = MagicMock(
-            return_value=(str(self.mock_admin.id), UserRole.ADMIN.value)
+            return_value=(str(self.mock_admin.id), UserRole.ADMIN)
         )
         self.HANDLER._user_profile_service.get_user_profile = MagicMock(
             return_value=self.mock_admin
@@ -113,7 +113,7 @@ class TestUserProfile(ApiHandlerLambdaTestCase):
         result = self.HANDLER.lambda_handler(event, {})
         self.assertEqual(status(result), 200)
         self.assertEqual(body(result)["email"], self.mock_admin.email)
-        self.assertEqual(body(result)["role"], UserRole.ADMIN.value)
+        self.assertEqual(body(result)["role"], UserRole.ADMIN)
 
     def test_unsupported_role_returns_403(self):
         """Return 403 when token contains a role unsupported by profile endpoint."""
@@ -155,7 +155,7 @@ class TestUpdateUserProfile(ApiHandlerLambdaTestCase):
     def test_update_customer_success(self):
         """Return 200 with updated fields when PUT succeeds for a customer."""
         self.HANDLER._cognito_service.get_identity_from_access_token = MagicMock(
-            return_value=(str(self.mock_customer.id), UserRole.CUSTOMER.value)
+            return_value=(str(self.mock_customer.id), UserRole.CUSTOMER)
         )
         self.HANDLER._user_profile_service.update_user_profile = MagicMock(
             return_value=self.mock_customer
@@ -165,12 +165,12 @@ class TestUpdateUserProfile(ApiHandlerLambdaTestCase):
         self.assertEqual(status(result), 200)
         self.assertEqual(body(result)["first_name"], "NewFirst")
         self.assertEqual(body(result)["last_name"], "NewLast")
-        self.assertEqual(body(result)["role"], UserRole.CUSTOMER.value)
+        self.assertEqual(body(result)["role"], UserRole.CUSTOMER)
 
     def test_update_missing_field_returns_422(self):
         """Return 422 when a required field is absent from the PUT body."""
         self.HANDLER._cognito_service.get_identity_from_access_token = MagicMock(
-            return_value=(str(uuid4()), UserRole.CUSTOMER.value)
+            return_value=(str(uuid4()), UserRole.CUSTOMER)
         )
         event = make_event(_PATH, "PUT", body={"last_name": "X"}, headers=_HEADERS)
         result = self.HANDLER.lambda_handler(event, {})
@@ -190,7 +190,7 @@ class TestUpdateUserProfile(ApiHandlerLambdaTestCase):
     def test_update_profile_not_found_returns_404(self):
         """Return 404 when the service cannot find the profile to update."""
         self.HANDLER._cognito_service.get_identity_from_access_token = MagicMock(
-            return_value=(str(uuid4()), UserRole.CUSTOMER.value)
+            return_value=(str(uuid4()), UserRole.CUSTOMER)
         )
         self.HANDLER._user_profile_service.update_user_profile = MagicMock(
             side_effect=ApplicationException(code=404, content="Profile not found")

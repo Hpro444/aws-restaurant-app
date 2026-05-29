@@ -145,12 +145,12 @@ class TestReservationManagementService(unittest.TestCase):
         """Customer should get own reservations in dashboard response."""
         service, reservation, customer_id, _ = _build_service()
 
-        response = service.list_for_dashboard(customer_id, UserRole.CUSTOMER.value)
+        response = service.list_for_dashboard(customer_id, UserRole.CUSTOMER)
 
         self.assertEqual(len(response.reservations), 1)
         item = response.reservations[0]
         self.assertEqual(item.reservation_id, str(reservation.id))
-        self.assertEqual(item.status, ReservationStatus.RESERVED.value)
+        self.assertEqual(item.status, ReservationStatus.RESERVED)
         self.assertEqual(item.location_address, "48 Rustaveli Avenue, Tbilisi")
         self.assertTrue(item.date)
         self.assertTrue(item.time_from)
@@ -165,7 +165,7 @@ class TestReservationManagementService(unittest.TestCase):
             service.cancel_reservation(
                 reservation_id=reservation.id,
                 actor_id=customer_id,
-                role=UserRole.CUSTOMER.value,
+                role=UserRole.CUSTOMER,
             )
 
         self.assertEqual(ctx.exception.code, 422)
@@ -177,10 +177,10 @@ class TestReservationManagementService(unittest.TestCase):
         response = service.cancel_reservation(
             reservation_id=reservation.id,
             actor_id=customer_id,
-            role=UserRole.CUSTOMER.value,
+            role=UserRole.CUSTOMER,
         )
 
-        self.assertEqual(response.status, ReservationStatus.CANCELLED.value)
+        self.assertEqual(response.status, ReservationStatus.CANCELLED)
 
     def test_assigned_waiter_can_progress_status_to_finished(self):
         """Assigned waiter can move reservation RESERVED->IN_PROGRESS->FINISHED."""
@@ -190,17 +190,17 @@ class TestReservationManagementService(unittest.TestCase):
             reservation_id=reservation.id,
             request=UpdateReservationRequest(status=ReservationStatus.IN_PROGRESS),
             actor_id=waiter_id,
-            role=UserRole.WAITER.value,
+            role=UserRole.WAITER,
         )
-        self.assertEqual(in_progress.status, ReservationStatus.IN_PROGRESS.value)
+        self.assertEqual(in_progress.status, ReservationStatus.IN_PROGRESS)
 
         finished = service.update_reservation(
             reservation_id=reservation.id,
             request=UpdateReservationRequest(status=ReservationStatus.FINISHED),
             actor_id=waiter_id,
-            role=UserRole.WAITER.value,
+            role=UserRole.WAITER,
         )
-        self.assertEqual(finished.status, ReservationStatus.FINISHED.value)
+        self.assertEqual(finished.status, ReservationStatus.FINISHED)
 
     def test_customer_cannot_set_in_progress_status(self):
         """Customer must not be allowed to run waiter-only status transitions."""
@@ -211,7 +211,7 @@ class TestReservationManagementService(unittest.TestCase):
                 reservation_id=reservation.id,
                 request=UpdateReservationRequest(status=ReservationStatus.IN_PROGRESS),
                 actor_id=customer_id,
-                role=UserRole.CUSTOMER.value,
+                role=UserRole.CUSTOMER,
             )
 
         self.assertEqual(ctx.exception.code, 403)
@@ -223,10 +223,10 @@ class TestReservationManagementService(unittest.TestCase):
         response = service.cancel_reservation(
             reservation_id=reservation.id,
             actor_id=waiter_id,
-            role=UserRole.WAITER.value,
+            role=UserRole.WAITER,
         )
 
-        self.assertEqual(response.status, ReservationStatus.CANCELLED.value)
+        self.assertEqual(response.status, ReservationStatus.CANCELLED)
 
     def test_unrelated_customer_cannot_cancel(self):
         """A customer who does not own the reservation receives 403."""
@@ -237,7 +237,7 @@ class TestReservationManagementService(unittest.TestCase):
             service.cancel_reservation(
                 reservation_id=reservation.id,
                 actor_id=other_customer_id,
-                role=UserRole.CUSTOMER.value,
+                role=UserRole.CUSTOMER,
             )
 
         self.assertEqual(ctx.exception.code, 403)
@@ -251,7 +251,7 @@ class TestReservationManagementService(unittest.TestCase):
             service.cancel_reservation(
                 reservation_id=reservation.id,
                 actor_id=customer_id,
-                role=UserRole.CUSTOMER.value,
+                role=UserRole.CUSTOMER,
             )
 
         self.assertEqual(ctx.exception.code, 422)
@@ -264,7 +264,7 @@ class TestReservationManagementService(unittest.TestCase):
             service.cancel_reservation(
                 reservation_id=reservation.id,
                 actor_id=customer_id,
-                role=UserRole.CUSTOMER.value,
+                role=UserRole.CUSTOMER,
             )
 
         self.assertEqual(ctx.exception.code, 422)
@@ -276,10 +276,10 @@ class TestReservationManagementService(unittest.TestCase):
         response = service.cancel_reservation(
             reservation_id=reservation.id,
             actor_id=customer_id,
-            role=UserRole.CUSTOMER.value,
+            role=UserRole.CUSTOMER,
         )
 
-        self.assertEqual(response.status, ReservationStatus.CANCELLED.value)
+        self.assertEqual(response.status, ReservationStatus.CANCELLED)
 
     def test_cancel_releases_all_slots_in_multi_slot_reservation(self):
         """Every slot in a multi-slot reservation is set to FREE on cancellation."""
@@ -339,7 +339,7 @@ class TestReservationManagementService(unittest.TestCase):
         service.cancel_reservation(
             reservation_id=reservation.id,
             actor_id=customer_id,
-            role=UserRole.CUSTOMER.value,
+            role=UserRole.CUSTOMER,
         )
 
         self.assertEqual(slot1.status, SlotStatus.FREE)

@@ -50,7 +50,7 @@ class TestCreateBooking(ApiHandlerLambdaTestCase):
         super().setUp()
         self.customer_id = str(uuid4())
         self.HANDLER._cognito_service.get_identity_from_access_token = MagicMock(
-            return_value=(self.customer_id, UserRole.CUSTOMER.value)
+            return_value=(self.customer_id, UserRole.CUSTOMER)
         )
         self.HANDLER._booking_service.create_booking = MagicMock(
             return_value=_success_response()
@@ -129,7 +129,7 @@ class TestCreateBooking(ApiHandlerLambdaTestCase):
     def test_non_customer_role_returns_403(self) -> None:
         """Waiter (or any non-customer) callers are rejected with 403."""
         self.HANDLER._cognito_service.get_identity_from_access_token = MagicMock(
-            return_value=(str(uuid4()), UserRole.WAITER.value)
+            return_value=(str(uuid4()), UserRole.WAITER)
         )
 
         event = make_event(_PATH, "POST", body=_VALID_BODY, headers=_VALID_HEADERS)
@@ -174,6 +174,16 @@ class TestCreateBooking(ApiHandlerLambdaTestCase):
             "timeFrom": f"{_TOMORROW}T14:00:00Z",
             "timeTo": f"{_TOMORROW}T12:15:00Z",
         }
+        event = make_event(_PATH, "POST", body=bad, headers=_VALID_HEADERS)
+        result = self.HANDLER.lambda_handler(event, {})
+
+        self.assertEqual(status(result), 422)
+        self.HANDLER._booking_service.create_booking.assert_not_called()
+
+    def test_time_from_date_must_match_date_returns_422(self) -> None:
+        """UTC date portion in timeFrom must equal the date field."""
+        other_day = (date.today() + timedelta(days=2)).isoformat()
+        bad = {**_VALID_BODY, "timeFrom": f"{other_day}T12:15:00Z"}
         event = make_event(_PATH, "POST", body=bad, headers=_VALID_HEADERS)
         result = self.HANDLER.lambda_handler(event, {})
 

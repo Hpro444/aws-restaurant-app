@@ -22,12 +22,12 @@ class Location(DynamoModel):
 
     @field_validator("open_time", "close_time", mode="before")
     @classmethod
-    def parse_time_strings(cls, v: object) -> object:
+    def parse_time_strings(cls, time_value: object) -> object:
         """Convert 'HH:MM' strings to time objects for DynamoDB deserialization."""
-        if isinstance(v, str):
+        if isinstance(time_value, str):
             try:
-                return time.fromisoformat(v)
+                return time.fromisoformat(time_value)
             except ValueError:
                 # If fromisoformat fails, let Pydantic's default validator handle it
                 pass
-        return v
+        return time_value
