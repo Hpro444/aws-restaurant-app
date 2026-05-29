@@ -30,6 +30,10 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             email="nina@example.com",
             location_id=locations[old_town_id].id,
         ),
+        WaiterEmail(
+            email="charlie@example.com",
+            location_id=locations[downtown_id].id,
+        ),
     ]
 
     with table.batch_writer() as batch:
