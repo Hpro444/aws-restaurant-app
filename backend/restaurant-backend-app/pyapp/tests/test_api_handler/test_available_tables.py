@@ -183,3 +183,15 @@ class TestAvailableTables(ApiHandlerLambdaTestCase):
         )
         self.assertEqual(status(result), 422)
         self.HANDLER._table_availability_service.get_available_tables.assert_not_called()
+
+    def test_from_time_date_must_match_date_param_returns_422(self) -> None:
+        """from_time calendar date must match the requested date query parameter."""
+        other_day = (date.today() + timedelta(days=2)).isoformat()
+        result = self.HANDLER.lambda_handler(
+            make_get_event(
+                _PATH, {**_VALID_PARAMS, "from_time": f"{other_day}T12:00:00Z"}
+            ),
+            {},
+        )
+        self.assertEqual(status(result), 422)
+        self.HANDLER._table_availability_service.get_available_tables.assert_not_called()

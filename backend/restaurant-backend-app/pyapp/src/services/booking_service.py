@@ -42,6 +42,8 @@ class BookingService:
           8. Persist the :class:`Reservation` row with ``status=RESERVED``.
     """
 
+    _INVALID_RANGE_MESSAGE = "Invalid time range for the selected slots"
+
     def __init__(self, settings: AppConfig | None = None) -> None:
         """Create the repositories used by this service.
 
@@ -132,7 +134,7 @@ class BookingService:
 
         return CreateBookingResponse(
             reservation_id=str(reservation.id),
-            status=reservation.status.value,
+            status=reservation.status,
             location_id=str(request.location_id),
             location_address=location.address,
             table_number=request.table_number,
@@ -202,8 +204,8 @@ class BookingService:
                 ],
             )
 
-    @staticmethod
     def _resolve_slot_chain(
+        self,
         slots_for_day: list[Slot],
         time_from: str,
         time_to: str,
@@ -218,8 +220,8 @@ class BookingService:
         """
         start_slot: Slot | None = None
         end_slot: Slot | None = None
-        parsed_time_from = BookingService._parse_utc_datetime(time_from)
-        parsed_time_to = BookingService._parse_utc_datetime(time_to)
+        parsed_time_from = self._parse_utc_datetime(time_from)
+        parsed_time_to = self._parse_utc_datetime(time_to)
 
         for slot in slots_for_day:
             if slot.start_time == parsed_time_from:
@@ -257,16 +259,12 @@ class BookingService:
         # The endpoints must be in the chain — if they are not (e.g.
         # mismatched ordering), surface a 422.
         if start_slot not in chain or end_slot not in chain:
-            raise ApplicationException(
-                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                "Invalid time range for the selected slots",
-            )
+            self._raise_invalid_time_range()
 
-        BookingService._validate_slot_chain_duration(chain)
+        self._validate_slot_chain_duration(chain)
         return chain
 
-    @staticmethod
-    def _validate_slot_chain_duration(chain: list[Slot]) -> None:
+    def _validate_slot_chain_duration(self, chain: list[Slot]) -> None:
         """Validate reservation duration formula for the selected slot chain.
 
         The business rule is:
@@ -280,36 +278,26 @@ class BookingService:
 
         """
         if not chain:
-            raise ApplicationException(
-                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                "Invalid time range for the selected slots",
-            )
+            self._raise_invalid_time_range()
 
         slot_length = timedelta(minutes=90)
         pause_length = timedelta(minutes=15)
 
-        for slot in chain:
-            if slot.end_time - slot.start_time != slot_length:
-                raise ApplicationException(
-                    HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                    "Invalid time range for the selected slots",
-                )
+        if any(slot.end_time - slot.start_time != slot_length for slot in chain):
+            self._raise_invalid_time_range()
 
-        for previous, current in zip(chain, chain[1:]):
-            if current.start_time - previous.end_time != pause_length:
-                raise ApplicationException(
-                    HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                    "Invalid time range for the selected slots",
-                )
+        if any(
+            current.start_time - previous.end_time != pause_length
+            for previous, current in zip(chain, chain[1:])
+        ):
+            self._raise_invalid_time_range()
 
-        n_slots = len(chain)
-        expected_total = slot_length * n_slots + pause_length * (n_slots - 1)
-        actual_total = chain[-1].end_time - chain[0].start_time
-        if actual_total != expected_total:
-            raise ApplicationException(
-                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                "Invalid time range for the selected slots",
-            )
+    def _raise_invalid_time_range(self) -> None:
+        """Raise a standard 422 error for invalid selected slot range."""
+        raise ApplicationException(
+            HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+            self._INVALID_RANGE_MESSAGE,
+        )
 
     @staticmethod
     def _check_within_operating_hours(chain: list[Slot], location) -> None:

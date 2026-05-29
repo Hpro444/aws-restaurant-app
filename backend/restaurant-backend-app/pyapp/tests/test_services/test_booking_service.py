@@ -150,7 +150,7 @@ class TestBookingService(unittest.TestCase):
         req = CreateBookingRequest(
             location_id=self.table.location_id,
             table_number=1,
-            date=date.today().isoformat(),
+            date=slot.start_time.date().isoformat(),
             guests_number=2,
             time_from=self._utc(slot.start_time),
             time_to=self._utc(slot.end_time),
@@ -169,7 +169,7 @@ class TestBookingService(unittest.TestCase):
         req = CreateBookingRequest(
             location_id=self.table.location_id,
             table_number=1,
-            date=date.today().isoformat(),
+            date=slot1.start_time.date().isoformat(),
             guests_number=2,
             time_from=self._utc(slot1.start_time),
             time_to=self._utc(slot2.end_time),
@@ -185,7 +185,7 @@ class TestBookingService(unittest.TestCase):
         req = CreateBookingRequest(
             location_id=self.table.location_id,
             table_number=1,
-            date=date.today().isoformat(),
+            date=slot1.start_time.date().isoformat(),
             guests_number=2,
             time_from=self._utc(slot1.start_time),
             time_to=self._utc(slot2.end_time),
@@ -204,7 +204,7 @@ class TestBookingService(unittest.TestCase):
         req = CreateBookingRequest(
             location_id=self.table.location_id,
             table_number=1,
-            date=date.today().isoformat(),
+            date=slot1.start_time.date().isoformat(),
             guests_number=2,
             time_from=self._utc(slot1.start_time),
             time_to=self._utc(slot2.end_time),
@@ -220,7 +220,7 @@ class TestBookingService(unittest.TestCase):
         req = CreateBookingRequest(
             location_id=self.table.location_id,
             table_number=1,
-            date=date.today().isoformat(),
+            date=slot1.start_time.date().isoformat(),
             guests_number=2,
             time_from=self._utc(slot1.start_time),
             time_to=self._utc(slot1.end_time),
@@ -236,7 +236,7 @@ class TestBookingService(unittest.TestCase):
         req = CreateBookingRequest(
             location_id=self.table.location_id,
             table_number=1,
-            date=date.today().isoformat(),
+            date=slot.start_time.date().isoformat(),
             guests_number=2,
             time_from=self._utc(slot.start_time),
             time_to=self._utc(slot.end_time),
@@ -260,7 +260,7 @@ class TestBookingService(unittest.TestCase):
         req = CreateBookingRequest(
             location_id=self.table.location_id,
             table_number=1,
-            date=date.today().isoformat(),
+            date=slot1.start_time.date().isoformat(),
             guests_number=2,
             time_from=self._utc(slot1.start_time),
             time_to=self._utc(slot1.end_time),
@@ -338,7 +338,7 @@ class TestBookingService(unittest.TestCase):
                     reservation.id,
                     req,
                     customer_id,
-                    UserRole.CUSTOMER.value,
+                    UserRole.CUSTOMER,
                 )
         self.assertIn("disabled 30 minutes before start", str(ctx.exception))
 
@@ -352,7 +352,7 @@ class TestBookingService(unittest.TestCase):
         req = CreateBookingRequest(
             location_id=self.table.location_id,
             table_number=1,
-            date=date.today().isoformat(),
+            date=slot1.start_time.date().isoformat(),
             guests_number=2,
             time_from=self._utc(slot1.start_time),
             time_to=self._utc(slot2.end_time),
@@ -370,7 +370,7 @@ class TestBookingService(unittest.TestCase):
         req = CreateBookingRequest(
             location_id=self.table.location_id,
             table_number=1,
-            date=date.today().isoformat(),
+            date=slot1.start_time.date().isoformat(),
             guests_number=2,
             time_from=self._utc(slot1.start_time),
             time_to=self._utc(slot2.end_time),

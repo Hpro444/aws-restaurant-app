@@ -45,9 +45,9 @@ class ReservationManagementService:
         """Return reservations visible to a customer or assigned waiter."""
         actor_uuid = self._coerce_uuid(actor_id)
 
-        if role == UserRole.CUSTOMER.value:
+        if role == UserRole.CUSTOMER:
             reservations = self._reservation_repo.find_by_customer_id(actor_uuid)
-        elif role == UserRole.WAITER.value:
+        elif role == UserRole.WAITER:
             reservations = self._reservation_repo.find_by_waiter_id(actor_uuid)
         else:
             raise ApplicationException(
@@ -99,13 +99,7 @@ class ReservationManagementService:
             actor_id=actor_uuid,
             role=role,
         )
-
-        slots = self._slot_repo.find_by_ids(reservation.slot_ids)
-        if not slots:
-            raise ApplicationException(
-                HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
-                "Reservation slots not found",
-            )
+        slots = self._get_reservation_slots(reservation)
 
         start_time = min(slot.start_time for slot in slots)
 
@@ -152,24 +146,13 @@ class ReservationManagementService:
             actor_id=actor_uuid,
             role=role,
         )
-
-        slots = self._slot_repo.find_by_ids(reservation.slot_ids)
-        if not slots:
-            raise ApplicationException(
-                HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
-                "Reservation slots not found",
-            )
+        slots = self._get_reservation_slots(reservation)
 
         start_time = min(slot.start_time for slot in slots)
         self._ensure_editable(reservation, actor_uuid, role, start_time)
 
         reservation.status = ReservationStatus.CANCELLED
-        for slot in slots:
-            self._slot_repo.update_status(
-                slot.id,
-                SlotStatus.FREE,
-                expected=SlotStatus.RESERVED,
-            )
+        self._release_slots(slots)
 
         self._reservation_repo.update(reservation)
         return self._build_reservation_view(reservation, actor_uuid, role)
@@ -204,10 +187,10 @@ class ReservationManagementService:
                 "Reservation not found",
             )
 
-        if role == UserRole.CUSTOMER.value and reservation.customer_id == actor_uuid:
-            return reservation
-
-        if role == UserRole.WAITER.value and reservation.waiter_id == actor_uuid:
+        if (role, actor_uuid) in {
+            (UserRole.CUSTOMER, reservation.customer_id),
+            (UserRole.WAITER, reservation.waiter_id),
+        }:
             return reservation
 
         raise ApplicationException(
@@ -222,12 +205,7 @@ class ReservationManagementService:
         role: str,
     ) -> ReservationView:
         """Build a frontend-friendly reservation payload with action flags."""
-        slots = self._slot_repo.find_by_ids(reservation.slot_ids)
-        if not slots:
-            raise ApplicationException(
-                HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
-                "Reservation slots not found",
-            )
+        slots = self._get_reservation_slots(reservation)
 
         start_time = min(slot.start_time for slot in slots)
         end_time = max(slot.end_time for slot in slots)
@@ -243,7 +221,7 @@ class ReservationManagementService:
 
         return ReservationView(
             reservation_id=str(reservation.id),
-            status=reservation.status.value,
+            status=reservation.status,
             customer_id=str(reservation.customer_id)
             if reservation.customer_id
             else None,
@@ -270,11 +248,9 @@ class ReservationManagementService:
         start_time,
     ) -> tuple[bool, bool, str | None]:
         """Return edit/cancel flags and cutoff reason when actions are disabled."""
-        is_owner = (
-            role == UserRole.CUSTOMER.value and reservation.customer_id == actor_id
-        )
+        is_owner = role == UserRole.CUSTOMER and reservation.customer_id == actor_id
         is_assigned_waiter = (
-            role == UserRole.WAITER.value and reservation.waiter_id == actor_id
+            role == UserRole.WAITER and reservation.waiter_id == actor_id
         )
         is_action_actor = is_owner or is_assigned_waiter
 
@@ -333,15 +309,10 @@ class ReservationManagementService:
         if new_status == ReservationStatus.CANCELLED:
             self._ensure_editable(reservation, actor_id, role, start_time)
             reservation.status = ReservationStatus.CANCELLED
-            for slot in slots:
-                self._slot_repo.update_status(
-                    slot.id,
-                    SlotStatus.FREE,
-                    expected=SlotStatus.RESERVED,
-                )
+            self._release_slots(slots)
             return
 
-        if role != UserRole.WAITER.value or reservation.waiter_id != actor_id:
+        if role != UserRole.WAITER or reservation.waiter_id != actor_id:
             raise ApplicationException(
                 HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
                 "Only assigned waiter can change this reservation status",
@@ -363,10 +334,28 @@ class ReservationManagementService:
 
         raise ApplicationException(
             HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-            f"Invalid status transition from {current.value} to {new_status.value}",
+            f"Invalid status transition from {current} to {new_status}",
         )
 
     def _is_cutoff_reached(self, start_time) -> bool:
         """Return True when reservation starts within the non-editable cutoff window."""
         now_utc = datetime.now(UTC)
         return now_utc + timedelta(minutes=self._CUTOFF_MINUTES) >= start_time
+
+    def _get_reservation_slots(self, reservation: Reservation):
+        slots = self._slot_repo.find_by_ids(reservation.slot_ids)
+        if slots:
+            return slots
+        raise ApplicationException(
+            HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
+            "Reservation slots not found",
+        )
+
+    def _release_slots(self, slots) -> None:
+        """Set all reservation slots back to FREE state."""
+        for slot in slots:
+            self._slot_repo.update_status(
+                slot.id,
+                SlotStatus.FREE,
+                expected=SlotStatus.RESERVED,
+            )

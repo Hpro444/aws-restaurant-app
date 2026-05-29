@@ -53,13 +53,40 @@ class RegistrationService:
             settings: Application configuration; a fresh instance is created when omitted.
 
         """
-        self._settings = settings or AppConfig()
         self._cognito_service = cognito_service or CognitoService()
         self._waiter_repo = waiter_repository or WaiterRepository()
         self._customer_repo = customer_repository or CustomerRepository()
         self._waiter_emails_repo = waiter_emails_repository or WaiterEmailsRepository()
         self._admin_repo = admin_repository or AdminRepository()
         self._admin_emails_repo = admin_emails_repository or AdminEmailsRepository()
+
+    def _persist_user(
+        self,
+        user_id: str,
+        request: SignUpRequest,
+        role: UserRole,
+        location_id: UUID | None,
+    ) -> None:
+        common = {
+            "id": UUID(user_id),
+            "fname": request.first_name,
+            "lname": request.last_name,
+            "email": request.email,
+            "image_url": "",
+        }
+
+        if role == UserRole.ADMIN:
+            self._admin_repo.create(Admin(**common))
+            logger.info("Admin persisted to DynamoDB", sub=user_id)
+            return
+
+        if role == UserRole.WAITER and location_id:
+            self._waiter_repo.create(Waiter(**common, location_id=location_id))
+            logger.info("Waiter persisted to DynamoDB", sub=user_id)
+            return
+
+        self._customer_repo.create(Customer(**common))
+        logger.info("Customer persisted to DynamoDB", sub=user_id)
 
     def register_user(self, request: SignUpRequest) -> None:
         """Register a user with automatic role assignment and persistence.
@@ -112,41 +139,11 @@ class RegistrationService:
             password=SecretStr(request.password.get_secret_value()),
             role=role,
         )
-        logger.info("User registered in Cognito", sub=user_id, role=role.value)
+        logger.info("User registered in Cognito", sub=user_id, role=role)
 
         # Persist to DynamoDB with resolved role.
         try:
-            if role == UserRole.ADMIN:
-                admin = Admin(
-                    id=UUID(user_id),
-                    fname=request.first_name,
-                    lname=request.last_name,
-                    email=request.email,
-                    image_url="",
-                )
-                self._admin_repo.create(admin)
-                logger.info("Admin persisted to DynamoDB", sub=user_id)
-            elif role == UserRole.WAITER and location_id:
-                waiter = Waiter(
-                    id=UUID(user_id),
-                    fname=request.first_name,
-                    lname=request.last_name,
-                    email=request.email,
-                    image_url="",
-                    location_id=location_id,
-                )
-                self._waiter_repo.create(waiter)
-                logger.info("Waiter persisted to DynamoDB", sub=user_id)
-            else:
-                customer = Customer(
-                    id=UUID(user_id),
-                    fname=request.first_name,
-                    lname=request.last_name,
-                    email=request.email,
-                    image_url="",
-                )
-                self._customer_repo.create(customer)
-                logger.info("Customer persisted to DynamoDB", sub=user_id)
+            self._persist_user(user_id, request, role, location_id)
         except Exception as exc:
             logger.error(
                 "Failed to persist user to DynamoDB",

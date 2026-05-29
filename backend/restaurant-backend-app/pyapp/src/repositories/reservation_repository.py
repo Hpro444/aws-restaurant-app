@@ -32,42 +32,49 @@ class ReservationRepository(DynamoRepository[Reservation]):
         cfg = settings or AppConfig()
         super().__init__(cfg.reservations_table, Reservation, cfg)
 
-    def find_by_customer_id(self, customer_id: UUID) -> list[Reservation]:
-        """Return reservations owned by a customer via GSI query."""
+    def _find_by_actor_id(
+        self,
+        *,
+        actor_id: UUID,
+        index_name: str,
+        key_name: str,
+        attr_name: str,
+        log_context: str,
+    ) -> list[Reservation]:
         table_name = self._resolve_table_name()
         reservations = self._paginated_query(
-            "customer_id_index query",
+            f"{index_name} query",
             self._client.query,
             TableName=table_name,
-            IndexName=self._CUSTOMER_INDEX,
-            KeyConditionExpression="customer_id = :cid",
+            IndexName=index_name,
+            KeyConditionExpression=f"{key_name} = :id",
             ExpressionAttributeValues={
-                ":cid": {"S": str(customer_id)},
+                ":id": {"S": str(actor_id)},
             },
         )
         logger.info(
-            "Reservations filtered by customer",
-            customer_id=str(customer_id),
+            f"Reservations filtered by {log_context}",
+            **{attr_name: str(actor_id)},
             count=len(reservations),
         )
         return reservations
 
+    def find_by_customer_id(self, customer_id: UUID) -> list[Reservation]:
+        """Return reservations owned by a customer via GSI query."""
+        return self._find_by_actor_id(
+            actor_id=customer_id,
+            index_name=self._CUSTOMER_INDEX,
+            key_name="customer_id",
+            attr_name="customer_id",
+            log_context="customer",
+        )
+
     def find_by_waiter_id(self, waiter_id: UUID) -> list[Reservation]:
         """Return reservations assigned to a waiter via GSI query."""
-        table_name = self._resolve_table_name()
-        reservations = self._paginated_query(
-            "waiter_id_index query",
-            self._client.query,
-            TableName=table_name,
-            IndexName=self._WAITER_INDEX,
-            KeyConditionExpression="waiter_id = :wid",
-            ExpressionAttributeValues={
-                ":wid": {"S": str(waiter_id)},
-            },
+        return self._find_by_actor_id(
+            actor_id=waiter_id,
+            index_name=self._WAITER_INDEX,
+            key_name="waiter_id",
+            attr_name="waiter_id",
+            log_context="waiter",
         )
-        logger.info(
-            "Reservations filtered by waiter",
-            waiter_id=str(waiter_id),
-            count=len(reservations),
-        )
-        return reservations

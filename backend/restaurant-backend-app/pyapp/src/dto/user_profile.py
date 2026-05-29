@@ -26,8 +26,11 @@ class UpdateProfileRequest(BaseModel):
 
     @field_validator("image_url")
     @classmethod
-    def validate_image_url(cls, v: str) -> str:
+    def validate_image_url(cls, image_url_value: str) -> str:
         """Reject image_url values that are not http(s) URLs."""
-        if not (v.startswith("http://") or v.startswith("https://")):
+        if not (
+            image_url_value.startswith("http://")
+            or image_url_value.startswith("https://")
+        ):
             raise ValueError("must be an http:// or https:// URL")
-        return v
+        return image_url_value

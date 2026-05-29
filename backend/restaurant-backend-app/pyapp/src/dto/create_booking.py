@@ -29,36 +29,47 @@ class CreateBookingRequest(BaseModel):
     time_from: str = Field(..., alias="timeFrom", min_length=1)
     time_to: str = Field(..., alias="timeTo", min_length=1)
 
-    @field_validator("table_number", mode="before")
-    @classmethod
-    def coerce_table_number(cls, v: object) -> object:
-        """Allow numeric strings (e.g. ``"1"``) for ``tableNumber``."""
-        if isinstance(v, str) and v.strip():
+    @staticmethod
+    def _coerce_int(raw_value: object, field_name: str) -> object:
+        """Allow numeric strings for integer request fields."""
+        if isinstance(raw_value, str) and raw_value.strip():
             try:
-                return int(v)
+                return int(raw_value)
             except ValueError as exc:
-                raise ValueError("tableNumber must be an integer") from exc
-        return v
+                raise ValueError(f"{field_name} must be an integer") from exc
+        return raw_value
 
-    @field_validator("guests_number", mode="before")
+    @staticmethod
+    def _parse_utc_datetime(raw_value: str) -> datetime:
+        """Parse and normalize UTC ISO datetime values."""
+        try:
+            parsed = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError(
+                "Time must be a UTC ISO datetime (e.g. 2026-05-27T11:45:00Z)"
+            ) from exc
+
+        if parsed.tzinfo is None or parsed.utcoffset() != timedelta(0):
+            raise ValueError("Time must be in UTC (offset +00:00 or Z)")
+        return parsed.astimezone(timezone.utc)
+
+    @field_validator("table_number", "guests_number", mode="before")
     @classmethod
-    def coerce_guests_number(cls, v: object) -> object:
-        """Allow numeric strings (e.g. ``"4"``) for ``guestsNumber``."""
-        if isinstance(v, str) and v.strip():
-            try:
-                return int(v)
-            except ValueError as exc:
-                raise ValueError("guestsNumber must be an integer") from exc
-        return v
+    def coerce_int_fields(cls, raw_value: object, info: ValidationInfo) -> object:
+        """Allow numeric strings for integer request fields."""
+        field_name = (
+            "tableNumber" if info.field_name == "table_number" else "guestsNumber"
+        )
+        return cls._coerce_int(raw_value, field_name)
 
     @field_validator("date")
     @classmethod
-    def validate_date(cls, v: str) -> str:
+    def validate_date(cls, date_value: str) -> str:
         """Reject invalid format, past dates, and dates >30 days ahead."""
-        if not v:
+        if not date_value:
             raise ValueError("Date is required")
         try:
-            parsed = datetime.strptime(v, "%Y-%m-%d").date()
+            parsed = datetime.strptime(date_value, "%Y-%m-%d").date()
         except ValueError as exc:
             raise ValueError("Date must be in YYYY-MM-DD format") from exc
 
@@ -68,25 +79,22 @@ class CreateBookingRequest(BaseModel):
         if parsed > today + timedelta(days=30):
             raise ValueError("Cannot book more than 30 days in advance")
 
-        return v
+        return date_value
 
     @field_validator("time_from", "time_to")
     @classmethod
-    def validate_time(cls, v: str) -> str:
+    def validate_time(cls, time_value: str, info: ValidationInfo) -> str:
         """Validate that time fields are UTC ISO datetimes."""
-        if not v:
+        if not time_value:
             raise ValueError("Time is required")
-        try:
-            parsed = datetime.fromisoformat(v.replace("Z", "+00:00"))
-        except ValueError as exc:
-            raise ValueError(
-                "Time must be a UTC ISO datetime (e.g. 2026-05-27T11:45:00Z)"
-            ) from exc
 
-        if parsed.tzinfo is None or parsed.utcoffset() != timedelta(0):
-            raise ValueError("Time must be in UTC (offset +00:00 or Z)")
+        parsed = cls._parse_utc_datetime(time_value)
+        requested_date = info.data.get("date")
+        field_label = "timeFrom" if info.field_name == "time_from" else "timeTo"
+        if requested_date and parsed.date().isoformat() != requested_date:
+            raise ValueError(f"{field_label} date must match date")
 
-        return parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+        return parsed.isoformat().replace("+00:00", "Z")
 
     @field_validator("time_to")
     @classmethod
@@ -94,8 +102,8 @@ class CreateBookingRequest(BaseModel):
         """Ensure ``timeTo`` is strictly greater than ``timeFrom``."""
         time_from = info.data.get("time_from")
         if time_from:
-            parsed_from = datetime.fromisoformat(time_from.replace("Z", "+00:00"))
-            parsed_to = datetime.fromisoformat(time_to.replace("Z", "+00:00"))
+            parsed_from = cls._parse_utc_datetime(time_from)
+            parsed_to = cls._parse_utc_datetime(time_to)
             if parsed_to <= parsed_from:
                 raise ValueError("timeTo must be greater than timeFrom")
         return time_to

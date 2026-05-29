@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 # ── Request DTO ───────────────────────────────────────────────────────
 
@@ -25,6 +25,20 @@ class AvailableTablesRequest(BaseModel):
 
     """
 
+    @staticmethod
+    def _parse_utc_datetime(raw_value: str) -> datetime:
+        """Parse and normalize UTC ISO datetime values."""
+        try:
+            parsed = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError(
+                "from_time must be a UTC ISO datetime (e.g. 2026-05-27T11:45:00Z)"
+            ) from exc
+
+        if parsed.tzinfo is None or parsed.utcoffset() != timedelta(0):
+            raise ValueError("from_time must be in UTC (offset +00:00 or Z)")
+        return parsed.astimezone(timezone.utc)
+
     model_config = ConfigDict(extra="ignore", str_strip_whitespace=True)
 
     location_id: UUID = Field(...)
@@ -34,12 +48,12 @@ class AvailableTablesRequest(BaseModel):
 
     @field_validator("date")
     @classmethod
-    def validate_date(cls, v: str) -> str:
+    def validate_date(cls, date_value: str) -> str:
         """Reject invalid format, past dates, and dates >30 days ahead."""
-        if not v:
+        if not date_value:
             raise ValueError("Date is required")
         try:
-            parsed = datetime.strptime(v, "%Y-%m-%d").date()
+            parsed = datetime.strptime(date_value, "%Y-%m-%d").date()
         except ValueError:
             raise ValueError("Date must be in YYYY-MM-DD format")
 
@@ -49,25 +63,23 @@ class AvailableTablesRequest(BaseModel):
         if parsed > today + timedelta(days=30):
             raise ValueError("Cannot book more than 30 days in advance")
 
-        return v
+        return date_value
 
     @field_validator("from_time")
     @classmethod
-    def validate_time(cls, v: Optional[str]) -> Optional[str]:
+    def validate_time(
+        cls, from_time_value: Optional[str], info: ValidationInfo
+    ) -> Optional[str]:
         """Validate optional UTC datetime parameter in ISO-8601 format."""
-        if v is None or v == "":
+        if not from_time_value:
             return None
-        try:
-            parsed = datetime.fromisoformat(v.replace("Z", "+00:00"))
-        except ValueError as exc:
-            raise ValueError(
-                "from_time must be a UTC ISO datetime (e.g. 2026-05-27T11:45:00Z)"
-            ) from exc
 
-        if parsed.tzinfo is None or parsed.utcoffset() != timedelta(0):
-            raise ValueError("from_time must be in UTC (offset +00:00 or Z)")
+        parsed = cls._parse_utc_datetime(from_time_value)
+        requested_date = info.data.get("date")
+        if requested_date and parsed.date().isoformat() != requested_date:
+            raise ValueError("from_time date must match date")
 
-        return parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+        return parsed.isoformat().replace("+00:00", "Z")
 
 
 # ── Response DTOs ─────────────────────────────────────────────────────

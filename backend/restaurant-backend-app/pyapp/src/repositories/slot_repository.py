@@ -175,14 +175,14 @@ class SlotRepository(DynamoRepository[Slot]):
                 ConditionExpression="#s = :expected",
                 ExpressionAttributeNames={"#s": "status"},
                 ExpressionAttributeValues={
-                    ":new": {"S": new_status.value},
-                    ":expected": {"S": expected.value},
+                    ":new": {"S": new_status},
+                    ":expected": {"S": expected},
                 },
             )
             logger.info(
                 "Slot status updated",
                 slot_id=str(slot_id),
-                new_status=new_status.value,
+                new_status=new_status,
             )
             return True
         except ClientError as exc:
@@ -190,7 +190,7 @@ class SlotRepository(DynamoRepository[Slot]):
                 logger.info(
                     "Slot status update rejected by condition",
                     slot_id=str(slot_id),
-                    expected=expected.value,
+                    expected=expected,
                 )
                 return False
             logger.error(
