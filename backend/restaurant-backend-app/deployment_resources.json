@@ -46,13 +46,17 @@
     "dependencies": [],
     "resources": {
       "/auth/sign-up": {
-        "enable_cors": {
-          "state": true,
-          "custom_headers": [],
-          "custom_methods": [],
-          "custom_origins": [
-            "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com"
-          ]
+        "OPTIONS": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
         },
         "POST": {
           "authorization_type": "NONE",
@@ -68,13 +72,17 @@
         }
       },
       "/auth/refresh": {
-        "enable_cors": {
-          "state": true,
-          "custom_headers": [],
-          "custom_methods": [],
-          "custom_origins": [
-            "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com"
-          ]
+        "OPTIONS": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
         },
         "POST": {
           "authorization_type": "NONE",
@@ -90,13 +98,17 @@
         }
       },
       "/auth/logout": {
-        "enable_cors": {
-          "state": true,
-          "custom_headers": [],
-          "custom_methods": [],
-          "custom_origins": [
-            "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com"
-          ]
+        "OPTIONS": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
         },
         "POST": {
           "authorization_type": "NONE",
@@ -112,13 +124,17 @@
         }
       },
       "/auth/sign-in": {
-        "enable_cors": {
-          "state": true,
-          "custom_headers": [],
-          "custom_methods": [],
-          "custom_origins": [
-            "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com"
-          ]
+        "OPTIONS": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
         },
         "POST": {
           "authorization_type": "NONE",
@@ -134,13 +150,17 @@
         }
       },
       "/users/profile": {
-        "enable_cors": {
-          "state": true,
-          "custom_headers": [],
-          "custom_methods": [],
-          "custom_origins": [
-            "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com"
-          ]
+        "OPTIONS": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
         },
         "GET": {
           "authorization_type": "NONE",
@@ -168,13 +188,17 @@
         }
       },
       "/bookings/tables": {
-        "enable_cors": {
-          "state": true,
-          "custom_headers": [],
-          "custom_methods": [],
-          "custom_origins": [
-            "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com"
-          ]
+        "OPTIONS": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
         },
         "GET": {
           "authorization_type": "NONE",
@@ -190,13 +214,17 @@
         }
       },
       "/bookings/client": {
-        "enable_cors": {
-          "state": true,
-          "custom_headers": [],
-          "custom_methods": [],
-          "custom_origins": [
-            "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com"
-          ]
+        "OPTIONS": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
         },
         "POST": {
           "authorization_type": "NONE",
@@ -224,13 +252,17 @@
         }
       },
       "/bookings/client/{id}": {
-        "enable_cors": {
-          "state": true,
-          "custom_headers": [],
-          "custom_methods": [],
-          "custom_origins": [
-            "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com"
-          ]
+        "OPTIONS": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
         },
         "GET": {
           "authorization_type": "NONE",
@@ -258,13 +290,17 @@
         }
       },
       "/bookings/client/{id}/cancel": {
-        "enable_cors": {
-          "state": true,
-          "custom_headers": [],
-          "custom_methods": [],
-          "custom_origins": [
-            "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com"
-          ]
+        "OPTIONS": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
         },
         "DELETE": {
           "authorization_type": "NONE",
@@ -280,13 +316,17 @@
         }
       },
       "/locations": {
-        "enable_cors": {
-          "state": true,
-          "custom_headers": [],
-          "custom_methods": [],
-          "custom_origins": [
-            "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com"
-          ]
+        "OPTIONS": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
         },
         "GET": {
           "authorization_type": "NONE",
@@ -302,13 +342,17 @@
         }
       },
       "/locations/select-options": {
-        "enable_cors": {
-          "state": true,
-          "custom_headers": [],
-          "custom_methods": [],
-          "custom_origins": [
-            "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com"
-          ]
+        "OPTIONS": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
         },
         "GET": {
           "authorization_type": "NONE",
@@ -324,13 +368,17 @@
         }
       },
       "/locations/{id}": {
-        "enable_cors": {
-          "state": true,
-          "custom_headers": [],
-          "custom_methods": [],
-          "custom_origins": [
-            "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com"
-          ]
+        "OPTIONS": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
         },
         "GET": {
           "authorization_type": "NONE",
@@ -346,13 +394,17 @@
         }
       },
       "/dishes/popular": {
-        "enable_cors": {
-          "state": true,
-          "custom_headers": [],
-          "custom_methods": [],
-          "custom_origins": [
-            "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com"
-          ]
+        "OPTIONS": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
         },
         "GET": {
           "authorization_type": "NONE",
@@ -368,13 +420,17 @@
         }
       },
       "/locations/{id}/speciality-dishes": {
-        "enable_cors": {
-          "state": true,
-          "custom_headers": [],
-          "custom_methods": [],
-          "custom_origins": [
-            "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com"
-          ]
+        "OPTIONS": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
         },
         "GET": {
           "authorization_type": "NONE",
@@ -390,13 +446,17 @@
         }
       },
       "/locations/{id}/feedbacks": {
-        "enable_cors": {
-          "state": true,
-          "custom_headers": [],
-          "custom_methods": [],
-          "custom_origins": [
-            "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com"
-          ]
+        "OPTIONS": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
         },
         "GET": {
           "authorization_type": "NONE",
