@@ -1,4 +1,4 @@
-"""Service for retrieving popular and speciality dishes from DynamoDB."""
+"""Service for retrieving dishes from DynamoDB."""
 
 from __future__ import annotations
 
@@ -6,7 +6,8 @@ from uuid import UUID
 
 from commons.app_config import AppConfig
 from commons.log_helper import logger
-from dto.popular_dishes import DishResponse
+from dto.dishes import DishResponse, DishSort
+from enums.dish_type import DishType
 from repositories.dish_repository import DishRepository
 
 
@@ -48,10 +49,13 @@ class DishesService:
         # Transform domain objects to response DTOs
         response = [
             DishResponse(
+                id=dish.id,
                 name=dish.name,
+                description=dish.description,
                 image_url=dish.image_url,
                 price=dish.price,
                 weight_gram=dish.weight_gram,
+                state=dish.state,
             )
             for dish in popular_dishes
         ]
@@ -88,10 +92,13 @@ class DishesService:
         # Transform domain objects to response DTOs
         response = [
             DishResponse(
+                id=dish.id,
                 name=dish.name,
+                description=dish.description,
                 image_url=dish.image_url,
                 price=dish.price,
                 weight_gram=dish.weight_gram,
+                state=dish.state,
             )
             for dish in specialty_dishes
         ]
@@ -101,4 +108,58 @@ class DishesService:
             location_id=str(location_id),
             count=len(response),
         )
+        return response
+
+    def get_all_dishes(
+        self,
+        dish_type: DishType | None = None,
+        sort: DishSort | None = None,
+    ) -> list[DishResponse]:
+        """Retrieve dishes filtered by type and sorted by the requested criterion.
+
+        Performs a full table scan then applies in-memory filtering and sorting,
+        which is acceptable for a small restaurant menu dataset.
+
+        Args:
+            dish_type: When provided, only dishes matching this category are returned.
+            sort: Ordering applied after filtering. Supports price and popularity
+                in ascending or descending direction.
+
+        Returns:
+            List of DishResponse objects, or empty list when no dishes match.
+
+        """
+        logger.info(
+            "Retrieving dishes",
+            dish_type=dish_type and dish_type.value,
+            sort=sort and sort.value,
+        )
+
+        dishes = self._dish_repo.scan()
+
+        if dish_type is not None:
+            dishes = [d for d in dishes if d.dish_type == dish_type]
+
+        if sort is not None:
+            field, direction = sort.value.split(",")
+            reverse = direction == "desc"
+            if field == "price":
+                dishes = sorted(dishes, key=lambda d: d.price, reverse=reverse)
+            elif field == "popularity":
+                dishes = sorted(dishes, key=lambda d: d.popular, reverse=reverse)
+
+        response = [
+            DishResponse(
+                id=dish.id,
+                name=dish.name,
+                description=dish.description,
+                image_url=dish.image_url,
+                price=dish.price,
+                weight_gram=dish.weight_gram,
+                state=dish.state,
+            )
+            for dish in dishes
+        ]
+
+        logger.info("Dishes retrieved", count=len(response))
         return response

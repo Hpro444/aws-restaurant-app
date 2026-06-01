@@ -6,6 +6,8 @@ from typing import Any
 from uuid import UUID
 
 from commons.dynamo_model import DynamoModel
+from enums.dish_state import DishState
+from enums.dish_type import DishType
 
 
 class Dish(DynamoModel):
@@ -20,6 +22,8 @@ class Dish(DynamoModel):
     weight_gram: int
     specialty: bool = False
     popular: bool = False
+    state: DishState = DishState.AVAILABLE
+    dish_type: DishType = DishType.MAIN_COURSE
 
     def to_dynamodb_item(self) -> dict[str, Any]:
         """Serialize the dish and coerce ``popular`` to numeric for GSI compatibility.

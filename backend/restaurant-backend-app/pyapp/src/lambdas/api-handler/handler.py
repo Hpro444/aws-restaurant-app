@@ -8,6 +8,7 @@ from commons import LambdaResponse, build_response, raise_error_response
 from commons.abstract_lambda import AbstractLambda
 from dto.available_tables import AvailableTablesRequest
 from dto.create_booking import CreateBookingRequest
+from dto.dishes import GetDishesRequest
 from dto.error_response import FieldError, ValidationErrorResponse
 from dto.feedbacks import PageFeedbackResponse
 from dto.locations import LocationAddressResponse, LocationResponse
@@ -153,6 +154,9 @@ class ApiHandler(AbstractLambda):
 
         if path.startswith("/bookings/client/") and method == "PUT":
             return self._update_booking(event)
+
+        if path == "/dishes" and method == "GET":
+            return self._get_dishes(event)
 
         if path == "/dishes/popular" and method == "GET":
             return self._get_popular_dishes(event)
@@ -733,6 +737,29 @@ class ApiHandler(AbstractLambda):
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 
+    def _get_dishes(self, event: dict) -> LambdaResponse:
+        """Handle GET /dishes — retrieve dishes optionally filtered and sorted.
+
+        Public endpoint; no authentication required.
+        Accepts optional query parameters ``dishType`` and ``sort``.
+        Returns 422 when an unrecognised value is supplied for either param.
+
+        Returns:
+            A Lambda proxy response dict with statusCode 200 and a JSON array
+            of DishResponse objects, or an empty array when none match.
+
+        """
+        params = self._parse_query_params(event)
+        request = self._validate(GetDishesRequest, params)
+        dishes = self._dishes_service.get_all_dishes(
+            dish_type=request.dishType,
+            sort=request.sort,
+        )
+        return build_response(
+            [dish.model_dump(mode="json") for dish in dishes],
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
     def _get_popular_dishes(self, event: dict) -> LambdaResponse:
         """Handle GET /dishes/popular — retrieve all popular dishes across locations.
 
@@ -748,7 +775,7 @@ class ApiHandler(AbstractLambda):
         """
         dishes = self._dishes_service.get_popular_dishes()
         return build_response(
-            [dish.model_dump() for dish in dishes],
+            [dish.model_dump(mode="json") for dish in dishes],
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 
@@ -789,7 +816,7 @@ class ApiHandler(AbstractLambda):
 
         dishes = self._dishes_service.get_speciality_dishes_by_location(location_id)
         return build_response(
-            [dish.model_dump() for dish in dishes],
+            [dish.model_dump(mode="json") for dish in dishes],
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 
