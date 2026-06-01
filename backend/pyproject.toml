@@ -9,6 +9,8 @@ dependencies = [
     "aws-syndicate",
     "pip==26.1.1",
     "pre-commit==4.6.0",
+    "pydantic[email]==2.13.4",
+    "pydantic-settings==2.0.0",
     "pyjwt==2.12.1",
     "structlog==25.5.0",
 ]
