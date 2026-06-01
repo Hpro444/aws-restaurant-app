@@ -1,6 +1,8 @@
 """Seed module for menu dishes."""
 
 from domain.dish import Dish  # type: ignore[import-not-found]
+from enums.dish_state import DishState  # type: ignore[import-not-found]
+from enums.dish_type import DishType  # type: ignore[import-not-found]
 
 from seeds.utils import seed_id, to_item
 
@@ -40,6 +42,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             popular=True,
             price=18.50,
             weight_gram=350,
+            state=DishState.AVAILABLE,
+            dish_type=DishType.MAIN_COURSE,
         ),
         Dish(
             id=seed_id("dish", "downtown:chocolate-mousse"),
@@ -51,6 +55,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             popular=True,
             price=9.50,
             weight_gram=180,
+            state=DishState.AVAILABLE,
+            dish_type=DishType.DESSERT,
         ),
         Dish(
             id=seed_id("dish", "downtown:pineapple-tart"),
@@ -62,6 +68,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             popular=True,
             price=11.50,
             weight_gram=200,
+            state=DishState.AVAILABLE,
+            dish_type=DishType.DESSERT,
         ),
         Dish(
             id=seed_id("dish", "downtown:avocado-bowl"),
@@ -73,6 +81,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             popular=True,
             price=13.50,
             weight_gram=300,
+            state=DishState.AVAILABLE,
+            dish_type=DishType.APPETIZER,
         ),
     ]
 
@@ -87,6 +97,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             popular=True,
             price=12.50,
             weight_gram=280,
+            state=DishState.AVAILABLE,
+            dish_type=DishType.MAIN_COURSE,
         ),
         Dish(
             id=seed_id("dish", "airport:chocolate-mousse"),
@@ -98,6 +110,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             popular=True,
             price=9.50,
             weight_gram=180,
+            state=DishState.AVAILABLE,
+            dish_type=DishType.DESSERT,
         ),
         Dish(
             id=seed_id("dish", "airport:avocado-bowl"),
@@ -109,6 +123,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             popular=True,
             price=13.50,
             weight_gram=300,
+            state=DishState.AVAILABLE,
+            dish_type=DishType.APPETIZER,
         ),
         Dish(
             id=seed_id("dish", "airport:pineapple-tart"),
@@ -120,6 +136,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             popular=True,
             price=11.50,
             weight_gram=200,
+            state=DishState.AVAILABLE,
+            dish_type=DishType.DESSERT,
         ),
     ]
 
@@ -134,6 +152,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             popular=True,
             price=13.50,
             weight_gram=420,
+            state=DishState.AVAILABLE,
+            dish_type=DishType.MAIN_COURSE,
         ),
         Dish(
             id=seed_id("dish", "old-town:pineapple-tart"),
@@ -145,6 +165,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             popular=True,
             price=11.50,
             weight_gram=200,
+            state=DishState.AVAILABLE,
+            dish_type=DishType.DESSERT,
         ),
         Dish(
             id=seed_id("dish", "old-town:avocado-bowl"),
@@ -156,6 +178,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             popular=True,
             price=13.50,
             weight_gram=300,
+            state=DishState.AVAILABLE,
+            dish_type=DishType.APPETIZER,
         ),
         Dish(
             id=seed_id("dish", "old-town:chocolate-mousse"),
@@ -167,6 +191,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             popular=True,
             price=9.50,
             weight_gram=180,
+            state=DishState.AVAILABLE,
+            dish_type=DishType.DESSERT,
         ),
     ]
 

@@ -1,12 +1,15 @@
 """Tests for the GET /locations/{id}/speciality-dishes endpoint."""
 
 from unittest.mock import MagicMock
+from uuid import UUID
 
-from dto.popular_dishes import DishResponse
+from dto.dishes import DishResponse
 from pyapp.tests.test_api_handler import ApiHandlerLambdaTestCase, body, status
 
 _LOCATION_ID = "f6d6b8df-a7d5-4f06-8dd0-739d2f4f8df3"
 _PATH = f"/locations/{_LOCATION_ID}/speciality-dishes"
+
+_STEAK_ID = UUID("cccccccc-cccc-4ccc-8ccc-cccccccccccc")
 
 
 class TestSpecialityDishes(ApiHandlerLambdaTestCase):
@@ -16,10 +19,13 @@ class TestSpecialityDishes(ApiHandlerLambdaTestCase):
         """A valid location id should return a raw array with the expected fields."""
         dishes = [
             DishResponse(
+                id=_STEAK_ID,
                 name="Steak Special",
+                description="Premium cut grilled to perfection.",
                 image_url="https://example.com/steak.jpg",
                 price=21.0,
                 weight_gram=350,
+                state="Available",
             )
         ]
         self.HANDLER._dishes_service.get_speciality_dishes_by_location = MagicMock(
@@ -36,10 +42,13 @@ class TestSpecialityDishes(ApiHandlerLambdaTestCase):
             body(result),
             [
                 {
+                    "id": str(_STEAK_ID),
                     "name": "Steak Special",
+                    "description": "Premium cut grilled to perfection.",
                     "image_url": "https://example.com/steak.jpg",
                     "price": 21.0,
                     "weight_gram": 350,
+                    "state": "Available",
                 }
             ],
         )
