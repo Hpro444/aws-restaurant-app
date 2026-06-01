@@ -6,6 +6,7 @@ from uuid import UUID
 
 from commons import LambdaResponse, build_response, raise_error_response
 from commons.abstract_lambda import AbstractLambda
+from commons.router import Router
 from dto.available_tables import AvailableTablesRequest
 from dto.create_booking import CreateBookingRequest
 from dto.dishes import GetDishesRequest
@@ -68,6 +69,7 @@ class ApiHandler(AbstractLambda):
         self._reservation_management_service = ReservationManagementService()
         self._dishes_service = DishesService()
         self._feedback_service = FeedbackService()
+        self._router = self._build_router()
 
     def validate_request(self, event: dict) -> dict:
         """Return empty dict; all validation is handled in route methods via Pydantic.
@@ -92,92 +94,55 @@ class ApiHandler(AbstractLambda):
             A Lambda proxy response dict.
 
         """
-        path = event.get("path", "")
         method = event.get("httpMethod", "")
-        resource = event.get("resource", "")
 
         if method == "OPTIONS":
             return build_response("", code=HttpStatusCode.RESPONSE_OK_CODE)
+        return self._get_router().dispatch(event, context)
 
-        if path == "/auth/sign-up" and method == "POST":
-            return self._sign_up(event)
+    def _build_router(self) -> Router:
+        """Register all API routes once and return router instance."""
+        router = Router()
 
-        if path == "/auth/sign-in" and method == "POST":
-            return self._sign_in(event)
+        router.add("POST", "/auth/sign-up", self._sign_up)
+        router.add("POST", "/auth/sign-in", self._sign_in)
+        router.add("POST", "/auth/refresh", self._refresh)
+        router.add("POST", "/auth/logout", self._logout)
 
-        if path == "/auth/refresh" and method == "POST":
-            return self._refresh(event)
+        router.add("GET", "/users/profile", self._get_user_profile)
+        router.add("PUT", "/users/profile", self._update_user_profile)
 
-        if path == "/auth/logout" and method == "POST":
-            return self._logout(event)
-
-        if path == "/users/profile" and method == "GET":
-            return self._get_user_profile(event)
-
-        if path == "/users/profile" and method == "PUT":
-            return self._update_user_profile(event)
-
-        if path == "/locations/select-options" and method == "GET":
-            return self._get_location_addresses()
-
-        if method == "GET" and (
-            resource == "/locations/{id}"
-            or self._is_resource_with_single_id_path(path, "locations")
-        ):
-            return self._get_location_by_id(event)
-
-        if path == "/locations" and method == "GET":
-            return self._get_locations()
-
-        if path == "/bookings/tables" and method == "GET":
-            return self._get_available_tables(event)
-
-        if path == "/bookings/client" and method == "POST":
-            return self._create_booking(event)
-
-        if path == "/bookings/client" and method == "GET":
-            return self._list_dashboard_bookings(event)
-
-        if (
-            path.startswith("/bookings/client/")
-            and not path.endswith("/cancel")
-            and method == "GET"
-        ):
-            return self._get_booking(event)
-
-        if (
-            path.endswith("/cancel")
-            and path.startswith("/bookings/client/")
-            and method == "DELETE"
-        ):
-            return self._cancel_booking(event)
-
-        if path.startswith("/bookings/client/") and method == "PUT":
-            return self._update_booking(event)
-
-        if path == "/dishes" and method == "GET":
-            return self._get_dishes(event)
-
-        if path == "/dishes/popular" and method == "GET":
-            return self._get_popular_dishes(event)
-
-        if (
-            path.startswith("/locations/")
-            and path.endswith("/speciality-dishes")
-            and method == "GET"
-        ):
-            return self._get_speciality_dishes_by_location(event)
-
-        if (
-            path.startswith("/locations/")
-            and path.endswith("/feedbacks")
-            and method == "GET"
-        ):
-            return self._get_feedbacks_by_location(event)
-
-        return build_response(
-            "Route not found", code=HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE
+        router.add("GET", "/locations/select-options", self._get_location_addresses)
+        router.add("GET", "/locations", self._get_locations)
+        router.add("GET", "/locations/{id}", self._get_location_by_id)
+        router.add(
+            "GET",
+            "/locations/{id}/speciality-dishes",
+            self._get_speciality_dishes_by_location,
         )
+        router.add("GET", "/locations/{id}/feedbacks", self._get_feedbacks_by_location)
+
+        router.add("GET", "/bookings/tables", self._get_available_tables)
+        router.add("POST", "/bookings/client", self._create_booking)
+        router.add("GET", "/bookings/client", self._list_dashboard_bookings)
+        router.add("GET", "/bookings/client/{reservation_id}", self._get_booking)
+        router.add("PUT", "/bookings/client/{reservation_id}", self._update_booking)
+        router.add(
+            "DELETE",
+            "/bookings/client/{reservation_id}/cancel",
+            self._cancel_booking,
+        )
+
+        router.add("GET", "/dishes", self._get_dishes)
+        router.add("GET", "/dishes/popular", self._get_popular_dishes)
+
+        return router
+
+    def _get_router(self) -> Router:
+        """Lazily initialize router for tests that bypass __init__."""
+        if not hasattr(self, "_router"):
+            self._router = self._build_router()
+        return self._router
 
     def _extract_access_token(self, event: dict) -> str:
         """Extract and return the access token from the Authorization header."""
@@ -400,24 +365,10 @@ class ApiHandler(AbstractLambda):
 
     def _get_location_by_id(self, event: dict) -> LambdaResponse:
         """Return a single location for GET /locations/{id}."""
-        raw_id = self._extract_path_segment(event, 1)
-        if raw_id is None:
-            raise_error_response(
-                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                ValidationErrorResponse(
-                    errors=[FieldError(field="id", message="Missing location id")]
-                ).model_dump(),
-            )
-
-        try:
-            location_id = UUID(raw_id)
-        except ValueError:
-            raise_error_response(
-                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                ValidationErrorResponse(
-                    errors=[FieldError(field="id", message="Must be a valid UUID")]
-                ).model_dump(),
-            )
+        location_id = self._require_uuid(
+            self._extract_path_param(event, "id", fallback_position=1),
+            field="id",
+        )
 
         location = self._locations_service.get_location_by_id(location_id)
         if location is None:
@@ -434,110 +385,65 @@ class ApiHandler(AbstractLambda):
         )
 
     @staticmethod
-    def _is_resource_with_single_id_path(path: str, resource_name: str) -> bool:
-        """Return True for concrete paths shaped as /{resource}/{id}."""
-        parts = [part for part in path.split("/") if part]
-        return len(parts) == 2 and parts[0] == resource_name
-
-    @staticmethod
-    def _extract_path_segment_from_path(path: str, position: int) -> str | None:
-        """Extract a path segment from a raw path string."""
-        parts = [part for part in path.split("/") if part]
-        if position < len(parts):
-            return parts[position]
-        return None
-
-    @staticmethod
     def _parse_query_params(event: dict) -> dict:
         """Extract query string parameters from API Gateway event."""
         return event.get("queryStringParameters") or {}
 
     @staticmethod
-    def _extract_booking_id(path: str, suffix: str | None = None) -> str:
-        """Extract booking UUID from path and validate format.
+    def _extract_path_param(
+        event: dict,
+        name: str,
+        fallback_position: int | None = None,
+    ) -> str | None:
+        """Extract path parameter by key, with optional fallback to path segment."""
+        path_params = event.get("pathParameters") or {}
+        if name in path_params:
+            return path_params.get(name)
 
-        Expected forms:
-            - /bookings/client/{reservationId}
-            - /bookings/client/{reservationId}/cancel
-        """
-        base = "/bookings/client/"
-        if not path.startswith(base):
-            raise_error_response(
-                HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
-                "Route not found",
-            )
+        if fallback_position is None:
+            return None
 
-        tail = path[len(base) :]
-        if suffix:
-            expected_suffix = f"/{suffix}"
-            if not tail.endswith(expected_suffix):
-                raise_error_response(
-                    HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
-                    "Route not found",
-                )
-            tail = tail[: -len(expected_suffix)]
+        path = event.get("path", "")
+        parts = [part for part in path.split("/") if part]
+        if fallback_position < len(parts):
+            return parts[fallback_position]
+        return None
 
-        reservation_id = ApiHandler._extract_path_segment_from_path(f"/{tail}", 0)
-        if reservation_id is None:
+    @staticmethod
+    def _require_uuid(
+        raw_value: str | None,
+        *,
+        field: str,
+        missing_message: str | None = None,
+        invalid_message: str | None = None,
+    ) -> UUID:
+        """Validate and parse UUID values from path/query inputs."""
+        if missing_message is None:
+            missing_message = f"'{field}' is required"
+        if invalid_message is None:
+            invalid_message = f"'{field}' must be a valid UUID"
+
+        normalized_value = (
+            raw_value.strip() if isinstance(raw_value, str) else raw_value
+        )
+
+        if normalized_value is None or normalized_value == "":
             raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
                 ValidationErrorResponse(
-                    errors=[
-                        FieldError(
-                            field="reservationId", message="Must be a valid UUID"
-                        )
-                    ]
+                    errors=[FieldError(field=field, message=missing_message)]
                 ).model_dump(),
             )
 
         try:
-            UUID(reservation_id)
-        except ValueError:
+            return UUID(normalized_value)
+        except (ValueError, TypeError):
             raise_error_response(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
                 ValidationErrorResponse(
-                    errors=[
-                        FieldError(
-                            field="reservationId", message="Must be a valid UUID"
-                        )
-                    ]
+                    errors=[FieldError(field=field, message=invalid_message)]
                 ).model_dump(),
             )
-        except TypeError:
-            raise_error_response(
-                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                ValidationErrorResponse(
-                    errors=[
-                        FieldError(
-                            field="reservationId", message="Must be a valid UUID"
-                        )
-                    ]
-                ).model_dump(),
-            )
-
-        return reservation_id
-
-    @staticmethod
-    def _extract_path_segment(event: dict, position: int) -> str | None:
-        """Extract a path segment by position for parametrized routes.
-
-        For /locations/{id}/speciality-dishes, position=1 returns the id value.
-        Tries pathParameters first (API Gateway), then falls back to parsing the path string.
-
-        Args:
-            event: Lambda event from API Gateway.
-            position: 0-based position of the segment to extract (1 for id in /locations/{id}/...).
-
-        Returns:
-            The path segment value, or None if not found.
-
-        """
-        path_params = event.get("pathParameters") or {}
-        if "id" in path_params:
-            return path_params.get("id")
-
-        path = event.get("path", "")
-        return ApiHandler._extract_path_segment_from_path(path, position)
 
     def _get_available_tables(self, event: dict):
         """Handle GET /bookings/tables.
@@ -686,7 +592,12 @@ class ApiHandler(AbstractLambda):
     def _get_booking(self, event: dict) -> LambdaResponse:
         """Handle GET /bookings/client/{reservationId}."""
         user_id, role = self._get_actor_context(event)
-        reservation_id = self._extract_booking_id(event.get("path", ""))
+        reservation_id = str(
+            self._require_uuid(
+                self._extract_path_param(event, "reservation_id", fallback_position=2),
+                field="reservationId",
+            )
+        )
 
         response = self._reservation_management_service.get_reservation(
             reservation_id=reservation_id,
@@ -702,7 +613,12 @@ class ApiHandler(AbstractLambda):
     def _update_booking(self, event: dict) -> LambdaResponse:
         """Handle PUT /bookings/client/{reservationId}."""
         user_id, role = self._get_actor_context(event)
-        reservation_id = self._extract_booking_id(event.get("path", ""))
+        reservation_id = str(
+            self._require_uuid(
+                self._extract_path_param(event, "reservation_id", fallback_position=2),
+                field="reservationId",
+            )
+        )
         request: UpdateReservationRequest = self._validate(
             UpdateReservationRequest, self._parse_body(event)
         )
@@ -722,8 +638,11 @@ class ApiHandler(AbstractLambda):
     def _cancel_booking(self, event: dict) -> LambdaResponse:
         """Handle PUT /bookings/client/{reservationId}/cancel."""
         user_id, role = self._get_actor_context(event)
-        reservation_id = self._extract_booking_id(
-            event.get("path", ""), suffix="cancel"
+        reservation_id = str(
+            self._require_uuid(
+                self._extract_path_param(event, "reservation_id", fallback_position=2),
+                field="reservationId",
+            )
         )
 
         response = self._reservation_management_service.cancel_reservation(
@@ -785,34 +704,10 @@ class ApiHandler(AbstractLambda):
         Returns speciality dishes for the requested location only.
 
         """
-        location_id_str = self._extract_path_segment(event, 1)
-
-        if location_id_str is None:
-            raise_error_response(
-                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                ValidationErrorResponse(
-                    errors=[
-                        FieldError(
-                            field="id", message="Path parameter 'id' is required"
-                        )
-                    ]
-                ).model_dump(),
-            )
-
-        try:
-            location_id = UUID(location_id_str)
-        except ValueError:
-            raise_error_response(
-                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                ValidationErrorResponse(
-                    errors=[
-                        FieldError(
-                            field="id",
-                            message="Path parameter 'id' must be a valid UUID",
-                        )
-                    ]
-                ).model_dump(),
-            )
+        location_id = self._require_uuid(
+            self._extract_path_param(event, "id", fallback_position=1),
+            field="id",
+        )
 
         dishes = self._dishes_service.get_speciality_dishes_by_location(location_id)
         return build_response(
@@ -826,34 +721,10 @@ class ApiHandler(AbstractLambda):
         Returns feedbacks for the requested location only.
 
         """
-        location_id_str = self._extract_path_segment(event, 1)
-
-        if location_id_str is None:
-            raise_error_response(
-                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                ValidationErrorResponse(
-                    errors=[
-                        FieldError(
-                            field="id", message="Path parameter 'id' is required"
-                        )
-                    ]
-                ).model_dump(),
-            )
-
-        try:
-            location_id = UUID(location_id_str)
-        except ValueError:
-            raise_error_response(
-                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                ValidationErrorResponse(
-                    errors=[
-                        FieldError(
-                            field="id",
-                            message="Path parameter 'id' must be a valid UUID",
-                        )
-                    ]
-                ).model_dump(),
-            )
+        location_id = self._require_uuid(
+            self._extract_path_param(event, "id", fallback_position=1),
+            field="id",
+        )
 
         params = self._parse_query_params(event)
 
@@ -907,7 +778,7 @@ class ApiHandler(AbstractLambda):
                 ).model_dump(),
             )
 
-        sort = [sort_value]
+        sort_values = [sort_value]
 
         raw_page = params.get("page", "0")
         raw_size = params.get("size", "20")
@@ -965,7 +836,7 @@ class ApiHandler(AbstractLambda):
         feedback_page = self._feedback_service.get_feedbacks(
             location_id=location_id,
             type=type,
-            sort=sort,
+            sort=sort_values,
             page=page,
             size=size,
         )

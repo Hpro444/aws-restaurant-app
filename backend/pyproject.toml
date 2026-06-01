@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = "==3.13.*"
 dependencies = [
+    "aws-lambda-powertools==3.29.0",
     "aws-syndicate",
     "pip==26.1.1",
     "pre-commit==4.6.0",
