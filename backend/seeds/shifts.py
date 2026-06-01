@@ -28,24 +28,24 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         table_slots = [s for s in slots_list if s.table_id == first_table.id]
         return table_slots[:count]
 
-    lea_id = seed_id("waiter", "lea")
-    max_id = seed_id("waiter", "max")
-    nina_id = seed_id("waiter", "nina")
+    lea_id = waiters["lea@example.com"].id
+    max_id = waiters["max@example.com"].id
+    nina_id = waiters["nina@example.com"].id
 
     shifts = [
         Shift(
             id=seed_id("shift", "lea:tomorrow"),
-            waiter_id=waiters[lea_id].id,
+            waiter_id=lea_id,
             slots=[s.id for s in first_slots_for_location(downtown_id)],
         ),
         Shift(
             id=seed_id("shift", "max:tomorrow"),
-            waiter_id=waiters[max_id].id,
+            waiter_id=max_id,
             slots=[s.id for s in first_slots_for_location(airport_id)],
         ),
         Shift(
             id=seed_id("shift", "nina:tomorrow"),
-            waiter_id=waiters[nina_id].id,
+            waiter_id=nina_id,
             slots=[s.id for s in first_slots_for_location(old_town_id)],
         ),
     ]

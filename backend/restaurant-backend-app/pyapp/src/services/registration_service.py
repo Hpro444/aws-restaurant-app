@@ -67,6 +67,15 @@ class RegistrationService:
         role: UserRole,
         location_id: UUID | None,
     ) -> None:
+        """Build the role-specific domain model from the Cognito sub and persist it to DynamoDB.
+
+        Args:
+            user_id: The Cognito ``sub`` UUID string returned by Cognito after registration.
+            request: The original sign-up request containing name and email.
+            role: Resolved role that determines which table (admin/waiter/customer) is written to.
+            location_id: Required for waiters; ignored for admins and customers.
+
+        """
         common = {
             "id": UUID(user_id),
             "fname": request.first_name,

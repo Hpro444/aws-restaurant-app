@@ -266,9 +266,10 @@ def main():
     downtown_id = seed_id("location", "downtown")
     airport_id = seed_id("location", "airport")
     old_town_id = seed_id("location", "old-town")
-    lea_id = seed_id("waiter", "lea")
-    max_id = seed_id("waiter", "max")
-    nina_id = seed_id("waiter", "nina")
+    cognito_subs = context.get("cognito_subs", {})
+    lea_id = cognito_subs.get("lea@example.com", str(seed_id("waiter", "lea")))
+    max_id = cognito_subs.get("max@example.com", str(seed_id("waiter", "max")))
+    nina_id = cognito_subs.get("nina@example.com", str(seed_id("waiter", "nina")))
 
     print("\n" + "=" * 70)
     print("  ✅ SEEDING COMPLETE")
@@ -276,15 +277,22 @@ def main():
     print("\n📊 View seeded data in AWS Console:")
     print("   https://console.aws.amazon.com/dynamodb/home?region=eu-west-3#tables:")
     print("\n📝 Seeded IDs for testing:")
-    print(f"   - Location (Downtown): {downtown_id}")
-    print(f"   - Location (Airport):  {airport_id}")
-    print(f"   - Location (Old Town): {old_town_id}")
-    print(f"   - Waiter (Lea):        {lea_id}")
-    print(f"   - Waiter (Max):        {max_id}")
-    print(f"   - Waiter (Nina):       {nina_id}")
-    print(f"   - Customer (Alice):    {seed_id('customer', 'alice')}")
-    print(f"   - Customer (Bob):      {seed_id('customer', 'bob')}")
-    print(f"   - Customer (Carol):    {seed_id('customer', 'carol')}")
+    print(f"   - Location (Downtown):                  {downtown_id}")
+    print(f"   - Location (Airport):                   {airport_id}")
+    print(f"   - Location (Old Town):                  {old_town_id}")
+    print(f"   - Waiter (Lea)   lea@example.com:       {lea_id}")
+    print(f"   - Waiter (Max)   max@example.com:       {max_id}")
+    print(f"   - Waiter (Nina)  nina@example.com:      {nina_id}")
+    print(
+        f"   - Customer (Alice)  alice@example.com:  {cognito_subs.get('alice@example.com', str(seed_id('customer', 'alice')))}"
+    )
+    print(
+        f"   - Customer (Bob)    bob@example.com:    {cognito_subs.get('bob@example.com', str(seed_id('customer', 'bob')))}"
+    )
+    print(
+        f"   - Customer (Carol)  carol@example.com:  {cognito_subs.get('carol@example.com', str(seed_id('customer', 'carol')))}"
+    )
+    print("\n🔑 Demo credentials (all seeded users): Password123@")
     print(f"   - Slots seeded for date range: {today_date} → {last_seeded_date}")
     print()
     print("🧪 Ready-to-use API test URLs (replace BASE_URL with your API Gateway URL):")
