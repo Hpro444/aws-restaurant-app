@@ -24,7 +24,9 @@
     "RESERVATIONS_TABLE": "${reservations_table}",
     "FEEDBACK_CUISINE_TABLE": "${feedback_cuisine_table}",
     "FEEDBACK_SERVICE_TABLE": "${feedback_service_table}",
-    "WAITER_EMAILS_TABLE": "${waiter_emails_table}"
+    "WAITER_EMAILS_TABLE": "${waiter_emails_table}",
+    "ADMINS_TABLE": "${admins_table}",
+    "ADMIN_EMAILS_TABLE": "${admin_emails_table}"
   },
   "publish_version": true,
   "alias": "${lambdas_alias_name}",
