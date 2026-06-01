@@ -216,3 +216,4 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         f"{len(airport_dishes)} Airport, "
         f"{len(old_town_dishes)} Old Town)"
     )
+    context["dishes"] = all_dishes

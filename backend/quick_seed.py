@@ -8,6 +8,7 @@ Usage:
 """
 
 import importlib
+import json
 import re
 import sys
 import time
@@ -174,6 +175,106 @@ def _wait_for_tables_active(
         pending = still_creating
 
 
+def _write_ids_json(context: dict, output_path: Path) -> None:
+    """Write all seeded entity IDs to ids.json for easy testing reference."""
+    downtown_id = seed_id("location", "downtown")
+    airport_id = seed_id("location", "airport")
+    old_town_id = seed_id("location", "old-town")
+
+    location_name_map = {
+        downtown_id: "downtown",
+        airport_id: "airport",
+        old_town_id: "old_town",
+    }
+
+    tables_by_location: dict[str, list] = {
+        "downtown": [],
+        "airport": [],
+        "old_town": [],
+    }
+    for t in context.get("tables", []):
+        loc_name = location_name_map.get(t.location_id)
+        if loc_name:
+            tables_by_location[loc_name].append(str(t.id))
+
+    dishes_by_location: dict[str, dict] = {
+        "downtown": {},
+        "airport": {},
+        "old_town": {},
+    }
+    for d in context.get("dishes", []):
+        loc_name = location_name_map.get(d.location_id)
+        if loc_name:
+            dishes_by_location[loc_name][d.name] = str(d.id)
+
+    # First table per location for slot sampling.
+    location_first_table: dict[str, object] = {}
+    for t in context.get("tables", []):
+        loc_name = location_name_map.get(t.location_id)
+        if loc_name and loc_name not in location_first_table:
+            location_first_table[loc_name] = t.id
+
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    slots_sample: dict[str, list] = {}
+    for loc_name, table_id in location_first_table.items():
+        today_slots = sorted(
+            [
+                s
+                for s in context.get("slots", [])
+                if s.table_id == table_id and s.date.strftime("%Y-%m-%d") == today_str
+            ],
+            key=lambda s: s.start_time,
+        )
+        slots_sample[f"{loc_name}_table_1"] = [str(s.id) for s in today_slots[:3]]
+
+    shifts_by_waiter: dict[str, str] = {}
+    waiter_by_id = {w.id: email for email, w in context.get("waiters", {}).items()}
+    for shift in context.get("shifts", []):
+        email = waiter_by_id.get(shift.waiter_id, "")
+        if email:
+            shifts_by_waiter[email.split("@")[0]] = str(shift.id)
+
+    reservations_by_status: dict[str, str] = {}
+    for res in context.get("reservations", []):
+        status = (
+            res.status.value.lower()
+            if hasattr(res.status, "value")
+            else str(res.status).lower()
+        )
+        reservations_by_status[status] = str(res.id)
+
+    data = {
+        "seeded_at": datetime.now(timezone.utc).isoformat(),
+        "slots_date_range": {
+            "from": today_str,
+            "to": (
+                datetime.now(timezone.utc)
+                + timedelta(days=context.get("slot_seed_days_ahead", 7))
+            ).strftime("%Y-%m-%d"),
+        },
+        "credentials": {"password": "Password123@"},
+        "locations": {
+            "downtown": str(downtown_id),
+            "airport": str(airport_id),
+            "old_town": str(old_town_id),
+        },
+        "customers": {
+            email: str(c.id) for email, c in context.get("customers", {}).items()
+        },
+        "waiters": {
+            email: str(w.id) for email, w in context.get("waiters", {}).items()
+        },
+        "tables": tables_by_location,
+        "dishes": dishes_by_location,
+        "slots": {"date": today_str, "sample": slots_sample},
+        "shifts": shifts_by_waiter,
+        "reservations": reservations_by_status,
+    }
+
+    output_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    print(f"  ✓ ids.json written to {output_path}")
+
+
 def main():
     """Run seeding orchestration — imports and runs every module in seeds.SEED_ORDER."""
     print("\n" + "=" * 70)
@@ -272,6 +373,9 @@ def main():
 
         traceback.print_exc()
         return 1
+
+    # Write ids.json with all seeded entity IDs for testing.
+    _write_ids_json(context, Path(__file__).parent / "ids.json")
 
     # Summary.
     today_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")

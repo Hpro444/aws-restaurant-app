@@ -79,3 +79,4 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         f"  ✓ Seeded {len(reservations)} reservations "
         "(2 active, 1 cancelled for testing) and flipped 2 slots to RESERVED"
     )
+    context["reservations"] = reservations

@@ -55,3 +55,4 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             batch.put_item(Item=shift.model_dump(mode="json"))
 
     print(f"  ✓ Seeded {len(shifts)} shifts")
+    context["shifts"] = shifts
