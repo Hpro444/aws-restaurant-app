@@ -32,7 +32,7 @@ pythonpath = ["restaurant-backend-app"]
 
 [tool.ruff]
 line-length = 88
-target-version = "py314"
+target-version = "py313"
 exclude = [".venv", "__pycache__"]
 
 [tool.ruff.format]
