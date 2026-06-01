@@ -36,6 +36,7 @@ class ApiHandlerLambdaTestCase(unittest.TestCase):
         self.mock_dishes_service = MagicMock()
         self.mock_feedback_service = MagicMock()
         self.mock_reservation_management_service = MagicMock()
+        self.mock_customers_service = MagicMock()
 
         self.HANDLER = LAMBDA_HANDLER.ApiHandler.__new__(LAMBDA_HANDLER.ApiHandler)
         self.HANDLER._cognito_service = self.mock_cognito_service
@@ -49,6 +50,7 @@ class ApiHandlerLambdaTestCase(unittest.TestCase):
         self.HANDLER._reservation_management_service = (
             self.mock_reservation_management_service
         )
+        self.HANDLER._customers_service = self.mock_customers_service
 
 
 def make_event(

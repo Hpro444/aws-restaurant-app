@@ -9,6 +9,7 @@ from commons.abstract_lambda import AbstractLambda
 from commons.router import Router
 from dto.available_tables import AvailableTablesRequest
 from dto.create_booking import CreateBookingRequest
+from dto.customers import CustomerResponse
 from dto.dishes import GetDishesRequest
 from dto.error_response import FieldError, ValidationErrorResponse
 from dto.feedbacks import PageFeedbackResponse
@@ -28,6 +29,7 @@ from repositories.customer_repository import CustomerRepository
 from repositories.waiter_repository import WaiterRepository
 from services.booking_service import BookingService
 from services.cognito_service import CognitoService
+from services.customers_service import CustomersService
 from services.dishes_service import DishesService
 from services.feedback_service import FeedbackService
 from services.locations_service import LocationsService
@@ -69,7 +71,9 @@ class ApiHandler(AbstractLambda):
         self._reservation_management_service = ReservationManagementService()
         self._dishes_service = DishesService()
         self._feedback_service = FeedbackService()
-        self._router = self._build_router()
+        self._customers_service = CustomersService(
+            customer_repository=self._customer_repository,
+        )
 
     def validate_request(self, event: dict) -> dict:
         """Return empty dict; all validation is handled in route methods via Pydantic.
@@ -136,6 +140,8 @@ class ApiHandler(AbstractLambda):
         router.add("GET", "/dishes", self._get_dishes)
         router.add("GET", "/dishes/popular", self._get_popular_dishes)
 
+        router.add("GET", "/customers", self._get_customers)
+
         return router
 
     def _get_router(self) -> Router:
@@ -144,7 +150,8 @@ class ApiHandler(AbstractLambda):
             self._router = self._build_router()
         return self._router
 
-    def _extract_access_token(self, event: dict) -> str:
+    @staticmethod
+    def _extract_access_token(event: dict) -> str:
         """Extract and return the access token from the Authorization header."""
         headers = event.get("headers") or {}
         authorization = headers.get("Authorization") or headers.get("authorization")
@@ -167,7 +174,8 @@ class ApiHandler(AbstractLambda):
         access_token = self._extract_access_token(event)
         return self._cognito_service.get_identity_from_access_token(access_token)
 
-    def _parse_body(self, event: dict) -> dict:
+    @staticmethod
+    def _parse_body(event: dict) -> str | Any:
         """Parse and return the JSON request body.
 
         Args:
@@ -188,7 +196,8 @@ class ApiHandler(AbstractLambda):
                 ).model_dump(),
             )
 
-    def _validate(self, model_cls, payload: dict):
+    @staticmethod
+    def _validate(model_cls, payload: dict):
         """Validate a payload dict against a Pydantic model, raising 422 on failure.
 
         Args:
@@ -350,6 +359,21 @@ class ApiHandler(AbstractLambda):
         locations: list[LocationResponse] = self._locations_service.get_locations()
         return build_response(
             [location.model_dump() for location in locations],
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    def _get_customers(self, event: dict) -> LambdaResponse:
+        """Return all customers for waiter-facing dashboard workflows."""
+        _, role = self._get_actor_context(event)
+        if role != UserRole.WAITER:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
+                "Only waiters can access customers list.",
+            )
+
+        customers: list[CustomerResponse] = self._customers_service.get_customers()
+        return build_response(
+            [customer.model_dump() for customer in customers],
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 
