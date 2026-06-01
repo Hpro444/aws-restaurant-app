@@ -229,11 +229,26 @@ def main():
             print(f"  ✗ {e}\n")
             return 1
 
+    # Extract prefix/suffix so seeders (e.g. Cognito) can build exact resource names.
+    syndicate_content = (
+        SYNDICATE_CONFIG.read_text(encoding="utf-8")
+        if SYNDICATE_CONFIG.exists()
+        else ""
+    )
+    resources_prefix = (
+        _extract_config_value(syndicate_content, "resources_prefix") or ""
+    )
+    resources_suffix = (
+        _extract_config_value(syndicate_content, "resources_suffix") or ""
+    )
+
     # Import and run each seed module in order.
     print("▶ Seeding demo data...")
     context: dict = {
         "aws_credentials": credentials or {},
         "aws_region": AWS_REGION,
+        "resources_prefix": resources_prefix,
+        "resources_suffix": resources_suffix,
         "slot_seed_days_ahead": SLOT_SEED_DAYS_AHEAD,
     }
     current_module = None
