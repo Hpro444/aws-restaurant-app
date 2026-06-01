@@ -6,6 +6,7 @@ written to ``context`` by earlier ones.
 """
 
 SEED_ORDER = [
+    "cognito_users",
     "locations",
     "customers",
     "waiters",

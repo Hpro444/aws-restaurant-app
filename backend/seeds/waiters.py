@@ -1,5 +1,7 @@
 """Seed module for waiter profiles."""
 
+from uuid import UUID
+
 from domain.user import Waiter  # type: ignore[import-not-found]
 
 from seeds.utils import seed_id
@@ -8,12 +10,15 @@ _S3 = "https://epam-restaurantapp-dev-eu-west-3-frontend.s3.eu-west-3.amazonaws.
 
 
 def seed(dynamodb, tables: dict, context: dict) -> None:
-    """Seed demo waiters and write them to context['waiters'].
+    """Seed demo waiters using Cognito subs as DynamoDB IDs.
 
-    Requires context['locations'] populated by the locations seeder.
+    Requires ``context["cognito_subs"]`` populated by the cognito_users seeder
+    and ``context["locations"]`` populated by the locations seeder.
+    Writes ``context["waiters"]`` keyed by email for downstream seeders.
     """
     table = dynamodb.Table(tables["waiters"])
     locations = context["locations"]
+    subs = context["cognito_subs"]
 
     downtown_id = seed_id("location", "downtown")
     airport_id = seed_id("location", "airport")
@@ -21,7 +26,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
 
     waiters = [
         Waiter(
-            id=seed_id("waiter", "lea"),
+            id=UUID(subs["lea@example.com"]),
             fname="Lea",
             lname="Martinez",
             email="lea@example.com",
@@ -29,7 +34,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             location_id=locations[downtown_id].id,
         ),
         Waiter(
-            id=seed_id("waiter", "max"),
+            id=UUID(subs["max@example.com"]),
             fname="Max",
             lname="Fischer",
             email="max@example.com",
@@ -37,7 +42,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             location_id=locations[airport_id].id,
         ),
         Waiter(
-            id=seed_id("waiter", "nina"),
+            id=UUID(subs["nina@example.com"]),
             fname="Nina",
             lname="Beridze",
             email="nina@example.com",
@@ -51,4 +56,4 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             batch.put_item(Item=waiter.model_dump(mode="json"))
 
     print(f"  ✓ Seeded {len(waiters)} waiters")
-    context["waiters"] = {w.id: w for w in waiters}
+    context["waiters"] = {w.email: w for w in waiters}

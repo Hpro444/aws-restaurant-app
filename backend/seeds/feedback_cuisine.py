@@ -28,22 +28,23 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
     """
     table = dynamodb.Table(tables["feedback_cuisine"])
     locations = context["locations"]
+    _c = context["customers"]
 
     downtown_id = seed_id("location", "downtown")
     airport_id = seed_id("location", "airport")
     old_town_id = seed_id("location", "old-town")
 
-    alice_id = seed_id("customer", "alice")
-    bob_id = seed_id("customer", "bob")
-    carol_id = seed_id("customer", "carol")
-    david_id = seed_id("customer", "david")
-    emma_id = seed_id("customer", "emma")
-    frank_id = seed_id("customer", "frank")
-    grace_id = seed_id("customer", "grace")
-    henry_id = seed_id("customer", "henry")
-    iris_id = seed_id("customer", "iris")
-    james_id = seed_id("customer", "james")
-    kate_id = seed_id("customer", "kate")
+    alice_id = _c["alice@example.com"].id
+    bob_id = _c["bob@example.com"].id
+    carol_id = _c["carol@example.com"].id
+    david_id = _c["david@example.com"].id
+    emma_id = _c["emma@example.com"].id
+    frank_id = _c["frank@example.com"].id
+    grace_id = _c["grace@example.com"].id
+    henry_id = _c["henry@example.com"].id
+    iris_id = _c["iris@example.com"].id
+    james_id = _c["james@example.com"].id
+    kate_id = _c["kate@example.com"].id
 
     entries = [
         # ── Downtown ──────────────────────────────────────────────────────────

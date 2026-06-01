@@ -22,6 +22,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
     reservations_table = dynamodb.Table(tables["reservations"])
     slots_table = dynamodb.Table(tables["slots"])
     slots_list = context["slots"]
+    customers = context["customers"]
+    waiters = context["waiters"]
 
     if len(slots_list) < 15:
         print("  ! Skipping reservations seed: not enough slots generated")
@@ -34,8 +36,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
     reservations = [
         Reservation(
             id=seed_id("reservation", f"{chosen_slots[0].id}:reserved"),
-            customer_id=seed_id("customer", "alice"),
-            waiter_id=seed_id("waiter", "lea"),
+            customer_id=customers["alice@example.com"].id,
+            waiter_id=waiters["lea@example.com"].id,
             created_at=created_at,
             slot_ids=[chosen_slots[0].id],
             status=ReservationStatus.RESERVED,
@@ -43,8 +45,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         ),
         Reservation(
             id=seed_id("reservation", f"{chosen_slots[1].id}:in-progress"),
-            customer_id=seed_id("customer", "bob"),
-            waiter_id=seed_id("waiter", "max"),
+            customer_id=customers["bob@example.com"].id,
+            waiter_id=waiters["max@example.com"].id,
             created_at=created_at,
             slot_ids=[chosen_slots[1].id],
             status=ReservationStatus.IN_PROGRESS,
@@ -52,7 +54,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         ),
         Reservation(
             id=seed_id("reservation", f"{chosen_slots[2].id}:cancelled"),
-            customer_id=seed_id("customer", "carol"),
+            customer_id=customers["carol@example.com"].id,
             waiter_id=None,
             created_at=created_at,
             slot_ids=[chosen_slots[2].id],
