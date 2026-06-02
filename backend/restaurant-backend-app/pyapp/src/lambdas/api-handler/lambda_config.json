@@ -26,7 +26,8 @@
     "FEEDBACK_SERVICE_TABLE": "${feedback_service_table}",
     "WAITER_EMAILS_TABLE": "${waiter_emails_table}",
     "ADMINS_TABLE": "${admins_table}",
-    "ADMIN_EMAILS_TABLE": "${admin_emails_table}"
+    "ADMIN_EMAILS_TABLE": "${admin_emails_table}",
+    "RESERVATION_EVENTS_QUEUE_URL": "${reservation_events_queue_url}"
   },
   "publish_version": true,
   "alias": "${lambdas_alias_name}",

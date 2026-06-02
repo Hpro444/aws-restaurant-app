@@ -2,7 +2,7 @@
 
 import unittest
 from datetime import date, datetime, time, timedelta, timezone
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 from commons.exceptions import ApplicationException
@@ -11,6 +11,7 @@ from domain.slot import Slot
 from domain.table import Table
 from domain.user import Waiter
 from dto.create_booking import CreateBookingRequest
+from dto.reservation_event import ReservationEventMessage, ReservationEventType
 from enums.slot_status import SlotStatus
 from services.booking_service import BookingService
 
@@ -420,6 +421,97 @@ class TestBookingService(unittest.TestCase):
         with self.assertRaises(ApplicationException) as ctx:
             self.service.create_booking(req, uuid4())
         self.assertIn("Invalid time range", str(ctx.exception))
+
+
+class TestBookingServiceSqsPublishing(unittest.TestCase):
+    """Tests verifying SQS event publishing on successful bookings."""
+
+    @staticmethod
+    def _utc(dt: datetime) -> str:
+        """Format datetime as UTC ISO string expected by booking DTO."""
+        return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+    def _make_request_and_slot(self, table):
+        """Return a matching (CreateBookingRequest, Slot) pair."""
+        slot = make_slot(12)
+        slot.table_id = table.id
+        req = CreateBookingRequest(
+            location_id=table.location_id,
+            table_number=1,
+            date=slot.start_time.date().isoformat(),
+            guests_number=2,
+            time_from=self._utc(slot.start_time),
+            time_to=self._utc(slot.end_time),
+        )
+        return req, slot
+
+    def test_sqs_publish_called_once_on_successful_booking(self):
+        """SqsService.publish is called exactly once after a successful booking."""
+        service, table, _ = _build_service()
+        mock_sqs = MagicMock()
+        service._sqs = mock_sqs
+        req, slot = self._make_request_and_slot(table)
+        service._slot_repo = DummySlotRepo([slot])
+
+        service.create_booking(req, uuid4())
+
+        mock_sqs.publish.assert_called_once()
+
+    def test_sqs_publish_event_type_is_created(self):
+        """The message passed to SqsService.publish has event_type CREATED."""
+        service, table, _ = _build_service()
+        mock_sqs = MagicMock()
+        service._sqs = mock_sqs
+        req, slot = self._make_request_and_slot(table)
+        service._slot_repo = DummySlotRepo([slot])
+
+        service.create_booking(req, uuid4())
+
+        message = mock_sqs.publish.call_args.args[1]
+        self.assertIsInstance(message, ReservationEventMessage)
+        self.assertEqual(message.event_type, ReservationEventType.CREATED)
+
+    def test_sqs_publish_view_contains_reservation_id(self):
+        """The ReservationView inside the message has a non-empty reservation_id."""
+        service, table, _ = _build_service()
+        mock_sqs = MagicMock()
+        service._sqs = mock_sqs
+        req, slot = self._make_request_and_slot(table)
+        service._slot_repo = DummySlotRepo([slot])
+
+        resp = service.create_booking(req, uuid4())
+
+        message = mock_sqs.publish.call_args.args[1]
+        self.assertEqual(message.reservation.reservation_id, resp.reservation_id)
+
+    def test_sqs_not_called_when_booking_fails(self):
+        """SqsService.publish is not called when the reservation repo raises."""
+        service, table, _ = _build_service()
+        mock_sqs = MagicMock()
+        service._sqs = mock_sqs
+
+        failing_repo = MagicMock()
+        failing_repo.create.side_effect = ApplicationException(409, "conflict")
+        service._reservation_repo = failing_repo
+
+        req, slot = self._make_request_and_slot(table)
+        service._slot_repo = DummySlotRepo([slot])
+
+        with self.assertRaises(ApplicationException):
+            service.create_booking(req, uuid4())
+
+        mock_sqs.publish.assert_not_called()
+
+    def test_sqs_none_does_not_raise(self):
+        """create_booking completes normally when sqs_service is None."""
+        service, table, _ = _build_service()
+        service._sqs = None
+        req, slot = self._make_request_and_slot(table)
+        service._slot_repo = DummySlotRepo([slot])
+
+        resp = service.create_booking(req, uuid4())
+
+        self.assertEqual(resp.status, "RESERVED")
 
 
 if __name__ == "__main__":

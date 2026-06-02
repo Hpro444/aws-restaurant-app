@@ -2,6 +2,7 @@
 
 import unittest
 from datetime import UTC, datetime, timedelta
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 from pyapp.tests import ImportFromSourceContext
@@ -14,6 +15,7 @@ with ImportFromSourceContext():
     from domain.slot import Slot
     from domain.table import Table
     from domain.user import Waiter
+    from dto.reservation_event import ReservationEventMessage, ReservationEventType
     from dto.reservation_management import UpdateReservationRequest
     from enums.reservation_status import ReservationStatus
     from enums.slot_status import SlotStatus
@@ -512,6 +514,106 @@ class TestReservationManagementService(unittest.TestCase):
             )
 
         self.assertEqual(ctx.exception.code, 403)
+
+
+class TestReservationManagementServiceSqsPublishing(unittest.TestCase):
+    """Tests verifying SQS event publishing on reservation mutations."""
+
+    def test_update_publishes_updated_event_for_in_progress(self):
+        """update_reservation publishes UPDATED when status moves to IN_PROGRESS."""
+        service, reservation, _, waiter_id = _build_service()
+        mock_sqs = MagicMock()
+        service._sqs = mock_sqs
+
+        service.update_reservation(
+            reservation_id=reservation.id,
+            request=UpdateReservationRequest(status=ReservationStatus.IN_PROGRESS),
+            actor_id=waiter_id,
+            role=UserRole.WAITER,
+        )
+
+        mock_sqs.publish.assert_called_once()
+        message = mock_sqs.publish.call_args.args[1]
+        self.assertIsInstance(message, ReservationEventMessage)
+        self.assertEqual(message.event_type, ReservationEventType.UPDATED)
+
+    def test_update_publishes_completed_event_for_finished(self):
+        """update_reservation publishes COMPLETED when status moves to FINISHED."""
+        service, reservation, _, waiter_id = _build_service()
+        mock_sqs = MagicMock()
+        service._sqs = mock_sqs
+
+        # Advance to IN_PROGRESS first (state machine requirement)
+        reservation.status = ReservationStatus.IN_PROGRESS
+
+        service.update_reservation(
+            reservation_id=reservation.id,
+            request=UpdateReservationRequest(status=ReservationStatus.FINISHED),
+            actor_id=waiter_id,
+            role=UserRole.WAITER,
+        )
+
+        message = mock_sqs.publish.call_args.args[1]
+        self.assertEqual(message.event_type, ReservationEventType.COMPLETED)
+
+    def test_cancel_publishes_cancelled_event(self):
+        """cancel_reservation publishes CANCELLED event."""
+        service, reservation, customer_id, _ = _build_service()
+        mock_sqs = MagicMock()
+        service._sqs = mock_sqs
+
+        service.cancel_reservation(
+            reservation_id=reservation.id,
+            actor_id=customer_id,
+            role=UserRole.CUSTOMER,
+        )
+
+        mock_sqs.publish.assert_called_once()
+        message = mock_sqs.publish.call_args.args[1]
+        self.assertIsInstance(message, ReservationEventMessage)
+        self.assertEqual(message.event_type, ReservationEventType.CANCELLED)
+
+    def test_sqs_none_does_not_raise_on_update(self):
+        """update_reservation completes normally when sqs_service is None."""
+        service, reservation, _, waiter_id = _build_service()
+        service._sqs = None
+
+        view = service.update_reservation(
+            reservation_id=reservation.id,
+            request=UpdateReservationRequest(status=ReservationStatus.IN_PROGRESS),
+            actor_id=waiter_id,
+            role=UserRole.WAITER,
+        )
+
+        self.assertEqual(view.status, ReservationStatus.IN_PROGRESS)
+
+    def test_sqs_none_does_not_raise_on_cancel(self):
+        """cancel_reservation completes normally when sqs_service is None."""
+        service, reservation, customer_id, _ = _build_service()
+        service._sqs = None
+
+        view = service.cancel_reservation(
+            reservation_id=reservation.id,
+            actor_id=customer_id,
+            role=UserRole.CUSTOMER,
+        )
+
+        self.assertEqual(view.status, ReservationStatus.CANCELLED)
+
+    def test_sqs_failure_does_not_affect_cancel_response(self):
+        """cancel_reservation returns the correct view even if SqsService.publish raises."""
+        service, reservation, customer_id, _ = _build_service()
+        mock_sqs = MagicMock()
+        mock_sqs.publish.side_effect = RuntimeError("SQS down")
+        service._sqs = mock_sqs
+
+        view = service.cancel_reservation(
+            reservation_id=reservation.id,
+            actor_id=customer_id,
+            role=UserRole.CUSTOMER,
+        )
+
+        self.assertEqual(view.status, ReservationStatus.CANCELLED)
 
 
 if __name__ == "__main__":
