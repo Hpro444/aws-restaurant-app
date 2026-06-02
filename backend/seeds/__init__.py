@@ -17,6 +17,7 @@ SEED_ORDER = [
     "slots",
     "shifts",
     "reservations",
+    "reservation_waiter_view",
     "feedback_cuisine",
     "feedback_service",
 ]

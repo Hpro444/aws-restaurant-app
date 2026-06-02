@@ -49,17 +49,26 @@ class TableAvailabilityService:
         4 total DynamoDB calls, each reading 0–7 items max.
     """
 
-    def __init__(self, settings: AppConfig | None = None) -> None:
-        """Create repositories used by this service.
+    def __init__(
+        self,
+        settings: AppConfig | None = None,
+        table_repository: TableRepository | None = None,
+        slot_repository: SlotRepository | None = None,
+        location_repository: LocationRepository | None = None,
+    ) -> None:
+        """Create repositories used by this service, creating defaults when omitted.
 
         Args:
             settings: Shared application config.
+            table_repository: Optional TableRepository instance.
+            slot_repository: Optional SlotRepository instance.
+            location_repository: Optional LocationRepository instance.
 
         """
         cfg = settings or AppConfig()
-        self._table_repo = TableRepository(cfg)
-        self._slot_repo = SlotRepository(cfg)
-        self._location_repo = LocationRepository(cfg)
+        self._table_repo = table_repository or TableRepository(cfg)
+        self._slot_repo = slot_repository or SlotRepository(cfg)
+        self._location_repo = location_repository or LocationRepository(cfg)
 
     def get_available_tables(
         self,
