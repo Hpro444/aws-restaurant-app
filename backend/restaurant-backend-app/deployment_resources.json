@@ -315,6 +315,32 @@
           "enable_proxy": true
         }
       },
+      "/reservations/waiter": {
+        "OPTIONS": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
+        },
+        "GET": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
+        }
+      },
       "/locations": {
         "OPTIONS": {
           "authorization_type": "NONE",
@@ -688,6 +714,23 @@
         "name": "waiter_id_index",
         "index_key_name": "waiter_id",
         "index_key_type": "S",
+        "projection_type": "ALL"
+      }
+    ],
+    "autoscaling": [],
+    "tags": {}
+  },
+  "${reservation_waiter_view_table}": {
+    "resource_type": "dynamodb_table",
+    "hash_key_name": "id",
+    "hash_key_type": "S",
+    "global_indexes": [
+      {
+        "name": "location_date_index",
+        "index_key_name": "location_date",
+        "index_key_type": "S",
+        "index_sort_key_name": "time_table",
+        "index_sort_key_type": "S",
         "projection_type": "ALL"
       }
     ],

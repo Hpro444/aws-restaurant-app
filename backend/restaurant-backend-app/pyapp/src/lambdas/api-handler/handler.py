@@ -20,6 +20,7 @@ from dto.reservation_management import UpdateReservationRequest
 from dto.sign_in import SignInRequest, SignInResponse
 from dto.sign_up import SignUpRequest, SignUpResponse
 from dto.user_profile import ProfileResponse, UpdateProfileRequest
+from dto.waiter_reservations import GetWaiterReservationsRequest
 from enums.http_status_code import HttpStatusCode
 from enums.user_role import UserRole
 from pydantic import ValidationError
@@ -141,6 +142,8 @@ class ApiHandler(AbstractLambda):
         router.add("GET", "/dishes/popular", self._get_popular_dishes)
 
         router.add("GET", "/customers", self._get_customers)
+
+        router.add("GET", "/reservations/waiter", self._get_waiter_reservations)
 
         return router
 
@@ -675,6 +678,40 @@ class ApiHandler(AbstractLambda):
             role=role,
         )
 
+        return build_response(
+            response.model_dump(by_alias=True, mode="json"),
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    def _get_waiter_reservations(self, event: dict) -> LambdaResponse:
+        """Handle GET /reservations/waiter — table-filtered view for a waiter.
+
+        Only callers with ``UserRole.WAITER`` may access this endpoint; any other
+        role returns 403. The required ``date``, ``time_from`` and ``table_name``
+        query parameters are validated, then reservations are returned for the
+        waiter's assigned location only.
+
+        Returns:
+            A Lambda proxy response with statusCode 200 and a JSON object of the
+            form ``{"reservations": [...]}``.
+
+        """
+        user_id, role = self._get_actor_context(event)
+        if role != UserRole.WAITER:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
+                "Only waiters can access this endpoint",
+            )
+
+        request = self._validate(
+            GetWaiterReservationsRequest, self._parse_query_params(event)
+        )
+        response = self._reservation_management_service.list_for_waiter_table(
+            waiter_id=user_id,
+            date=request.date,
+            time_from=request.time_from,
+            table_name=request.table_name,
+        )
         return build_response(
             response.model_dump(by_alias=True, mode="json"),
             code=HttpStatusCode.RESPONSE_OK_CODE,

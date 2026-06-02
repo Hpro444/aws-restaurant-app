@@ -4,16 +4,21 @@ import unittest
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-from commons.exceptions import ApplicationException
-from domain.location import Location
-from domain.reservation import Reservation
-from domain.slot import Slot
-from domain.table import Table
-from dto.reservation_management import UpdateReservationRequest
-from enums.reservation_status import ReservationStatus
-from enums.slot_status import SlotStatus
-from enums.user_role import UserRole
-from services.reservation_management_service import ReservationManagementService
+from pyapp.tests import ImportFromSourceContext
+
+with ImportFromSourceContext():
+    from commons.exceptions import ApplicationException
+    from domain.location import Location
+    from domain.reservation import Reservation
+    from domain.reservation_waiter_view import ReservationWaiterView
+    from domain.slot import Slot
+    from domain.table import Table
+    from domain.user import Waiter
+    from dto.reservation_management import UpdateReservationRequest
+    from enums.reservation_status import ReservationStatus
+    from enums.slot_status import SlotStatus
+    from enums.user_role import UserRole
+    from services.reservation_management_service import ReservationManagementService
 
 
 class DummyReservationRepo:
@@ -86,6 +91,41 @@ class DummyLocationRepo:
         return self._location if self._location.id == location_id else None
 
 
+class DummyWaiterViewRepo:
+    """In-memory waiter-dashboard projection repository for testing."""
+
+    def __init__(self, rows=None):
+        """Track writes and serve configured query rows."""
+        self.upserted = []
+        self.deleted = []
+        self._rows = rows or []
+
+    def update(self, view):
+        """Record a projection upsert."""
+        self.upserted.append(view)
+
+    def delete(self, item_id):
+        """Record a projection delete."""
+        self.deleted.append(item_id)
+
+    def query_for_table(self, location_id, date, time_from, table_name, waiter_id):
+        """Return the configured projection rows, recording the queried waiter_id."""
+        self.last_waiter_id = waiter_id
+        return list(self._rows)
+
+
+class DummyWaiterRepo:
+    """In-memory waiter repository for testing."""
+
+    def __init__(self, waiter=None):
+        """Initialise with an optional waiter profile."""
+        self._waiter = waiter
+
+    def get(self, waiter_id):
+        """Return the configured waiter profile (ignores the id)."""
+        return self._waiter
+
+
 def _build_service(start_in_minutes=120):
     """Construct service with deterministic in-memory entities."""
     customer_id = uuid4()
@@ -130,11 +170,22 @@ def _build_service(start_in_minutes=120):
         close_time=datetime.now(UTC).time(),
     )
 
+    waiter = Waiter(
+        id=waiter_id,
+        fname="W",
+        lname="One",
+        email="w1@example.com",
+        image_url="",
+        location_id=location_id,
+    )
+
     service = ReservationManagementService()
     service._reservation_repo = DummyReservationRepo(reservation)
     service._slot_repo = DummySlotRepo([slot])
     service._table_repo = DummyTableRepo(table)
     service._location_repo = DummyLocationRepo(location)
+    service._waiter_repo = DummyWaiterRepo(waiter)
+    service._waiter_view_repo = DummyWaiterViewRepo()
     return service, reservation, customer_id, waiter_id
 
 
@@ -335,6 +386,7 @@ class TestReservationManagementService(unittest.TestCase):
         service._slot_repo = slot_repo
         service._table_repo = DummyTableRepo(table)
         service._location_repo = DummyLocationRepo(location)
+        service._waiter_view_repo = DummyWaiterViewRepo()
 
         service.cancel_reservation(
             reservation_id=reservation.id,
@@ -344,6 +396,122 @@ class TestReservationManagementService(unittest.TestCase):
 
         self.assertEqual(slot1.status, SlotStatus.FREE)
         self.assertEqual(slot2.status, SlotStatus.FREE)
+
+    def test_cancel_deletes_projection_row(self):
+        """Cancelling a reservation removes it from the waiter-dashboard projection."""
+        service, reservation, customer_id, _ = _build_service(start_in_minutes=120)
+
+        service.cancel_reservation(
+            reservation_id=reservation.id,
+            actor_id=customer_id,
+            role=UserRole.CUSTOMER,
+        )
+
+        self.assertEqual(service._waiter_view_repo.deleted, [reservation.id])
+        self.assertEqual(service._waiter_view_repo.upserted, [])
+
+    def test_status_update_upserts_projection_row(self):
+        """A non-cancel status change upserts the projection with the new status."""
+        service, reservation, _, waiter_id = _build_service(start_in_minutes=120)
+
+        service.update_reservation(
+            reservation_id=reservation.id,
+            request=UpdateReservationRequest(status=ReservationStatus.IN_PROGRESS),
+            actor_id=waiter_id,
+            role=UserRole.WAITER,
+        )
+
+        self.assertEqual(len(service._waiter_view_repo.upserted), 1)
+        view = service._waiter_view_repo.upserted[0]
+        self.assertEqual(view.id, reservation.id)
+        self.assertEqual(view.status, ReservationStatus.IN_PROGRESS)
+        self.assertEqual(view.table_number, 7)
+        self.assertEqual(view.table_name, "7")
+        self.assertEqual(service._waiter_view_repo.deleted, [])
+
+    def test_list_for_waiter_table_returns_mapped_rows(self):
+        """list_for_waiter_table resolves the waiter location and maps projection rows."""
+        service, reservation, customer_id, waiter_id = _build_service(
+            start_in_minutes=120
+        )
+        row = ReservationWaiterView(
+            id=reservation.id,
+            customer_id=customer_id,
+            waiter_id=waiter_id,
+            location_id=uuid4(),
+            location_address="48 Rustaveli Avenue, Tbilisi",
+            table_number=7,
+            table_name="7",
+            date="2026-05-16",
+            time_from="12:00",
+            time_to="13:30",
+            guests_number=4,
+            status=ReservationStatus.RESERVED,
+        )
+        service._waiter_view_repo = DummyWaiterViewRepo(rows=[row])
+
+        response = service.list_for_waiter_table(
+            waiter_id=waiter_id,
+            date="2026-05-16",
+            time_from="12:00",
+            table_name="7",
+        )
+
+        self.assertEqual(len(response.reservations), 1)
+        item = response.reservations[0]
+        self.assertEqual(item.reservation_id, str(reservation.id))
+        self.assertEqual(item.customer_id, str(customer_id))
+        self.assertEqual(item.location_address, "48 Rustaveli Avenue, Tbilisi")
+        self.assertEqual(item.table_number, 7)
+        self.assertEqual(item.time_from, "12:00")
+        self.assertEqual(item.time_to, "13:30")
+        self.assertEqual(item.guests_number, 4)
+
+    def test_list_for_waiter_table_passes_waiter_id_to_repo(self):
+        """list_for_waiter_table forwards the caller's waiter_id to the projection query."""
+        service, reservation, customer_id, waiter_id = _build_service(
+            start_in_minutes=120
+        )
+        row = ReservationWaiterView(
+            id=reservation.id,
+            customer_id=customer_id,
+            waiter_id=waiter_id,
+            location_id=uuid4(),
+            location_address="48 Rustaveli Avenue, Tbilisi",
+            table_number=7,
+            table_name="7",
+            date="2026-05-16",
+            time_from="12:00",
+            time_to="13:30",
+            guests_number=4,
+            status=ReservationStatus.RESERVED,
+        )
+        dummy_repo = DummyWaiterViewRepo(rows=[row])
+        service._waiter_view_repo = dummy_repo
+
+        service.list_for_waiter_table(
+            waiter_id=waiter_id,
+            date="2026-05-16",
+            time_from="12:00",
+            table_name="7",
+        )
+
+        self.assertEqual(dummy_repo.last_waiter_id, waiter_id)
+
+    def test_list_for_waiter_table_unknown_waiter_returns_403(self):
+        """A caller without a waiter profile is forbidden from the table view."""
+        service, _, _, _ = _build_service(start_in_minutes=120)
+        service._waiter_repo = DummyWaiterRepo(None)
+
+        with self.assertRaises(ApplicationException) as ctx:
+            service.list_for_waiter_table(
+                waiter_id=uuid4(),
+                date="2026-05-16",
+                time_from="12:00",
+                table_name="7",
+            )
+
+        self.assertEqual(ctx.exception.code, 403)
 
 
 if __name__ == "__main__":

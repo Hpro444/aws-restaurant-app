@@ -9,6 +9,7 @@ from commons.app_config import AppConfig
 from commons.exceptions import ApplicationException
 from commons.log_helper import logger
 from domain.reservation import Reservation
+from domain.reservation_waiter_view import ReservationWaiterView
 from domain.slot import Slot
 from domain.table import Table
 from dto.create_booking import CreateBookingRequest, CreateBookingResponse
@@ -17,6 +18,9 @@ from enums.reservation_status import ReservationStatus
 from enums.slot_status import SlotStatus
 from repositories.location_repository import LocationRepository
 from repositories.reservation_repository import ReservationRepository
+from repositories.reservation_waiter_view_repository import (
+    ReservationWaiterViewRepository,
+)
 from repositories.slot_repository import SlotRepository
 from repositories.table_repository import TableRepository
 from repositories.waiter_repository import WaiterRepository
@@ -44,19 +48,37 @@ class BookingService:
 
     _INVALID_RANGE_MESSAGE = "Invalid time range for the selected slots"
 
-    def __init__(self, settings: AppConfig | None = None) -> None:
-        """Create the repositories used by this service.
+    def __init__(
+        self,
+        settings: AppConfig | None = None,
+        table_repository: TableRepository | None = None,
+        slot_repository: SlotRepository | None = None,
+        reservation_repository: ReservationRepository | None = None,
+        location_repository: LocationRepository | None = None,
+        waiter_repository: WaiterRepository | None = None,
+        waiter_view_repository: ReservationWaiterViewRepository | None = None,
+    ) -> None:
+        """Create the repositories used by this service, creating defaults when omitted.
 
         Args:
             settings: Shared application config.
+            table_repository: Optional TableRepository instance.
+            slot_repository: Optional SlotRepository instance.
+            reservation_repository: Optional ReservationRepository instance.
+            location_repository: Optional LocationRepository instance.
+            waiter_repository: Optional WaiterRepository instance.
+            waiter_view_repository: Optional ReservationWaiterViewRepository instance.
 
         """
         cfg = settings or AppConfig()
-        self._table_repo = TableRepository(cfg)
-        self._slot_repo = SlotRepository(cfg)
-        self._reservation_repo = ReservationRepository(cfg)
-        self._location_repo = LocationRepository(cfg)
-        self._waiter_repo = WaiterRepository(cfg)
+        self._table_repo = table_repository or TableRepository(cfg)
+        self._slot_repo = slot_repository or SlotRepository(cfg)
+        self._reservation_repo = reservation_repository or ReservationRepository(cfg)
+        self._location_repo = location_repository or LocationRepository(cfg)
+        self._waiter_repo = waiter_repository or WaiterRepository(cfg)
+        self._waiter_view_repo = (
+            waiter_view_repository or ReservationWaiterViewRepository(cfg)
+        )
 
     def create_booking(
         self,
@@ -123,6 +145,26 @@ class BookingService:
         except ApplicationException:
             self._release_slots(chain)
             raise
+
+        # Project the reservation into the waiter-dashboard read model. This is a
+        # best-effort upsert (the repository swallows DynamoDB errors) so a
+        # projection hiccup never rolls back an already-committed reservation.
+        self._waiter_view_repo.update(
+            ReservationWaiterView(
+                id=reservation.id,
+                customer_id=customer_uuid,
+                waiter_id=assigned_waiter_id,
+                location_id=table.location_id,
+                location_address=location.address,
+                table_number=table.table_number,
+                table_name=str(table.table_number),
+                date=chain[0].start_time.date().isoformat(),
+                time_from=chain[0].start_time.strftime("%H:%M"),
+                time_to=chain[-1].end_time.strftime("%H:%M"),
+                guests_number=reservation.number_of_guests,
+                status=reservation.status,
+            )
+        )
 
         logger.info(
             "Reservation created",
