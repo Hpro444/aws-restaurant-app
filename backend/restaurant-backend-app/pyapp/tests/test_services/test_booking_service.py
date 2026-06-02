@@ -91,6 +91,23 @@ class DummyWaiterRepo:
         ]
 
 
+class DummyWaiterViewRepo:
+    """Mock waiter-dashboard projection repository for testing."""
+
+    def __init__(self):
+        """Track upserts and deletes for assertions."""
+        self.upserted = []
+        self.deleted = []
+
+    def update(self, view):
+        """Record a projection upsert."""
+        self.upserted.append(view)
+
+    def delete(self, item_id):
+        """Record a projection delete."""
+        self.deleted.append(item_id)
+
+
 def make_slot(start, status=SlotStatus.FREE, days_offset=1):
     """Create a test Slot with timezone-aware datetime.
 
@@ -128,6 +145,7 @@ def _build_service():
     service._reservation_repo = DummyReservationRepo()
     service._location_repo = DummyLocationRepo(location)
     service._waiter_repo = DummyWaiterRepo(table.location_id)
+    service._waiter_view_repo = DummyWaiterViewRepo()
     return service, table, location
 
 
@@ -158,6 +176,30 @@ class TestBookingService(unittest.TestCase):
         resp = self.service.create_booking(req, uuid4())
         self.assertEqual(resp.status, "RESERVED")
         self.assertIsNotNone(self.service._reservation_repo.last_created.waiter_id)
+
+    def test_single_slot_booking_writes_projection(self):
+        """A successful booking upserts a waiter-view row keyed by the reservation id."""
+        slot = make_slot(12)
+        self.service._slot_repo = DummySlotRepo([slot])
+        req = CreateBookingRequest(
+            location_id=self.table.location_id,
+            table_number=1,
+            date=slot.start_time.date().isoformat(),
+            guests_number=2,
+            time_from=self._utc(slot.start_time),
+            time_to=self._utc(slot.end_time),
+        )
+
+        resp = self.service.create_booking(req, uuid4())
+
+        self.assertEqual(len(self.service._waiter_view_repo.upserted), 1)
+        view = self.service._waiter_view_repo.upserted[0]
+        self.assertEqual(str(view.id), resp.reservation_id)
+        self.assertEqual(view.table_number, self.table.table_number)
+        self.assertEqual(view.table_name, str(self.table.table_number))
+        self.assertEqual(view.location_address, self.location.address)
+        self.assertEqual(view.date, slot.start_time.date().isoformat())
+        self.assertEqual(view.time_from, slot.start_time.strftime("%H:%M"))
 
     def test_multi_slot_chain_success(self):
         """Test successful booking of multiple slots with a 15-minute pause (195 minutes)."""

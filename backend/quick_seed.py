@@ -18,6 +18,8 @@ from pathlib import Path
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
 
+import generate_tokens
+
 # Add pyapp/src to path so seed modules can import domain models.
 PYAPP_SRC = Path(__file__).parent / "restaurant-backend-app" / "pyapp" / "src"
 sys.path.insert(0, str(PYAPP_SRC))
@@ -425,6 +427,12 @@ def main():
         f"   GET /api/bookings/tables?location_id={old_town_id}&date={last_seeded_date}&guests_number=2"
     )
     print()
+
+    print("▶ Generating Cognito tokens for seeded users...")
+    try:
+        generate_tokens.generate_all(context)
+    except Exception as e:
+        print(f"  ⚠ Token generation failed (non-fatal): {e}")
 
     return 0
 

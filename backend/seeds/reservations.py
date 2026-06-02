@@ -79,4 +79,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         f"  ✓ Seeded {len(reservations)} reservations "
         "(2 active, 1 cancelled for testing) and flipped 2 slots to RESERVED"
     )
+
+    # Expose the created reservations so the waiter-view projection seeder can
+    # build its denormalized rows from the same data.
     context["reservations"] = reservations

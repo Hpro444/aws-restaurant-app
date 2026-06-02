@@ -8,11 +8,16 @@ from uuid import UUID
 from commons.app_config import AppConfig
 from commons.exceptions import ApplicationException
 from domain.reservation import Reservation
+from domain.reservation_waiter_view import ReservationWaiterView
 from dto.reservation_management import (
     AllowedActions,
     ReservationListResponse,
     ReservationView,
     UpdateReservationRequest,
+)
+from dto.waiter_reservations import (
+    WaiterReservationListResponse,
+    WaiterReservationView,
 )
 from enums.http_status_code import HttpStatusCode
 from enums.reservation_status import ReservationStatus
@@ -20,8 +25,12 @@ from enums.slot_status import SlotStatus
 from enums.user_role import UserRole
 from repositories.location_repository import LocationRepository
 from repositories.reservation_repository import ReservationRepository
+from repositories.reservation_waiter_view_repository import (
+    ReservationWaiterViewRepository,
+)
 from repositories.slot_repository import SlotRepository
 from repositories.table_repository import TableRepository
+from repositories.waiter_repository import WaiterRepository
 
 
 class ReservationManagementService:
@@ -29,13 +38,37 @@ class ReservationManagementService:
 
     _CUTOFF_MINUTES = 30
 
-    def __init__(self, settings: AppConfig | None = None) -> None:
-        """Create repository dependencies used by reservation lifecycle operations."""
+    def __init__(
+        self,
+        settings: AppConfig | None = None,
+        reservation_repository: ReservationRepository | None = None,
+        slot_repository: SlotRepository | None = None,
+        table_repository: TableRepository | None = None,
+        location_repository: LocationRepository | None = None,
+        waiter_repository: WaiterRepository | None = None,
+        waiter_view_repository: ReservationWaiterViewRepository | None = None,
+    ) -> None:
+        """Create repository dependencies, creating defaults when omitted.
+
+        Args:
+            settings: Shared application config.
+            reservation_repository: Optional ReservationRepository instance.
+            slot_repository: Optional SlotRepository instance.
+            table_repository: Optional TableRepository instance.
+            location_repository: Optional LocationRepository instance.
+            waiter_repository: Optional WaiterRepository instance.
+            waiter_view_repository: Optional ReservationWaiterViewRepository instance.
+
+        """
         cfg = settings or AppConfig()
-        self._reservation_repo = ReservationRepository(cfg)
-        self._slot_repo = SlotRepository(cfg)
-        self._table_repo = TableRepository(cfg)
-        self._location_repo = LocationRepository(cfg)
+        self._reservation_repo = reservation_repository or ReservationRepository(cfg)
+        self._slot_repo = slot_repository or SlotRepository(cfg)
+        self._table_repo = table_repository or TableRepository(cfg)
+        self._location_repo = location_repository or LocationRepository(cfg)
+        self._waiter_repo = waiter_repository or WaiterRepository(cfg)
+        self._waiter_view_repo = (
+            waiter_view_repository or ReservationWaiterViewRepository(cfg)
+        )
 
     def list_for_dashboard(
         self,
@@ -65,6 +98,50 @@ class ReservationManagementService:
         ]
         views.sort(key=lambda item: (item.date, item.time_from), reverse=True)
         return ReservationListResponse(reservations=views)
+
+    def list_for_waiter_table(
+        self,
+        waiter_id: UUID | str,
+        date: str,
+        time_from: str,
+        table_name: str,
+    ) -> WaiterReservationListResponse:
+        """Return reservations for one date/start-time/table at the waiter's location.
+
+        The caller's ``location_id`` is resolved from their Waiter profile, then a
+        single GSI query returns the matching denormalized projection rows.
+        """
+        waiter_uuid = self._coerce_uuid(waiter_id)
+        waiter = self._waiter_repo.get(waiter_uuid)
+        if waiter is None:
+            raise ApplicationException(
+                HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
+                "Waiter profile not found",
+            )
+
+        rows = self._waiter_view_repo.query_for_table(
+            location_id=waiter.location_id,
+            date=date,
+            time_from=time_from,
+            table_name=table_name,
+            waiter_id=waiter_uuid,
+        )
+
+        views = [
+            WaiterReservationView(
+                reservation_id=str(row.id),
+                customer_id=str(row.customer_id) if row.customer_id else None,
+                location_address=row.location_address,
+                table_number=row.table_number,
+                date=row.date,
+                time_from=row.time_from,
+                time_to=row.time_to,
+                guests_number=row.guests_number,
+            )
+            for row in rows
+        ]
+        views.sort(key=lambda item: item.time_from)
+        return WaiterReservationListResponse(reservations=views)
 
     def get_reservation(
         self,
@@ -131,7 +208,9 @@ class ReservationManagementService:
             )
 
         self._reservation_repo.update(reservation)
-        return self._build_reservation_view(reservation, actor_uuid, role)
+        view = self._build_reservation_view(reservation, actor_uuid, role)
+        self._sync_projection(reservation, view)
+        return view
 
     def cancel_reservation(
         self,
@@ -155,7 +234,9 @@ class ReservationManagementService:
         self._release_slots(slots)
 
         self._reservation_repo.update(reservation)
-        return self._build_reservation_view(reservation, actor_uuid, role)
+        view = self._build_reservation_view(reservation, actor_uuid, role)
+        self._sync_projection(reservation, view)
+        return view
 
     @staticmethod
     def _coerce_uuid(value: UUID | str) -> UUID:
@@ -238,6 +319,39 @@ class ReservationManagementService:
                 can_cancel=can_cancel,
             ),
             cutoff_reason=cutoff_reason,
+        )
+
+    def _sync_projection(self, reservation: Reservation, view: ReservationView) -> None:
+        """Keep the waiter-dashboard read model in step with a reservation change.
+
+        Cancelled reservations are removed from the projection; otherwise the
+        flattened row is upserted. The upsert is skipped when the table or
+        location could not be resolved (nothing to key the row on).
+        """
+        if reservation.status == ReservationStatus.CANCELLED:
+            self._waiter_view_repo.delete(reservation.id)
+            return
+        if view.location_id is None or view.table_number is None:
+            return
+        self._waiter_view_repo.update(self._to_projection(reservation, view))
+
+    def _to_projection(
+        self, reservation: Reservation, view: ReservationView
+    ) -> ReservationWaiterView:
+        """Map an enriched ReservationView to its waiter-dashboard projection row."""
+        return ReservationWaiterView(
+            id=reservation.id,
+            customer_id=reservation.customer_id,
+            waiter_id=reservation.waiter_id,
+            location_id=view.location_id,
+            location_address=view.location_address,
+            table_number=view.table_number,
+            table_name=str(view.table_number),
+            date=view.date,
+            time_from=view.time_from,
+            time_to=view.time_to,
+            guests_number=reservation.number_of_guests,
+            status=reservation.status,
         )
 
     def _compute_actions(

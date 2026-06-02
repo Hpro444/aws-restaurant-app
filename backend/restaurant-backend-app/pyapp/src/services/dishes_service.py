@@ -18,15 +18,20 @@ class DishesService:
     query popular and speciality dishes.
     """
 
-    def __init__(self, settings: AppConfig | None = None) -> None:
-        """Create repository for dish queries.
+    def __init__(
+        self,
+        settings: AppConfig | None = None,
+        dish_repository: DishRepository | None = None,
+    ) -> None:
+        """Create repository for dish queries, creating defaults when omitted.
 
         Args:
             settings: Shared application config.
+            dish_repository: Optional DishRepository instance.
 
         """
         cfg = settings or AppConfig()
-        self._dish_repo = DishRepository(cfg)
+        self._dish_repo = dish_repository or DishRepository(cfg)
 
     def get_popular_dishes(self) -> list[DishResponse]:
         """Retrieve all popular dishes across all locations.
