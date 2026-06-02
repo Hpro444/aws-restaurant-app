@@ -7,6 +7,7 @@
             "logs:CreateLogGroup",
             "logs:CreateLogStream",
             "logs:PutLogEvents",
+            "sqs:SendMessage",
             "dynamodb:GetItem",
             "dynamodb:Query",
             "dynamodb:Scan",
@@ -38,6 +39,32 @@
       "Version": "2012-10-17"
     },
     "resource_type": "iam_policy",
+    "tags": {}
+  },
+  "reservation-events-dlq": {
+    "resource_type": "sqs_queue",
+    "fifo_queue": false,
+    "content_based_deduplication": false,
+    "delay_seconds": 0,
+    "maximum_message_size": 262144,
+    "message_retention_period": 1209600,
+    "receive_message_wait_time_seconds": 0,
+    "visibility_timeout": 30,
+    "tags": {}
+  },
+  "reservation-events-queue": {
+    "resource_type": "sqs_queue",
+    "fifo_queue": false,
+    "content_based_deduplication": false,
+    "delay_seconds": 0,
+    "maximum_message_size": 262144,
+    "message_retention_period": 345600,
+    "receive_message_wait_time_seconds": 0,
+    "visibility_timeout": 30,
+    "redrive_policy": {
+      "deadLetterTargetArn": "${reservation-events-dlq}",
+      "maxReceiveCount": 3
+    },
     "tags": {}
   },
   "restaurant-api": {

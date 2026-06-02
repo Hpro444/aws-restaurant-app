@@ -13,6 +13,8 @@ from domain.reservation_waiter_view import ReservationWaiterView
 from domain.slot import Slot
 from domain.table import Table
 from dto.create_booking import CreateBookingRequest, CreateBookingResponse
+from dto.reservation_event import ReservationEventMessage, ReservationEventType
+from dto.reservation_management import AllowedActions, ReservationView
 from enums.http_status_code import HttpStatusCode
 from enums.reservation_status import ReservationStatus
 from enums.slot_status import SlotStatus
@@ -24,6 +26,8 @@ from repositories.reservation_waiter_view_repository import (
 from repositories.slot_repository import SlotRepository
 from repositories.table_repository import TableRepository
 from repositories.waiter_repository import WaiterRepository
+
+from services.sqs_service import SqsService
 
 
 class BookingService:
@@ -57,6 +61,7 @@ class BookingService:
         location_repository: LocationRepository | None = None,
         waiter_repository: WaiterRepository | None = None,
         waiter_view_repository: ReservationWaiterViewRepository | None = None,
+        sqs_service: SqsService | None = None,
     ) -> None:
         """Create the repositories used by this service, creating defaults when omitted.
 
@@ -68,9 +73,11 @@ class BookingService:
             location_repository: Optional LocationRepository instance.
             waiter_repository: Optional WaiterRepository instance.
             waiter_view_repository: Optional ReservationWaiterViewRepository instance.
+            sqs_service: Optional SqsService for publishing reservation events.
 
         """
         cfg = settings or AppConfig()
+        self._settings = cfg
         self._table_repo = table_repository or TableRepository(cfg)
         self._slot_repo = slot_repository or SlotRepository(cfg)
         self._reservation_repo = reservation_repository or ReservationRepository(cfg)
@@ -79,6 +86,7 @@ class BookingService:
         self._waiter_view_repo = (
             waiter_view_repository or ReservationWaiterViewRepository(cfg)
         )
+        self._sqs = sqs_service
 
     def create_booking(
         self,
@@ -173,6 +181,34 @@ class BookingService:
             waiter_id=str(assigned_waiter_id) if assigned_waiter_id else None,
             slot_count=len(chain),
         )
+
+        if self._sqs is not None:
+            try:
+                event_view = ReservationView(
+                    reservation_id=str(reservation.id),
+                    status=reservation.status,
+                    customer_id=str(customer_uuid),
+                    waiter_id=str(assigned_waiter_id) if assigned_waiter_id else None,
+                    location_id=str(request.location_id),
+                    location_address=location.address,
+                    table_number=request.table_number,
+                    date=request.date,
+                    time_from=chain[0].start_time.strftime("%H:%M"),
+                    time_to=chain[-1].end_time.strftime("%H:%M"),
+                    guests_number=request.guests_number,
+                    allowed_actions=AllowedActions(can_edit=True, can_cancel=True),
+                    cutoff_reason=None,
+                )
+                self._sqs.publish(
+                    self._settings.reservation_events_queue_url,
+                    ReservationEventMessage(
+                        event_type=ReservationEventType.CREATED,
+                        reservation=event_view,
+                        timestamp=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                    ),
+                )
+            except Exception:
+                logger.error("SQS publish failed in create_booking", exc_info=True)
 
         return CreateBookingResponse(
             reservation_id=str(reservation.id),

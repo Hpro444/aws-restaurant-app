@@ -7,8 +7,10 @@ from uuid import UUID
 
 from commons.app_config import AppConfig
 from commons.exceptions import ApplicationException
+from commons.log_helper import logger
 from domain.reservation import Reservation
 from domain.reservation_waiter_view import ReservationWaiterView
+from dto.reservation_event import ReservationEventMessage, ReservationEventType
 from dto.reservation_management import (
     AllowedActions,
     ReservationListResponse,
@@ -32,6 +34,8 @@ from repositories.slot_repository import SlotRepository
 from repositories.table_repository import TableRepository
 from repositories.waiter_repository import WaiterRepository
 
+from services.sqs_service import SqsService
+
 
 class ReservationManagementService:
     """Encapsulates permission checks and reservation action business rules."""
@@ -47,6 +51,7 @@ class ReservationManagementService:
         location_repository: LocationRepository | None = None,
         waiter_repository: WaiterRepository | None = None,
         waiter_view_repository: ReservationWaiterViewRepository | None = None,
+        sqs_service: SqsService | None = None,
     ) -> None:
         """Create repository dependencies, creating defaults when omitted.
 
@@ -58,9 +63,11 @@ class ReservationManagementService:
             location_repository: Optional LocationRepository instance.
             waiter_repository: Optional WaiterRepository instance.
             waiter_view_repository: Optional ReservationWaiterViewRepository instance.
+            sqs_service: Optional SqsService for publishing reservation events.
 
         """
         cfg = settings or AppConfig()
+        self._settings = cfg
         self._reservation_repo = reservation_repository or ReservationRepository(cfg)
         self._slot_repo = slot_repository or SlotRepository(cfg)
         self._table_repo = table_repository or TableRepository(cfg)
@@ -69,6 +76,7 @@ class ReservationManagementService:
         self._waiter_view_repo = (
             waiter_view_repository or ReservationWaiterViewRepository(cfg)
         )
+        self._sqs = sqs_service
 
     def list_for_dashboard(
         self,
@@ -210,6 +218,23 @@ class ReservationManagementService:
         self._reservation_repo.update(reservation)
         view = self._build_reservation_view(reservation, actor_uuid, role)
         self._sync_projection(reservation, view)
+        if self._sqs is not None:
+            try:
+                event_type = (
+                    ReservationEventType.COMPLETED
+                    if view.status == ReservationStatus.FINISHED
+                    else ReservationEventType.UPDATED
+                )
+                self._sqs.publish(
+                    self._settings.reservation_events_queue_url,
+                    ReservationEventMessage(
+                        event_type=event_type,
+                        reservation=view,
+                        timestamp=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                    ),
+                )
+            except Exception:
+                logger.error("SQS publish failed in update_reservation", exc_info=True)
         return view
 
     def cancel_reservation(
@@ -236,6 +261,18 @@ class ReservationManagementService:
         self._reservation_repo.update(reservation)
         view = self._build_reservation_view(reservation, actor_uuid, role)
         self._sync_projection(reservation, view)
+        if self._sqs is not None:
+            try:
+                self._sqs.publish(
+                    self._settings.reservation_events_queue_url,
+                    ReservationEventMessage(
+                        event_type=ReservationEventType.CANCELLED,
+                        reservation=view,
+                        timestamp=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                    ),
+                )
+            except Exception:
+                logger.error("SQS publish failed in cancel_reservation", exc_info=True)
         return view
 
     @staticmethod

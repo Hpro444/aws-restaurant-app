@@ -36,6 +36,7 @@ from services.feedback_service import FeedbackService
 from services.locations_service import LocationsService
 from services.registration_service import RegistrationService
 from services.reservation_management_service import ReservationManagementService
+from services.sqs_service import SqsService
 from services.table_availability_service import TableAvailabilityService
 from services.user_profile_service import UserProfileService
 
@@ -68,8 +69,11 @@ class ApiHandler(AbstractLambda):
         )
         self._locations_service = LocationsService()
         self._table_availability_service = TableAvailabilityService()
-        self._booking_service = BookingService()
-        self._reservation_management_service = ReservationManagementService()
+        self._sqs_service = SqsService()
+        self._booking_service = BookingService(sqs_service=self._sqs_service)
+        self._reservation_management_service = ReservationManagementService(
+            sqs_service=self._sqs_service,
+        )
         self._dishes_service = DishesService()
         self._feedback_service = FeedbackService()
         self._customers_service = CustomersService(
@@ -737,6 +741,40 @@ class ApiHandler(AbstractLambda):
         )
         return build_response(
             [dish.model_dump(mode="json") for dish in dishes],
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    def _get_waiter_reservations(self, event: dict) -> LambdaResponse:
+        """Handle GET /reservations/waiter — table-filtered view for a waiter.
+
+        Only callers with ``UserRole.WAITER`` may access this endpoint; any other
+        role returns 403. The required ``date``, ``time_from`` and ``table_name``
+        query parameters are validated, then reservations are returned for the
+        waiter's assigned location only.
+
+        Returns:
+            A Lambda proxy response with statusCode 200 and a JSON object of the
+            form ``{"reservations": [...]}``.
+
+        """
+        user_id, role = self._get_actor_context(event)
+        if role != UserRole.WAITER:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
+                "Only waiters can access this endpoint",
+            )
+
+        request = self._validate(
+            GetWaiterReservationsRequest, self._parse_query_params(event)
+        )
+        response = self._reservation_management_service.list_for_waiter_table(
+            waiter_id=user_id,
+            date=request.date,
+            time_from=request.time_from,
+            table_name=request.table_name,
+        )
+        return build_response(
+            response.model_dump(by_alias=True, mode="json"),
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 
