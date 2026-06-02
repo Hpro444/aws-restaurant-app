@@ -6,6 +6,7 @@ import RestaurantPage from "./pages/Restaurant";
 import AvailableTablesPage from "./pages/AvailableTables";
 import { useAuth } from "./context/AuthContext";
 import ReservationsPage from "./pages/Reservations";
+import DashboardPage from "./pages/Dashboard";
 
 const RequireAuth = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
@@ -23,7 +24,7 @@ function App() {
   return (
     <>
       <Routes>
-        <Route path="/" element={<HomePage />} />
+        <Route path="/" element={<DashboardPage />} />
         <Route
           path="/login"
           element={

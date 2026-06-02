@@ -4,7 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import "./index.css";
 import App from "./App.tsx";
 import { AuthProvider } from "./context/AuthContext.tsx";
-import { IntlProvider } from "react-intl";
+import { PrimeReactProvider } from "primereact/api";
 
 type RuntimeConfig = {
   apiBaseUrl: string;
@@ -30,13 +30,13 @@ const bootstrap = async () => {
 
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
-      <IntlProvider locale={navigator.language || "en-US"}>
-        <AuthProvider>
-          <BrowserRouter>
+      <AuthProvider>
+        <BrowserRouter>
+          <PrimeReactProvider>
             <App />
-          </BrowserRouter>
-        </AuthProvider>
-      </IntlProvider>
+          </PrimeReactProvider>
+        </BrowserRouter>
+      </AuthProvider>
     </StrictMode>,
   );
 };
