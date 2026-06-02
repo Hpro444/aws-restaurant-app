@@ -31,117 +31,75 @@ class UserProfileService:
         self._customer_repository = customer_repository or CustomerRepository()
         self._waiter_repository = waiter_repository or WaiterRepository()
         self._admin_repository = admin_repository or AdminRepository()
+        self._repo_by_role = {
+            UserRole.CUSTOMER: self._customer_repository,
+            UserRole.WAITER: self._waiter_repository,
+            UserRole.ADMIN: self._admin_repository,
+        }
 
     def get_user_profile(self, access_token: str):
-        """Retrieve the user profile based on the access token.
-
-        Args:
-            access_token: The JWT access token from the Authorization header.
-
-        Returns:
-            The user profile object.
-
-        Raises:
-            ApplicationException: 401 for invalid token, 404 for profile not found.
-
-        """
-        user_id, role = self._cognito_service.get_identity_from_access_token(
-            access_token
+        """Return authenticated user's profile."""
+        _, _, _, user = self._resolve_profile_context(
+            access_token=access_token,
+            unsupported_role_message="Unsupported role",
+            not_found_message="User profile not found",
         )
-
-        if role == UserRole.CUSTOMER:
-            user = self._customer_repository.get(UUID(user_id))
-        elif role == UserRole.WAITER:
-            user = self._waiter_repository.get(UUID(user_id))
-        elif role == UserRole.ADMIN:
-            user = self._admin_repository.get(UUID(user_id))
-        else:
-            logger.info("Unsupported role", role=role)
-            raise ApplicationException(
-                code=HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
-                content="Role is not supported for this endpoint",
-            )
-
-        if user is None:
-            logger.info("User profile not found", user_id=user_id, role=role)
-            raise ApplicationException(
-                code=HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
-                content="Profile not found",
-            )
-
         return user
 
     def update_user_profile(self, access_token: str, request: UpdateProfileRequest):
-        """Update the authenticated user's profile fields and persist the change.
+        """Update authenticated user's profile and persist changes."""
+        user_id, role, repository, existing = self._resolve_profile_context(
+            access_token=access_token,
+            unsupported_role_message="Unsupported role for profile update",
+            not_found_message="User profile not found for update",
+        )
 
-        Only ``first_name``, ``last_name``, and ``image_url`` can be changed.
-        ``email``, ``role``, and role-specific fields (e.g. ``location_id`` for
-        Waiter) are preserved from the existing record.
+        updated = self._build_updated_profile(role, existing, request)
+        repository.update(updated)
 
-        Args:
-            access_token: The JWT access token from the Authorization header.
-            request: Validated update payload with new field values.
+        logger.info("Profile updated", user_id=user_id, role=role)
+        return updated
 
-        Returns:
-            The updated user domain object.
-
-        Raises:
-            ApplicationException: 401 for invalid token, 403 for unsupported role,
-                404 when the profile record does not exist.
-
-        """
+    def _resolve_profile_context(
+        self,
+        access_token: str,
+        unsupported_role_message: str,
+        not_found_message: str,
+    ):
+        """Resolve identity, role repository, and profile row or raise endpoint errors."""
         user_id, role = self._cognito_service.get_identity_from_access_token(
             access_token
         )
-
-        if role == UserRole.CUSTOMER:
-            existing = self._customer_repository.get(UUID(user_id))
-        elif role == UserRole.WAITER:
-            existing = self._waiter_repository.get(UUID(user_id))
-        elif role == UserRole.ADMIN:
-            existing = self._admin_repository.get(UUID(user_id))
-        else:
-            logger.info("Unsupported role for profile update", role=role)
+        repository = self._repo_by_role.get(role)
+        if repository is None:
+            logger.info(unsupported_role_message, role=role)
             raise ApplicationException(
                 code=HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
                 content="Role is not supported for this endpoint",
             )
 
-        if existing is None:
-            logger.info("User profile not found for update", user_id=user_id, role=role)
+        profile = repository.get(UUID(user_id))
+        if profile is None:
+            logger.info(not_found_message, user_id=user_id, role=role)
             raise ApplicationException(
                 code=HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
                 content="Profile not found",
             )
 
-        if role == UserRole.CUSTOMER:
-            updated = Customer(
-                id=existing.id,
-                fname=request.first_name,
-                lname=request.last_name,
-                email=existing.email,
-                image_url=request.image_url,
-            )
-            self._customer_repository.update(updated)
-        elif role == UserRole.WAITER:
-            updated = Waiter(
-                id=existing.id,
-                fname=request.first_name,
-                lname=request.last_name,
-                email=existing.email,
-                image_url=request.image_url,
-                location_id=existing.location_id,
-            )
-            self._waiter_repository.update(updated)
-        else:
-            updated = Admin(
-                id=existing.id,
-                fname=request.first_name,
-                lname=request.last_name,
-                email=existing.email,
-                image_url=request.image_url,
-            )
-            self._admin_repository.update(updated)
+        return user_id, role, repository, profile
 
-        logger.info("Profile updated", user_id=user_id, role=role)
-        return updated
+    @staticmethod
+    def _build_updated_profile(role: str, existing, request: UpdateProfileRequest):
+        """Build updated domain model per role using shared profile fields."""
+        common_kwargs = {
+            "id": existing.id,
+            "fname": request.first_name,
+            "lname": request.last_name,
+            "email": existing.email,
+            "image_url": request.image_url,
+        }
+        if role == UserRole.CUSTOMER:
+            return Customer(**common_kwargs)
+        if role == UserRole.WAITER:
+            return Waiter(**common_kwargs, location_id=existing.location_id)
+        return Admin(**common_kwargs)

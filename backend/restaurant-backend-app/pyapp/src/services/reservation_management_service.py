@@ -190,19 +190,7 @@ class ReservationManagementService:
 
         if request.guests_number is not None:
             self._ensure_editable(reservation, actor_uuid, role, start_time)
-            table = self._table_repo.get(slots[0].table_id)
-            if table and request.guests_number > table.capacity:
-                raise ApplicationException(
-                    HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                    [
-                        {
-                            "field": "guestsNumber",
-                            "message": (
-                                f"Guests number exceeds table capacity ({table.capacity})"
-                            ),
-                        }
-                    ],
-                )
+            self._ensure_guest_count_fits_table(request.guests_number, slots)
             reservation.number_of_guests = request.guests_number
 
         if request.status is not None:
@@ -305,11 +293,17 @@ class ReservationManagementService:
                 "Reservation not found",
             )
 
-        if (role, actor_uuid) in {
-            (UserRole.CUSTOMER, reservation.customer_id),
-            (UserRole.WAITER, reservation.waiter_id),
-        }:
-            return reservation
+        if role == UserRole.CUSTOMER:
+            if reservation.customer_id == actor_uuid:
+                return reservation
+        elif role == UserRole.WAITER:
+            if reservation.waiter_id == actor_uuid:
+                return reservation
+        else:
+            raise ApplicationException(
+                HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
+                "Role is not allowed to access reservations",
+            )
 
         raise ApplicationException(
             HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
@@ -415,7 +409,7 @@ class ReservationManagementService:
         if reservation.status != ReservationStatus.RESERVED:
             return False, False, "Actions are available only for RESERVED reservations"
 
-        if self._is_cutoff_reached(start_time):
+        if role == UserRole.CUSTOMER and self._is_cutoff_reached(start_time):
             return (
                 False,
                 False,
@@ -457,17 +451,17 @@ class ReservationManagementService:
         if new_status == current:
             return
 
-        if new_status == ReservationStatus.CANCELLED:
-            self._ensure_editable(reservation, actor_id, role, start_time)
-            reservation.status = ReservationStatus.CANCELLED
-            self._release_slots(slots)
-            return
-
         if role != UserRole.WAITER or reservation.waiter_id != actor_id:
             raise ApplicationException(
                 HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
                 "Only assigned waiter can change this reservation status",
             )
+
+        if new_status == ReservationStatus.CANCELLED:
+            self._ensure_editable(reservation, actor_id, role, start_time)
+            reservation.status = ReservationStatus.CANCELLED
+            self._release_slots(slots)
+            return
 
         if (
             current == ReservationStatus.RESERVED
@@ -510,3 +504,28 @@ class ReservationManagementService:
                 SlotStatus.FREE,
                 expected=SlotStatus.RESERVED,
             )
+
+    def _ensure_guest_count_fits_table(self, guests_number: int, slots) -> None:
+        """Raise 422 when requested guest count exceeds reservation table capacity."""
+        table = self._table_repo.get(slots[0].table_id)
+        if table is None:
+            raise ApplicationException(
+                HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                "Table not found for reservation",
+            )
+
+        table_capacity = table.capacity
+        exceeds_capacity = guests_number > table_capacity
+
+        if not exceeds_capacity:
+            return
+
+        raise ApplicationException(
+            HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+            [
+                {
+                    "field": "guestsNumber",
+                    "message": f"Guests number exceeds table capacity ({table_capacity})",
+                }
+            ],
+        )

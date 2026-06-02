@@ -166,7 +166,14 @@ def _wait_for_tables_active(
                 status = resp["Table"]["TableStatus"]
                 if status != "ACTIVE":
                     still_creating.add(name)
-            except ClientError:
+            except ClientError as e:
+                code = e.response.get("Error", {}).get("Code")
+                if code == "AccessDeniedException":
+                    raise PermissionError(
+                        "Missing permission to call dynamodb:DescribeTable while "
+                        f"checking table '{name}'. Ask for this permission or run "
+                        "the seeder with a role that can read DynamoDB table status."
+                    ) from e
                 still_creating.add(name)
         if still_creating:
             print(
@@ -328,6 +335,9 @@ def main():
         try:
             _wait_for_tables_active(dynamodb_client, list(resolved_tables.values()))
             print("  ✓ All tables ACTIVE\n")
+        except PermissionError as e:
+            print(f"  ✗ {e}\n")
+            return 1
         except RuntimeError as e:
             print(f"  ✗ {e}\n")
             return 1

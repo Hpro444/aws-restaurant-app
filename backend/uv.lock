@@ -109,6 +109,8 @@ requires-dist = [
     { name = "aws-syndicate" },
     { name = "pip", specifier = "==26.1.1" },
     { name = "pre-commit", specifier = "==4.6.0" },
+    { name = "pydantic", extras = ["email"], specifier = "==2.13.4" },
+    { name = "pydantic-settings", specifier = "==2.0.0" },
     { name = "pyjwt", specifier = "==2.12.1" },
     { name = "structlog", specifier = "==25.5.0" },
 ]

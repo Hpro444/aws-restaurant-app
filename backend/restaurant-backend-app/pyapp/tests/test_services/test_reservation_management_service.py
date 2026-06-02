@@ -255,6 +255,63 @@ class TestReservationManagementService(unittest.TestCase):
         )
         self.assertEqual(finished.status, ReservationStatus.FINISHED)
 
+    def test_unassigned_waiter_cannot_update_reservation(self):
+        """A waiter who is not assigned to the reservation cannot edit it."""
+        service, reservation, _, _ = _build_service(start_in_minutes=120)
+        other_waiter_id = uuid4()
+
+        with self.assertRaises(ApplicationException) as ctx:
+            service.update_reservation(
+                reservation_id=reservation.id,
+                request=UpdateReservationRequest(status=ReservationStatus.IN_PROGRESS),
+                actor_id=other_waiter_id,
+                role=UserRole.WAITER,
+            )
+
+        self.assertEqual(ctx.exception.code, 403)
+        self.assertEqual(
+            ctx.exception.content["message"],
+            "You are not allowed to access this reservation",
+        )
+
+    def test_customer_cannot_set_guests_above_table_capacity(self):
+        """Customer edit is rejected when requested guests exceed table capacity."""
+        service, reservation, customer_id, _ = _build_service(start_in_minutes=120)
+
+        with self.assertRaises(ApplicationException) as ctx:
+            service.update_reservation(
+                reservation_id=reservation.id,
+                request=UpdateReservationRequest(guests_number=9),
+                actor_id=customer_id,
+                role=UserRole.CUSTOMER,
+            )
+
+        self.assertEqual(ctx.exception.code, 422)
+        self.assertEqual(
+            ctx.exception.content[0]["message"],
+            "Guests number exceeds table capacity (8)",
+        )
+        self.assertEqual(reservation.number_of_guests, 4)
+
+    def test_assigned_waiter_cannot_set_guests_above_table_capacity(self):
+        """Assigned waiter edit is rejected when requested guests exceed capacity."""
+        service, reservation, _, waiter_id = _build_service(start_in_minutes=120)
+
+        with self.assertRaises(ApplicationException) as ctx:
+            service.update_reservation(
+                reservation_id=reservation.id,
+                request=UpdateReservationRequest(guests_number=9),
+                actor_id=waiter_id,
+                role=UserRole.WAITER,
+            )
+
+        self.assertEqual(ctx.exception.code, 422)
+        self.assertEqual(
+            ctx.exception.content[0]["message"],
+            "Guests number exceeds table capacity (8)",
+        )
+        self.assertEqual(reservation.number_of_guests, 4)
+
     def test_customer_cannot_set_in_progress_status(self):
         """Customer must not be allowed to run waiter-only status transitions."""
         service, reservation, customer_id, _ = _build_service(start_in_minutes=120)
@@ -272,6 +329,31 @@ class TestReservationManagementService(unittest.TestCase):
     def test_assigned_waiter_can_cancel(self):
         """Assigned waiter is permitted to cancel the reservation before cutoff."""
         service, reservation, _, waiter_id = _build_service(start_in_minutes=120)
+
+        response = service.cancel_reservation(
+            reservation_id=reservation.id,
+            actor_id=waiter_id,
+            role=UserRole.WAITER,
+        )
+
+        self.assertEqual(response.status, ReservationStatus.CANCELLED)
+
+    def test_assigned_waiter_can_update_guests_within_cutoff(self):
+        """Assigned waiter can edit guests number even inside cutoff window."""
+        service, reservation, _, waiter_id = _build_service(start_in_minutes=20)
+
+        response = service.update_reservation(
+            reservation_id=reservation.id,
+            request=UpdateReservationRequest(guests_number=6),
+            actor_id=waiter_id,
+            role=UserRole.WAITER,
+        )
+
+        self.assertEqual(response.guests_number, 6)
+
+    def test_assigned_waiter_can_cancel_within_cutoff(self):
+        """Assigned waiter can cancel even when start is within customer cutoff window."""
+        service, reservation, _, waiter_id = _build_service(start_in_minutes=20)
 
         response = service.cancel_reservation(
             reservation_id=reservation.id,
