@@ -1,32 +1,35 @@
 import dish_image from "../../assets/home/dish.png";
 
 type Dish = {
-  id: string;
+  id?: string;
   name: string;
   description?: string;
   price: number;
-  image?: string;
+  image_url?: string;
   weight_gram?: string | number;
 };
 
-type DiscCardProps = {
+const DiscCard = ({
+  dish,
+  imageClassName,
+}: {
   dish?: Dish;
-};
-
-const DiscCard = ({ dish }: DiscCardProps) => {
+  imageClassName?: string;
+}) => {
   const dishName = dish?.name || "Some text";
   const dishPrice = dish?.price ? `${dish.price}$` : "17$";
   const dishWeight = dish?.weight_gram ? `${dish.weight_gram}g` : "430g";
-  const dishImage = dish?.image || dish_image;
+  const dishImage = dish?.image_url || dish_image;
 
   return (
-    <div className="flex flex-col g-4 p-6 rotate-0 opacity-100 rounded-[24px] gap-4 shadow-[0px_0px_10px_4px_#DADADAB2]">
+    <div className="flex flex-col p-6 rotate-0 opacity-100 rounded-[24px] gap-4 shadow-[0px_0px_10px_4px_#DADADAB2]">
       <img
         src={dishImage}
         alt={dishName}
         onError={(e) => {
           e.currentTarget.src = dish_image;
         }}
+        className={imageClassName}
       />
       <div className="flex flex-col gap-1">
         <p className="font-medium text-[14px] leading-[24px] align-middle">

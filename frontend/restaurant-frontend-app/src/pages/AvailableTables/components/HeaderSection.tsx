@@ -32,11 +32,9 @@ const HeaderSection = ({
 
   return (
     <section
-      className="relative flex justify-start font-poppins"
+      className="relative flex justify-start font-poppins bg-cover bg-center"
       style={{
         backgroundImage: `url(${section_image})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
       }}
     >
       <div className="max-w-[1440px] w-full mx-auto flex flex-col text-white gap-[22px] px-10 py-[100px]">
