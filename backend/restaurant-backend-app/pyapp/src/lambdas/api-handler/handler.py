@@ -122,6 +122,10 @@ class ApiHandler(AbstractLambda):
         router.add("PUT", "/users/profile", self._update_user_profile)
 
         router.add("GET", "/locations/select-options", self._get_location_addresses)
+        router.add(
+            "GET", "/locations/{id}/valid-slot-times", self._get_valid_slot_times
+        )
+
         router.add("GET", "/locations", self._get_locations)
         router.add("GET", "/locations/{id}", self._get_location_by_id)
         router.add(
@@ -403,16 +407,43 @@ class ApiHandler(AbstractLambda):
 
         location = self._locations_service.get_location_by_id(location_id)
         if location is None:
-            raise_error_response(
-                HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
-                ValidationErrorResponse(
-                    errors=[FieldError(field="id", message="Location not found")]
-                ).model_dump(),
-            )
+            self._raise_location_not_found()
 
         return build_response(
             location.model_dump(),
             code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    def _get_valid_slot_times_payload(self, event: dict) -> dict[str, list[str]]:
+        """Return valid slot start/end times payload for a location."""
+        location_id = self._require_uuid(
+            self._extract_path_param(event, "id", fallback_position=1),
+            field="id",
+        )
+
+        slot_times = self._locations_service.get_valid_slot_times(location_id)
+        if slot_times is None:
+            self._raise_location_not_found()
+
+        return slot_times
+
+    def _get_valid_slot_times(self, event: dict) -> LambdaResponse:
+        """Handle GET /locations/{id}/valid-slot-times."""
+        slot_times = self._get_valid_slot_times_payload(event)
+
+        return build_response(
+            slot_times,
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    @staticmethod
+    def _raise_location_not_found() -> None:
+        """Raise standardized 404 error for missing location."""
+        raise_error_response(
+            HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
+            ValidationErrorResponse(
+                errors=[FieldError(field="id", message="Location not found")]
+            ).model_dump(),
         )
 
     @staticmethod

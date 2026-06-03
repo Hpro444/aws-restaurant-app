@@ -286,3 +286,28 @@ class TestLocationsService(TestCase):
         result = self.service.get_location_addresses()
 
         self.assertEqual(result, [])
+
+    def test_get_valid_slot_times_returns_expected_start_and_end_sequences(
+        self,
+    ) -> None:
+        """Slot times should follow 90-minute duration with a 15-minute gap cadence."""
+        self.mock_location_repo.get.return_value = self.location_1
+
+        result = self.service.get_valid_slot_times(self.location_1.id)
+
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertEqual(
+            result["start_times"],
+            ["10:00", "11:45", "13:30", "15:15", "17:00", "18:45", "20:30"],
+        )
+        self.assertEqual(
+            result["end_times"],
+            ["11:30", "13:15", "15:00", "16:45", "18:30", "20:15", "22:00"],
+        )
+
+    def test_get_valid_slot_times_returns_none_for_missing_location(self) -> None:
+        """Slot-times lookup returns None when location does not exist."""
+        self.mock_location_repo.get.return_value = None
+
+        self.assertIsNone(self.service.get_valid_slot_times(uuid4()))

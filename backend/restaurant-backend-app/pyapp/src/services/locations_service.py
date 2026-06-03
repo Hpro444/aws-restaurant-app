@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, time, timedelta
 from uuid import UUID
 
 from dto.locations import LocationAddressResponse, LocationResponse
@@ -73,6 +74,31 @@ class LocationsService:
             rating=self._calculate_rating(location.id),
         )
 
+    def get_valid_slot_times(
+        self,
+        location_id: UUID,
+    ) -> dict[str, list[str]] | None:
+        """Return valid slot start/end times for a location, or None if missing."""
+        slot_times = self._get_valid_slot_times(location_id)
+        if slot_times is None:
+            return None
+
+        start_times, end_times = slot_times
+        return {
+            "start_times": start_times,
+            "end_times": end_times,
+        }
+
+    def _get_valid_slot_times(
+        self, location_id: UUID
+    ) -> tuple[list[str], list[str]] | None:
+        """Return calculated slot start/end times for location, or None if missing."""
+        location = self._location_repository.get(location_id)
+        if not location:
+            return None
+
+        return self._calculate_slot_times(location.open_time, location.close_time)
+
     def _calculate_rating(self, location_id) -> float:
         """Calculate the average rating for a location from cuisine feedback only. Returns 1 decimal place, or 0.0 if no ratings."""
         feedbacks = list(
@@ -95,3 +121,26 @@ class LocationsService:
     def _simulate_average_occupancy(location_id: UUID) -> int:
         """Return a stable placeholder occupancy between 25 and 100 inclusive."""
         return 25 + (location_id.int % 76)
+
+    @staticmethod
+    def _calculate_slot_times(
+        open_time: time, close_time: time
+    ) -> tuple[list[str], list[str]]:
+        """Calculate slot starts/ends with fixed 90m duration and 15m gap."""
+        reservation_duration = timedelta(minutes=90)
+        slot_step = timedelta(minutes=105)
+
+        base_day = datetime.min.date()
+        current_start = datetime.combine(base_day, open_time)
+        close_dt = datetime.combine(base_day, close_time)
+
+        starts: list[str] = []
+        ends: list[str] = []
+
+        while current_start + reservation_duration <= close_dt:
+            current_end = current_start + reservation_duration
+            starts.append(current_start.strftime("%H:%M"))
+            ends.append(current_end.strftime("%H:%M"))
+            current_start += slot_step
+
+        return starts, ends
