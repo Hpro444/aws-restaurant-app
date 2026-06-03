@@ -20,6 +20,7 @@ class CustomersService:
 
         return [
             CustomerResponse(
+                id=customer.id,
                 user_name=f"{customer.fname} {customer.lname}",
                 email=customer.email,
             )

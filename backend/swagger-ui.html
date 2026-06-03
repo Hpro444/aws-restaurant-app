@@ -222,6 +222,28 @@
               }
             }
           },
+          "/customers": {
+            "get": {
+              "tags": ["Users"],
+              "summary": "List all customers (waiter only)",
+              "security": [{ "bearerAuth": [] }],
+              "responses": {
+                "200": {
+                  "description": "Customers list",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "array",
+                        "items": { "$ref": "#/components/schemas/CustomerResponse" }
+                      }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" }
+              }
+            }
+          },
           "/locations": {
             "get": {
               "tags": ["Locations"],
@@ -597,6 +619,15 @@
               "type": "object",
               "required": ["first_name", "last_name", "image_url", "email", "role"],
               "properties": { "first_name": { "type": "string" }, "last_name": { "type": "string" }, "image_url": { "type": "string" }, "email": { "type": "string", "format": "email" }, "role": { "type": "string" } }
+            },
+            "CustomerResponse": {
+              "type": "object",
+              "required": ["id", "user_name", "email"],
+              "properties": {
+                "id": { "type": "string", "format": "uuid" },
+                "user_name": { "type": "string" },
+                "email": { "type": "string", "format": "email" }
+              }
             },
             "UpdateProfileRequest": { "type": "object", "required": ["first_name", "last_name", "image_url"], "properties": { "first_name": { "type": "string" }, "last_name": { "type": "string" }, "image_url": { "type": "string" } } },
             "LocationResponse": { "type": "object", "required": ["id", "address", "description", "total_capacity", "average_occupancy", "image_url", "rating"], "properties": { "id": { "type": "string", "format": "uuid" }, "address": { "type": "string" }, "description": { "type": "string" }, "total_capacity": { "type": "integer" }, "average_occupancy": { "type": "integer" }, "image_url": { "type": "string" }, "rating": { "type": "number", "format": "float" } } },
