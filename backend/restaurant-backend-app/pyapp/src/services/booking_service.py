@@ -51,6 +51,7 @@ class BookingService:
     """
 
     _INVALID_RANGE_MESSAGE = "Invalid time range for the selected slots"
+    _SLOT_CONFLICT_MESSAGE = "One or more selected slots are already reserved"
 
     def __init__(
         self,
@@ -270,16 +271,9 @@ class BookingService:
     def _check_capacity(table: Table, guests_number: int) -> None:
         """Reject the request with 422 when guests exceed capacity."""
         if guests_number > table.capacity:
-            raise ApplicationException(
-                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                [
-                    {
-                        "field": "guestsNumber",
-                        "message": (
-                            f"Guests number exceeds table capacity ({table.capacity})"
-                        ),
-                    }
-                ],
+            BookingService._raise_field_validation(
+                "guestsNumber",
+                f"Guests number exceeds table capacity ({table.capacity})",
             )
 
     def _resolve_slot_chain(
@@ -308,24 +302,14 @@ class BookingService:
                 end_slot = slot
 
         if start_slot is None:
-            raise ApplicationException(
-                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                [
-                    {
-                        "field": "timeFrom",
-                        "message": "timeFrom must match the start of an existing slot",
-                    }
-                ],
+            self._raise_field_validation(
+                "timeFrom",
+                "timeFrom must match the start of an existing slot",
             )
         if end_slot is None:
-            raise ApplicationException(
-                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                [
-                    {
-                        "field": "timeTo",
-                        "message": "timeTo must match the end of an existing slot",
-                    }
-                ],
+            self._raise_field_validation(
+                "timeTo",
+                "timeTo must match the end of an existing slot",
             )
 
         ordered = sorted(slots_for_day, key=lambda s: s.start_time)
@@ -388,14 +372,9 @@ class BookingService:
         last_slot_end_time = last_slot.end_time.time()
 
         if last_slot_end_time > location.close_time:
-            raise ApplicationException(
-                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                [
-                    {
-                        "field": "timeTo",
-                        "message": f"Reservation extends beyond location closing time ({location.close_time.strftime('%H:%M')})",
-                    }
-                ],
+            BookingService._raise_field_validation(
+                "timeTo",
+                f"Reservation extends beyond location closing time ({location.close_time.strftime('%H:%M')})",
             )
 
     @staticmethod
@@ -406,14 +385,9 @@ class BookingService:
         first_slot_start = chain[0].start_time
         now_utc = datetime.now(UTC)
         if first_slot_start <= now_utc:
-            raise ApplicationException(
-                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                [
-                    {
-                        "field": "timeFrom",
-                        "message": "Cannot book a slot that starts in the past",
-                    }
-                ],
+            BookingService._raise_field_validation(
+                "timeFrom",
+                "Cannot book a slot that starts in the past",
             )
 
     @staticmethod
@@ -433,7 +407,7 @@ class BookingService:
         if booked:
             raise ApplicationException(
                 HttpStatusCode.RESPONSE_CONFLICT_CODE,
-                "One or more selected slots are already reserved",
+                BookingService._SLOT_CONFLICT_MESSAGE,
             )
 
     def _claim_slots(self, chain: list[Slot]) -> None:
@@ -452,10 +426,18 @@ class BookingService:
                 self._release_slots(claimed)
                 raise ApplicationException(
                     HttpStatusCode.RESPONSE_CONFLICT_CODE,
-                    "One or more selected slots are already reserved",
+                    self._SLOT_CONFLICT_MESSAGE,
                 )
             slot.status = SlotStatus.RESERVED
             claimed.append(slot)
+
+    @staticmethod
+    def _raise_field_validation(field: str, message: str) -> None:
+        """Raise a standardized 422 field validation error payload."""
+        raise ApplicationException(
+            HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+            [{"field": field, "message": message}],
+        )
 
     def _release_slots(self, claimed: list[Slot]) -> None:
         """Best-effort revert of slots previously flipped to RESERVED."""

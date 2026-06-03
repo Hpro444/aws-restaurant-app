@@ -8,6 +8,7 @@ from pyapp.tests.test_api_handler import ApiHandlerLambdaTestCase, body, status
 
 _PATH = "/locations"
 _NAMES_PATH = "/locations/select-options"
+_TIMES_SUFFIX = "/valid-slot-times"
 
 
 class TestLocationsEndpoint(ApiHandlerLambdaTestCase):
@@ -258,6 +259,65 @@ class TestLocationsEndpoint(ApiHandlerLambdaTestCase):
         """A POST to /locations/names should return 404."""
         result = self.HANDLER.lambda_handler(
             {"path": _NAMES_PATH, "httpMethod": "POST", "body": "{}"},
+            {},
+        )
+
+        self.assertEqual(status(result), 404)
+
+    def test_get_valid_slot_times_returns_200_with_both_arrays(self) -> None:
+        """GET combined valid times route should return both start and end arrays."""
+        location_id = str(uuid4())
+        self.HANDLER._locations_service.get_valid_slot_times = MagicMock(
+            return_value={
+                "start_times": ["10:00", "11:45", "13:30"],
+                "end_times": ["11:30", "13:15", "15:00"],
+            }
+        )
+
+        result = self.HANDLER.lambda_handler(
+            {
+                "path": f"/locations/{location_id}{_TIMES_SUFFIX}",
+                "pathParameters": {"id": location_id},
+                "httpMethod": "GET",
+            },
+            {},
+        )
+
+        self.assertEqual(status(result), 200)
+        self.assertEqual(
+            body(result),
+            {
+                "start_times": ["10:00", "11:45", "13:30"],
+                "end_times": ["11:30", "13:15", "15:00"],
+            },
+        )
+
+    def test_get_valid_slot_times_invalid_uuid_returns_422(self) -> None:
+        """Invalid UUID should return 422 on combined slot times route."""
+        result = self.HANDLER.lambda_handler(
+            {
+                "path": f"/locations/not-a-uuid{_TIMES_SUFFIX}",
+                "pathParameters": {"id": "not-a-uuid"},
+                "httpMethod": "GET",
+            },
+            {},
+        )
+
+        self.assertEqual(status(result), 422)
+
+    def test_get_valid_slot_times_not_found_returns_404(self) -> None:
+        """Missing location should return 404 on combined slot times route."""
+        location_id = str(uuid4())
+        self.HANDLER._locations_service.get_valid_slot_times = MagicMock(
+            return_value=None
+        )
+
+        result = self.HANDLER.lambda_handler(
+            {
+                "path": f"/locations/{location_id}{_TIMES_SUFFIX}",
+                "pathParameters": {"id": location_id},
+                "httpMethod": "GET",
+            },
             {},
         )
 
