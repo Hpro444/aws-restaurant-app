@@ -1,12 +1,11 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import LoginPage from "./pages/Login";
 import SignupPage from "./pages/Signup";
-import HomePage from "./pages/Home";
 import RestaurantPage from "./pages/Restaurant";
 import AvailableTablesPage from "./pages/AvailableTables";
 import { useAuth } from "./context/AuthContext";
 import ReservationsPage from "./pages/Reservations";
-import DashboardPage from "./pages/Dashboard";
+import MenuPage from "./pages/Menu";
 
 const RequireAuth = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
@@ -24,7 +23,7 @@ function App() {
   return (
     <>
       <Routes>
-        <Route path="/" element={<DashboardPage />} />
+        <Route path="/" element={<MenuPage />} />
         <Route
           path="/login"
           element={
