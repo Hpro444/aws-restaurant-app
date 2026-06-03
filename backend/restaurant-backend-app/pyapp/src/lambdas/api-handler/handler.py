@@ -384,7 +384,7 @@ class ApiHandler(AbstractLambda):
 
         customers: list[CustomerResponse] = self._customers_service.get_customers()
         return build_response(
-            [customer.model_dump() for customer in customers],
+            [customer.model_dump(mode="json") for customer in customers],
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 

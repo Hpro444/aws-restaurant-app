@@ -29,8 +29,12 @@ class TestCustomers(ApiHandlerLambdaTestCase):
         )
         self.HANDLER._customers_service.get_customers = MagicMock(
             return_value=[
-                CustomerResponse(user_name="Jane Doe", email="jane@example.com"),
-                CustomerResponse(user_name="John Smith", email="john@example.com"),
+                CustomerResponse(
+                    id=uuid4(), user_name="Jane Doe", email="jane@example.com"
+                ),
+                CustomerResponse(
+                    id=uuid4(), user_name="John Smith", email="john@example.com"
+                ),
             ]
         )
 
