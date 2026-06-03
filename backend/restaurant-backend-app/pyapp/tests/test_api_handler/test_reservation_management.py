@@ -134,6 +134,25 @@ class TestReservationManagement(ApiHandlerLambdaTestCase):
             role=UserRole.CUSTOMER,
         )
 
+    def test_cancel_reservation_passes_waiter_identity_to_service(self) -> None:
+        """Handler forwards waiter id from access token for waiter cancellation flow."""
+        waiter_id = str(uuid4())
+        self.HANDLER._cognito_service.get_identity_from_access_token = MagicMock(
+            return_value=(waiter_id, UserRole.WAITER)
+        )
+
+        result = self.HANDLER.lambda_handler(
+            make_event(_CANCEL_PATH, "DELETE", headers=_VALID_HEADERS),
+            {},
+        )
+
+        self.assertEqual(status(result), 200)
+        self.HANDLER._reservation_management_service.cancel_reservation.assert_called_once_with(
+            reservation_id=_RESERVATION_ID,
+            actor_id=waiter_id,
+            role=UserRole.WAITER,
+        )
+
     def test_cancel_reservation_missing_auth_returns_401(self) -> None:
         """DELETE /bookings/client/{id}/cancel without Authorization header returns 401."""
         result = self.HANDLER.lambda_handler(

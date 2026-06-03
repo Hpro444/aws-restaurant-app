@@ -226,6 +226,7 @@ class TestReservationManagementService(unittest.TestCase):
     def test_cancel_sets_status_cancelled_and_releases_slot(self):
         """Successful cancel updates reservation status and frees reserved slots."""
         service, reservation, customer_id, _ = _build_service(start_in_minutes=120)
+        slot = service._slot_repo.find_by_ids(reservation.slot_ids)[0]
 
         response = service.cancel_reservation(
             reservation_id=reservation.id,
@@ -234,6 +235,8 @@ class TestReservationManagementService(unittest.TestCase):
         )
 
         self.assertEqual(response.status, ReservationStatus.CANCELLED)
+        self.assertEqual(reservation.status, ReservationStatus.CANCELLED)
+        self.assertEqual(slot.status, SlotStatus.FREE)
 
     def test_assigned_waiter_can_progress_status_to_finished(self):
         """Assigned waiter can move reservation RESERVED->IN_PROGRESS->FINISHED."""
@@ -363,6 +366,35 @@ class TestReservationManagementService(unittest.TestCase):
 
         self.assertEqual(response.status, ReservationStatus.CANCELLED)
 
+    def test_assigned_waiter_can_cancel_within_cutoff_window(self):
+        """Assigned waiter can cancel even when reservation starts within 30 minutes."""
+        service, reservation, _, waiter_id = _build_service(start_in_minutes=20)
+        slot = service._slot_repo.find_by_ids(reservation.slot_ids)[0]
+
+        response = service.cancel_reservation(
+            reservation_id=reservation.id,
+            actor_id=waiter_id,
+            role=UserRole.WAITER,
+        )
+
+        self.assertEqual(response.status, ReservationStatus.CANCELLED)
+        self.assertEqual(reservation.status, ReservationStatus.CANCELLED)
+        self.assertEqual(slot.status, SlotStatus.FREE)
+
+    def test_unassigned_waiter_cannot_cancel(self):
+        """A waiter can cancel only reservations assigned to that same waiter id."""
+        service, reservation, _, _ = _build_service(start_in_minutes=120)
+        other_waiter_id = uuid4()
+
+        with self.assertRaises(ApplicationException) as ctx:
+            service.cancel_reservation(
+                reservation_id=reservation.id,
+                actor_id=other_waiter_id,
+                role=UserRole.WAITER,
+            )
+
+        self.assertEqual(ctx.exception.code, 403)
+
     def test_unrelated_customer_cannot_cancel(self):
         """A customer who does not own the reservation receives 403."""
         service, reservation, _, _ = _build_service(start_in_minutes=120)
@@ -394,6 +426,19 @@ class TestReservationManagementService(unittest.TestCase):
     def test_cancel_29_minutes_before_start_raises_422(self):
         """Cancel at 29 minutes before start is inside the 30-minute cutoff window."""
         service, reservation, customer_id, _ = _build_service(start_in_minutes=29)
+
+        with self.assertRaises(ApplicationException) as ctx:
+            service.cancel_reservation(
+                reservation_id=reservation.id,
+                actor_id=customer_id,
+                role=UserRole.CUSTOMER,
+            )
+
+        self.assertEqual(ctx.exception.code, 422)
+
+    def test_cancel_exactly_30_minutes_before_start_raises_422(self):
+        """Customer cancel at exactly 30 minutes before start is inside cutoff."""
+        service, reservation, customer_id, _ = _build_service(start_in_minutes=30)
 
         with self.assertRaises(ApplicationException) as ctx:
             service.cancel_reservation(
