@@ -12,7 +12,11 @@ from dto.create_booking import CreateBookingRequest
 from dto.customers import CustomerResponse
 from dto.dishes import GetDishesRequest
 from dto.error_response import FieldError, ValidationErrorResponse
-from dto.feedbacks import PageFeedbackResponse
+from dto.feedbacks import (
+    LeaveFeedbackRequest,
+    LeaveFeedbackResponse,
+    PageFeedbackResponse,
+)
 from dto.locations import LocationAddressResponse, LocationResponse
 from dto.logout import LogoutRequest, LogoutResponse
 from dto.refresh import RefreshRequest, RefreshResponse
@@ -134,6 +138,7 @@ class ApiHandler(AbstractLambda):
             self._get_speciality_dishes_by_location,
         )
         router.add("GET", "/locations/{id}/feedbacks", self._get_feedbacks_by_location)
+        router.add("POST", "/feedbacks", self._leave_feedback)
 
         router.add("GET", "/bookings/tables", self._get_available_tables)
         router.add("POST", "/bookings/client", self._create_booking)
@@ -998,6 +1003,26 @@ class ApiHandler(AbstractLambda):
         return build_response(
             feedback_page.model_dump(by_alias=True, mode="json"),
             code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    def _leave_feedback(self, event: dict) -> LambdaResponse:
+        """Handle POST /feedbacks/ for customer-submitted feedback."""
+        user_id, role = self._get_actor_context(event)
+        if role != UserRole.CUSTOMER:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
+                "Only customers can leave feedback.",
+            )
+
+        request: LeaveFeedbackRequest = self._validate(
+            LeaveFeedbackRequest, self._parse_body(event)
+        )
+
+        self._feedback_service.leave_feedback(request=request, customer_id=user_id)
+
+        return build_response(
+            LeaveFeedbackResponse(message="Feedback has been created.").model_dump(),
+            code=HttpStatusCode.RESPONSE_CREATED_CODE,
         )
 
 

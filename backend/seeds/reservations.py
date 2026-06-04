@@ -10,12 +10,12 @@ from seeds.utils import seed_id, to_item
 
 
 def seed(dynamodb, tables: dict, context: dict) -> None:
-    """Seed 3 mock reservations: RESERVED, IN_PROGRESS, and CANCELLED.
+    """Seed explicit mock reservations across statuses.
 
-    Also flips the status of the slots held by the two active reservations
+    Also flips the status of slots held by active reservations
     (RESERVED, IN_PROGRESS) to :attr:`SlotStatus.RESERVED` so demo
     availability queries — which now read directly from ``slot.status`` —
-    reflect those bookings. The CANCELLED reservation's slot stays FREE.
+    reflect those bookings. FINISHED and CANCELLED reservations keep slots FREE.
 
     Requires context['slots'].
     """
@@ -25,12 +25,23 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
     customers = context["customers"]
     waiters = context["waiters"]
 
-    if len(slots_list) < 15:
+    if len(slots_list) < 17:
         print("  ! Skipping reservations seed: not enough slots generated")
         return
 
-    # First slots of table #1, #2, and #3 respectively.
-    chosen_slots = [slots_list[0], slots_list[7], slots_list[14]]
+    # Keep the explicit slot-picking pattern used previously and extend it.
+    # First, second, and third slots of table #1, #2, #3.
+    chosen_slots = [
+        slots_list[0],
+        slots_list[7],
+        slots_list[14],
+        slots_list[1],
+        slots_list[8],
+        slots_list[15],
+        slots_list[2],
+        slots_list[9],
+        slots_list[16],
+    ]
     created_at = datetime.now(timezone.utc)
 
     reservations = [
@@ -61,6 +72,60 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             status=ReservationStatus.CANCELLED,
             number_of_guests=3,
         ),
+        Reservation(
+            id=seed_id("reservation", f"{chosen_slots[3].id}:finished"),
+            customer_id=customers["david@example.com"].id,
+            waiter_id=waiters["lea@example.com"].id,
+            created_at=created_at,
+            slot_ids=[chosen_slots[3].id],
+            status=ReservationStatus.FINISHED,
+            number_of_guests=5,
+        ),
+        Reservation(
+            id=seed_id("reservation", f"{chosen_slots[4].id}:finished"),
+            customer_id=customers["emma@example.com"].id,
+            waiter_id=waiters["max@example.com"].id,
+            created_at=created_at,
+            slot_ids=[chosen_slots[4].id],
+            status=ReservationStatus.FINISHED,
+            number_of_guests=2,
+        ),
+        Reservation(
+            id=seed_id("reservation", f"{chosen_slots[5].id}:reserved"),
+            customer_id=customers["frank@example.com"].id,
+            waiter_id=waiters["nina@example.com"].id,
+            created_at=created_at,
+            slot_ids=[chosen_slots[5].id],
+            status=ReservationStatus.RESERVED,
+            number_of_guests=6,
+        ),
+        Reservation(
+            id=seed_id("reservation", f"{chosen_slots[6].id}:finished"),
+            customer_id=customers["grace@example.com"].id,
+            waiter_id=waiters["lea@example.com"].id,
+            created_at=created_at,
+            slot_ids=[chosen_slots[6].id],
+            status=ReservationStatus.FINISHED,
+            number_of_guests=4,
+        ),
+        Reservation(
+            id=seed_id("reservation", f"{chosen_slots[7].id}:in-progress"),
+            customer_id=customers["henry@example.com"].id,
+            waiter_id=waiters["max@example.com"].id,
+            created_at=created_at,
+            slot_ids=[chosen_slots[7].id],
+            status=ReservationStatus.IN_PROGRESS,
+            number_of_guests=3,
+        ),
+        Reservation(
+            id=seed_id("reservation", f"{chosen_slots[8].id}:finished"),
+            customer_id=customers["iris@example.com"].id,
+            waiter_id=waiters["nina@example.com"].id,
+            created_at=created_at,
+            slot_ids=[chosen_slots[8].id],
+            status=ReservationStatus.FINISHED,
+            number_of_guests=2,
+        ),
     ]
 
     with reservations_table.batch_writer() as batch:
@@ -69,7 +134,12 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
 
     # Flip the slots claimed by active reservations to RESERVED so
     # availability queries reflect the demo bookings.
-    active_slots = [chosen_slots[0], chosen_slots[1]]
+    active_slots = [
+        chosen_slots[0],
+        chosen_slots[1],
+        chosen_slots[5],
+        chosen_slots[7],
+    ]
     with slots_table.batch_writer() as batch:
         for slot in active_slots:
             slot.status = SlotStatus.RESERVED
@@ -77,7 +147,10 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
 
     print(
         f"  ✓ Seeded {len(reservations)} reservations "
-        "(2 active, 1 cancelled for testing) and flipped 2 slots to RESERVED"
+        f"({len(active_slots)} active, "
+        f"{sum(1 for r in reservations if r.status == ReservationStatus.FINISHED)} finished, "
+        f"{sum(1 for r in reservations if r.status == ReservationStatus.CANCELLED)} cancelled) "
+        f"and flipped {len(active_slots)} slots to RESERVED"
     )
 
     # Expose the created reservations so the waiter-view projection seeder can
