@@ -8,6 +8,7 @@ from uuid import UUID, uuid4
 from commons.app_config import AppConfig
 from commons.exceptions import ApplicationException
 from commons.log_helper import logger
+from commons.uuid_utils import coerce_uuid
 from domain.reservation import Reservation
 from domain.reservation_waiter_view import ReservationWaiterView
 from domain.slot import Slot
@@ -108,7 +109,7 @@ class BookingService:
                 for validation, lookup, capacity, or contention failures.
 
         """
-        customer_uuid = self._coerce_uuid(customer_id, field_name="customer_id")
+        customer_uuid = coerce_uuid(customer_id, field_name="customer_id")
 
         table = self._find_table(request.location_id, request.table_number)
         self._check_capacity(table, request.guests_number)
@@ -224,20 +225,6 @@ class BookingService:
         )
 
     # ── Private helpers ─────────────────────────────────────────────
-
-    @staticmethod
-    def _coerce_uuid(value: UUID | str, field_name: str) -> UUID:
-        """Coerce ``value`` to UUID or raise a 401 if it cannot be parsed."""
-        if isinstance(value, UUID):
-            return value
-        try:
-            return UUID(value)
-        except (ValueError, TypeError) as exc:
-            logger.warning("Invalid UUID for field", field=field_name, value=value)
-            raise ApplicationException(
-                HttpStatusCode.RESPONSE_UNAUTHORIZED,
-                "Invalid authenticated identity",
-            ) from exc
 
     def _pick_waiter_for_location(self, location_id: UUID) -> UUID | None:
         """Return a deterministic waiter id for the reservation location.

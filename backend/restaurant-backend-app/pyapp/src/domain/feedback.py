@@ -13,6 +13,7 @@ class Feedback(DynamoModel, ABC):
     """Base class for feedback models; must be subclassed as FeedbackCuisine or FeedbackService."""
 
     id: UUID
+    reservation_id: UUID | None = None
     customer_id: UUID | None
     feedback: str
     rate: int | None = None

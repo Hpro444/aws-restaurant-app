@@ -86,6 +86,8 @@ dependencies = [
     { name = "aws-syndicate" },
     { name = "pip" },
     { name = "pre-commit" },
+    { name = "pydantic", extra = ["email"] },
+    { name = "pydantic-settings" },
     { name = "pyjwt" },
     { name = "structlog" },
 ]

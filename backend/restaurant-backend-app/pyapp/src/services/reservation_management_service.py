@@ -8,6 +8,7 @@ from uuid import UUID
 from commons.app_config import AppConfig
 from commons.exceptions import ApplicationException
 from commons.log_helper import logger
+from commons.uuid_utils import coerce_uuid
 from domain.reservation import Reservation
 from domain.reservation_waiter_view import ReservationWaiterView
 from dto.reservation_event import ReservationEventMessage, ReservationEventType
@@ -84,7 +85,7 @@ class ReservationManagementService:
         role: str,
     ) -> ReservationListResponse:
         """Return reservations visible to a customer or assigned waiter."""
-        actor_uuid = self._coerce_uuid(actor_id)
+        actor_uuid = coerce_uuid(actor_id)
 
         if role == UserRole.CUSTOMER:
             reservations = self._reservation_repo.find_by_customer_id(actor_uuid)
@@ -119,7 +120,7 @@ class ReservationManagementService:
         The caller's ``location_id`` is resolved from their Waiter profile, then a
         single GSI query returns the matching denormalized projection rows.
         """
-        waiter_uuid = self._coerce_uuid(waiter_id)
+        waiter_uuid = coerce_uuid(waiter_id)
         waiter = self._waiter_repo.get(waiter_uuid)
         if waiter is None:
             raise ApplicationException(
@@ -166,7 +167,7 @@ class ReservationManagementService:
 
         return self._build_reservation_view(
             reservation=reservation,
-            actor_id=self._coerce_uuid(actor_id),
+            actor_id=coerce_uuid(actor_id),
             role=role,
         )
 
@@ -178,7 +179,7 @@ class ReservationManagementService:
         role: str,
     ) -> ReservationView:
         """Apply allowed edits/status updates and return refreshed reservation payload."""
-        actor_uuid = self._coerce_uuid(actor_id)
+        actor_uuid = coerce_uuid(actor_id)
         reservation = self._get_accessible_reservation(
             reservation_id=reservation_id,
             actor_id=actor_uuid,
@@ -232,7 +233,7 @@ class ReservationManagementService:
         role: str,
     ) -> ReservationView:
         """Cancel a reservation if caller is customer or assigned waiter before cutoff."""
-        actor_uuid = self._coerce_uuid(actor_id)
+        actor_uuid = coerce_uuid(actor_id)
         reservation = self._get_accessible_reservation(
             reservation_id=reservation_id,
             actor_id=actor_uuid,
@@ -263,19 +264,6 @@ class ReservationManagementService:
                 logger.error("SQS publish failed in cancel_reservation", exc_info=True)
         return view
 
-    @staticmethod
-    def _coerce_uuid(value: UUID | str) -> UUID:
-        """Convert UUID-like values and reject malformed identity strings."""
-        if isinstance(value, UUID):
-            return value
-        try:
-            return UUID(value)
-        except (ValueError, TypeError) as exc:
-            raise ApplicationException(
-                HttpStatusCode.RESPONSE_UNAUTHORIZED,
-                "Invalid authenticated identity",
-            ) from exc
-
     def _get_accessible_reservation(
         self,
         reservation_id: UUID | str,
@@ -283,8 +271,8 @@ class ReservationManagementService:
         role: str,
     ) -> Reservation:
         """Load reservation and ensure actor has ownership/assignment access."""
-        reservation_uuid = self._coerce_uuid(reservation_id)
-        actor_uuid = self._coerce_uuid(actor_id)
+        reservation_uuid = coerce_uuid(reservation_id)
+        actor_uuid = coerce_uuid(actor_id)
 
         reservation = self._reservation_repo.get(reservation_uuid)
         if reservation is None:

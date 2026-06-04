@@ -18,8 +18,8 @@ class Reservation(DynamoModel):
     """
 
     id: UUID
-    customer_id: UUID | None
-    waiter_id: UUID | None
+    customer_id: UUID | None = None
+    waiter_id: UUID | None = None
     created_at: AwareDatetime
     slot_ids: list[UUID]
     status: ReservationStatus

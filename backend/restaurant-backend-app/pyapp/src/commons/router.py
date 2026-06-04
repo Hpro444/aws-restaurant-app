@@ -29,7 +29,7 @@ class Router:
     def add(self, method: str, template: str, handler: RouteHandler) -> None:
         """Register an API route and dispatch to the provided handler."""
         normalized_method = method.upper()
-        normalized_template = self._convert_template(template)
+        normalized_template = self._normalize_path(self._convert_template(template))
 
         # podrzava pozivanje handlera sa event dict-om ili bez
         handler_parameters = inspect.signature(handler).parameters
@@ -59,13 +59,25 @@ class Router:
 
     def dispatch(self, event: dict, context: object) -> LambdaResponse:
         """Resolve request via APIGRR and return existing LambdaResponse model."""
-        resolved = self._app.resolve(event, context)
+        normalized_event = dict(event)
+        raw_path = normalized_event.get("path")
+        if isinstance(raw_path, str):
+            normalized_event["path"] = self._normalize_path(raw_path)
+
+        resolved = self._app.resolve(normalized_event, context)
         return LambdaResponse.model_validate(resolved)
 
     @classmethod
     def _convert_template(cls, template: str) -> str:
         """Convert /path/{id} templates to APIGRR /path/<id> syntax."""
         return cls._TEMPLATE_PARAM_PATTERN.sub(r"<\1>", template)
+
+    @staticmethod
+    def _normalize_path(path: str) -> str:
+        """Normalize route paths so `/foo` and `/foo/` resolve to the same handler."""
+        if path == "/":
+            return path
+        return path.rstrip("/")
 
     def _register_not_found_handler(self) -> None:
         """Keep not-found response payload compatible with existing behavior."""

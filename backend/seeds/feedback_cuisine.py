@@ -1,655 +1,82 @@
 """Seed module for cuisine feedback."""
 
+from __future__ import annotations
+
+from uuid import NAMESPACE_URL, uuid5
+
 from domain.feedback import FeedbackCuisine  # type: ignore[import-not-found]
+from enums.reservation_status import ReservationStatus  # type: ignore[import-not-found]
 
-from seeds.utils import seed_id
-
-_S3 = "https://epam-restaurantapp-dev-eu-west-3-frontend.s3.eu-west-3.amazonaws.com/images"
-
-_AVATAR = {
-    "alice": f"{_S3}/user_avatar_1.png",
-    "bob": f"{_S3}/user_avatar_2.png",
-    "carol": f"{_S3}/user_avatar_3.png",
-    "david": f"{_S3}/user_avatar_default.png",
-    "emma": f"{_S3}/user_avatar_1.png",
-    "frank": f"{_S3}/user_avatar_2.png",
-    "grace": f"{_S3}/user_avatar_3.png",
-    "henry": f"{_S3}/user_avatar_default.png",
-    "iris": f"{_S3}/user_avatar_1.png",
-    "james": f"{_S3}/user_avatar_2.png",
-    "kate": f"{_S3}/user_avatar_3.png",
-}
+_CULINARY_COMMENTS = [
+    "Food quality was excellent and beautifully presented.",
+    "Well-balanced flavors and fresh ingredients.",
+    "Very satisfying meal with authentic taste.",
+    "Great dish quality and consistent kitchen execution.",
+]
 
 
 def seed(dynamodb, tables: dict, context: dict) -> None:
-    """Seed 2 cuisine feedback entries per user per location (66 total).
+    """Seed one culinary feedback per reservation using reservation-based deterministic IDs.
 
-    Requires context['locations'] populated by the locations seeder.
+    This aligns seed IDs with runtime duplicate-prevention logic:
+    ``uuid5(NAMESPACE_URL, f"culinary:{reservation_id}")``.
+
+    Requires context['reservations'], context['customers'], context['slots'], and context['tables'].
     """
     table = dynamodb.Table(tables["feedback_cuisine"])
-    locations = context["locations"]
-    _c = context["customers"]
 
-    downtown_id = seed_id("location", "downtown")
-    airport_id = seed_id("location", "airport")
-    old_town_id = seed_id("location", "old-town")
+    reservations = context.get("reservations", [])
+    customers = context.get("customers", {})
+    slots = context.get("slots", [])
+    tables_list = context.get("tables", [])
 
-    alice_id = _c["alice@example.com"].id
-    bob_id = _c["bob@example.com"].id
-    carol_id = _c["carol@example.com"].id
-    david_id = _c["david@example.com"].id
-    emma_id = _c["emma@example.com"].id
-    frank_id = _c["frank@example.com"].id
-    grace_id = _c["grace@example.com"].id
-    henry_id = _c["henry@example.com"].id
-    iris_id = _c["iris@example.com"].id
-    james_id = _c["james@example.com"].id
-    kate_id = _c["kate@example.com"].id
+    customer_by_id = {customer.id: customer for customer in customers.values()}
+    slots_by_id = {slot.id: slot for slot in slots}
+    tables_by_id = {table_obj.id: table_obj for table_obj in tables_list}
 
-    entries = [
-        # ── Downtown ──────────────────────────────────────────────────────────
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "alice:downtown"),
-            customer_id=alice_id,
-            user_image_url=_AVATAR["alice"],
-            feedback="Absolutely loved the Pasta Carbonara — rich, creamy, and perfectly cooked. Will definitely be back!",
-            location_id=locations[downtown_id].id,
-            rate=5,
-            date="2026-05-20T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "alice:downtown:2"),
-            customer_id=alice_id,
-            user_image_url=_AVATAR["alice"],
-            feedback="Returned for the avocado pine nut bowl — healthy, well-balanced, and beautifully presented. A reliable lighter option.",
-            location_id=locations[downtown_id].id,
-            rate=4,
-            date="2026-05-10T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "bob:downtown"),
-            customer_id=bob_id,
-            user_image_url=_AVATAR["bob"],
-            feedback="The Beef Burger was outstanding. Juicy patty, great toppings. Best burger I've had in the city.",
-            location_id=locations[downtown_id].id,
-            rate=4,
-            date="2026-05-20T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "bob:downtown:2"),
-            customer_id=bob_id,
-            user_image_url=_AVATAR["bob"],
-            feedback="Came back and tried the salmon — perfectly seared with a lovely lemon butter sauce. Another hit from this kitchen.",
-            location_id=locations[downtown_id].id,
-            rate=5,
-            date="2026-05-06T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "carol:downtown"),
-            customer_id=carol_id,
-            user_image_url=_AVATAR["carol"],
-            feedback="Caesar Salad was fresh and well-balanced. Would have appreciated a bigger portion for the price.",
-            location_id=locations[downtown_id].id,
-            rate=3,
-            date="2026-05-20T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "carol:downtown:2"),
-            customer_id=carol_id,
-            user_image_url=_AVATAR["carol"],
-            feedback="Second visit was similar to the first — decent quality but the service could be a little quicker during peak hours.",
-            location_id=locations[downtown_id].id,
-            rate=3,
-            date="2026-05-11T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "david:downtown"),
-            customer_id=david_id,
-            user_image_url=_AVATAR["david"],
-            feedback="Extremely disappointing. The pasta was overcooked and the sauce watery. Nothing like the menu description.",
-            location_id=locations[downtown_id].id,
-            rate=1,
-            date="2026-04-15T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "david:downtown:2"),
-            customer_id=david_id,
-            user_image_url=_AVATAR["david"],
-            feedback="Gave this place another chance but the quality has not improved. Bland flavours and overpriced for what you get.",
-            location_id=locations[downtown_id].id,
-            rate=2,
-            date="2026-05-03T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "emma:downtown"),
-            customer_id=emma_id,
-            user_image_url=_AVATAR["emma"],
-            feedback="The pizza arrived lukewarm and the dough was underbaked. Mediocre at best — expected much more.",
-            location_id=locations[downtown_id].id,
-            rate=2,
-            date="2026-04-18T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "emma:downtown:2"),
-            customer_id=emma_id,
-            user_image_url=_AVATAR["emma"],
-            feedback="Better this time — the pasta was cooked properly and the sauce had more depth. Still not spectacular but acceptable.",
-            location_id=locations[downtown_id].id,
-            rate=3,
-            date="2026-05-07T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "frank:downtown"),
-            customer_id=frank_id,
-            user_image_url=_AVATAR["frank"],
-            feedback="Very poor quality this visit. My burger was dry and the fries cold. Complete waste of money.",
-            location_id=locations[downtown_id].id,
-            rate=1,
-            date="2026-04-22T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "frank:downtown:2"),
-            customer_id=frank_id,
-            user_image_url=_AVATAR["frank"],
-            feedback="Another disappointing visit. The burger had too much sauce and was impossible to eat neatly. Will not return.",
-            location_id=locations[downtown_id].id,
-            rate=2,
-            date="2026-05-09T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "grace:downtown"),
-            customer_id=grace_id,
-            user_image_url=_AVATAR["grace"],
-            feedback="Below expectations. The soup was bland and the bread stale. Service tried to compensate but the food let it down.",
-            location_id=locations[downtown_id].id,
-            rate=2,
-            date="2026-05-02T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "grace:downtown:2"),
-            customer_id=grace_id,
-            user_image_url=_AVATAR["grace"],
-            feedback="Tried the chocolate mousse with berries on my second visit — absolutely worth coming back for. A real highlight.",
-            location_id=locations[downtown_id].id,
-            rate=4,
-            date="2026-05-14T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "henry:downtown"),
-            customer_id=henry_id,
-            user_image_url=_AVATAR["henry"],
-            feedback="The chocolate mousse with berries was exceptional — light, silky, and beautifully presented. Best dessert in town.",
-            location_id=locations[downtown_id].id,
-            rate=5,
-            date="2026-05-08T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "henry:downtown:2"),
-            customer_id=henry_id,
-            user_image_url=_AVATAR["henry"],
-            feedback="Back again for the dessert selection. The pineapple tart was a revelation — exquisite patisserie skills on display.",
-            location_id=locations[downtown_id].id,
-            rate=4,
-            date="2026-05-17T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "iris:downtown"),
-            customer_id=iris_id,
-            user_image_url=_AVATAR["iris"],
-            feedback="Really enjoyed the Margherita. Fresh mozzarella and the crust had a lovely char. Will be ordering again.",
-            location_id=locations[downtown_id].id,
-            rate=4,
-            date="2026-05-12T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "iris:downtown:2"),
-            customer_id=iris_id,
-            user_image_url=_AVATAR["iris"],
-            feedback="Reliable quality across two visits. The bruschetta was a highlight — fresh tomatoes and excellent olive oil.",
-            location_id=locations[downtown_id].id,
-            rate=5,
-            date="2026-05-19T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "james:downtown"),
-            customer_id=james_id,
-            user_image_url=_AVATAR["james"],
-            feedback="Decent food overall but nothing exceptional. Portions could be a bit larger for the price charged.",
-            location_id=locations[downtown_id].id,
-            rate=3,
-            date="2026-05-16T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "james:downtown:2"),
-            customer_id=james_id,
-            user_image_url=_AVATAR["james"],
-            feedback="Similar to before — decent food, average portions. Nothing to complain about but nothing to rave about either.",
-            location_id=locations[downtown_id].id,
-            rate=3,
-            date="2026-05-04T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "kate:downtown"),
-            customer_id=kate_id,
-            user_image_url=_AVATAR["kate"],
-            feedback="Good atmosphere and friendly staff. The salad was fresh but the main course was a bit underwhelming for the price.",
-            location_id=locations[downtown_id].id,
-            rate=3,
-            date="2026-04-28T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "kate:downtown:2"),
-            customer_id=kate_id,
-            user_image_url=_AVATAR["kate"],
-            feedback="Wonderful second evening. The pasta was perfectly al dente and the tiramisu was the best I have had outside Italy.",
-            location_id=locations[downtown_id].id,
-            rate=5,
-            date="2026-05-18T00:00:00Z",
-        ),
-        # ── Airport ───────────────────────────────────────────────────────────
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "alice:airport"),
-            customer_id=alice_id,
-            user_image_url=_AVATAR["alice"],
-            feedback="Fish & Chips were crispy and hot — impressive for an airport kitchen. Tartare sauce was excellent.",
-            location_id=locations[airport_id].id,
-            rate=4,
-            date="2026-05-20T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "alice:airport:2"),
-            customer_id=alice_id,
-            user_image_url=_AVATAR["alice"],
-            feedback="Second visit and the quality remained consistently high. The soup of the day was excellent — hot and full of flavour.",
-            location_id=locations[airport_id].id,
-            rate=5,
-            date="2026-05-08T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "bob:airport"),
-            customer_id=bob_id,
-            user_image_url=_AVATAR["bob"],
-            feedback="Chicken wrap was fresh and filling. Great option when you need something quick before a flight.",
-            location_id=locations[airport_id].id,
-            rate=5,
-            date="2026-05-20T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "bob:airport:2"),
-            customer_id=bob_id,
-            user_image_url=_AVATAR["bob"],
-            feedback="Returned before another flight. The avocado bowl was fresh and filling. Good value for an airport setting.",
-            location_id=locations[airport_id].id,
-            rate=4,
-            date="2026-05-12T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "carol:airport"),
-            customer_id=carol_id,
-            user_image_url=_AVATAR["carol"],
-            feedback="Minestrone was hearty and warming. Nice to find a proper home-style soup in an airport.",
-            location_id=locations[airport_id].id,
-            rate=4,
-            date="2026-05-20T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "carol:airport:2"),
-            customer_id=carol_id,
-            user_image_url=_AVATAR["carol"],
-            feedback="The pasta salad on this visit was a pleasant surprise — well-seasoned and generously portioned for a quick stop.",
-            location_id=locations[airport_id].id,
-            rate=4,
-            date="2026-05-06T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "david:airport"),
-            customer_id=david_id,
-            user_image_url=_AVATAR["david"],
-            feedback="Waited a long time for a simple burger that arrived lukewarm. Not impressed given the premium prices charged here.",
-            location_id=locations[airport_id].id,
-            rate=2,
-            date="2026-04-14T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "david:airport:2"),
-            customer_id=david_id,
-            user_image_url=_AVATAR["david"],
-            feedback="Better than my first experience. The staff were more attentive and the food arrived promptly this time.",
-            location_id=locations[airport_id].id,
-            rate=3,
-            date="2026-05-05T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "emma:airport"),
-            customer_id=emma_id,
-            user_image_url=_AVATAR["emma"],
-            feedback="Average experience overall. Food was acceptable but nothing memorable. Fine for an airport setting.",
-            location_id=locations[airport_id].id,
-            rate=3,
-            date="2026-05-15T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "emma:airport:2"),
-            customer_id=emma_id,
-            user_image_url=_AVATAR["emma"],
-            feedback="Improved noticeably from my last visit. The sandwich was fresh and the service was friendly and efficient.",
-            location_id=locations[airport_id].id,
-            rate=4,
-            date="2026-05-04T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "frank:airport"),
-            customer_id=frank_id,
-            user_image_url=_AVATAR["frank"],
-            feedback="Good club sandwich with generous portions. Exactly what you need during a long-haul layover.",
-            location_id=locations[airport_id].id,
-            rate=4,
-            date="2026-05-11T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "frank:airport:2"),
-            customer_id=frank_id,
-            user_image_url=_AVATAR["frank"],
-            feedback="Superb second experience. The fish and chips were even better than the first time — perfectly crispy batter.",
-            location_id=locations[airport_id].id,
-            rate=5,
-            date="2026-05-19T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "grace:airport"),
-            customer_id=grace_id,
-            user_image_url=_AVATAR["grace"],
-            feedback="The sweet potato lentil salad was a genuine surprise — packed with flavour and very satisfying for a light meal.",
-            location_id=locations[airport_id].id,
-            rate=5,
-            date="2026-05-07T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "grace:airport:2"),
-            customer_id=grace_id,
-            user_image_url=_AVATAR["grace"],
-            feedback="Decent second visit though the portions were slightly smaller than before. Still good value for an airport restaurant.",
-            location_id=locations[airport_id].id,
-            rate=3,
-            date="2026-05-16T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "henry:airport"),
-            customer_id=henry_id,
-            user_image_url=_AVATAR["henry"],
-            feedback="Bland and uninspiring. The Greek salad was wilted and the dressing too acidic. Disappointing.",
-            location_id=locations[airport_id].id,
-            rate=2,
-            date="2026-05-01T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "henry:airport:2"),
-            customer_id=henry_id,
-            user_image_url=_AVATAR["henry"],
-            feedback="The Greek salad was much better on this second visit — fresher ingredients and a well-balanced dressing.",
-            location_id=locations[airport_id].id,
-            rate=4,
-            date="2026-05-13T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "iris:airport"),
-            customer_id=iris_id,
-            user_image_url=_AVATAR["iris"],
-            feedback="Long wait, order came out wrong, and the replacement was also incorrect. Very frustrating experience.",
-            location_id=locations[airport_id].id,
-            rate=1,
-            date="2026-04-20T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "iris:airport:2"),
-            customer_id=iris_id,
-            user_image_url=_AVATAR["iris"],
-            feedback="Still struggling with order accuracy on my return visit. Wrong items delivered again and no apology given.",
-            location_id=locations[airport_id].id,
-            rate=2,
-            date="2026-05-09T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "james:airport"),
-            customer_id=james_id,
-            user_image_url=_AVATAR["james"],
-            feedback="The fish was overcooked and the chips soggy. Expected much better given the menu price.",
-            location_id=locations[airport_id].id,
-            rate=2,
-            date="2026-04-14T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "james:airport:2"),
-            customer_id=james_id,
-            user_image_url=_AVATAR["james"],
-            feedback="Mediocre but consistent. The wrap was fine and the service was polite. Nothing exceptional but nothing awful.",
-            location_id=locations[airport_id].id,
-            rate=3,
-            date="2026-05-10T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "kate:airport"),
-            customer_id=kate_id,
-            user_image_url=_AVATAR["kate"],
-            feedback="Terrible experience. Cold food, rude staff, and a very long wait. Not acceptable for the prices charged.",
-            location_id=locations[airport_id].id,
-            rate=1,
-            date="2026-04-10T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "kate:airport:2"),
-            customer_id=kate_id,
-            user_image_url=_AVATAR["kate"],
-            feedback="Second visit confirmed the first impression. Cold food and indifferent staff. Will not be choosing this again.",
-            location_id=locations[airport_id].id,
-            rate=2,
-            date="2026-05-02T00:00:00Z",
-        ),
-        # ── Old Town ──────────────────────────────────────────────────────────
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "alice:old-town"),
-            customer_id=alice_id,
-            user_image_url=_AVATAR["alice"],
-            feedback="Khachapuri was phenomenal — perfectly baked and rich without being too heavy.",
-            location_id=locations[old_town_id].id,
-            rate=5,
-            date="2026-05-20T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "alice:old-town:2"),
-            customer_id=alice_id,
-            user_image_url=_AVATAR["alice"],
-            feedback="Returned and tried the Mtsvadi — smoky, tender, and beautifully seasoned. Another excellent choice from this kitchen.",
-            location_id=locations[old_town_id].id,
-            rate=4,
-            date="2026-05-11T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "bob:old-town"),
-            customer_id=bob_id,
-            user_image_url=_AVATAR["bob"],
-            feedback="Khinkali were juicy and flavorful. Great recommendation from the staff.",
-            location_id=locations[old_town_id].id,
-            rate=4,
-            date="2026-05-20T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "bob:old-town:2"),
-            customer_id=bob_id,
-            user_image_url=_AVATAR["bob"],
-            feedback="The Adjarian Khachapuri on this visit was extraordinary. Best version I have ever tasted anywhere.",
-            location_id=locations[old_town_id].id,
-            rate=5,
-            date="2026-05-08T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "carol:old-town"),
-            customer_id=carol_id,
-            user_image_url=_AVATAR["carol"],
-            feedback="Lobio was comforting and well seasoned, though I wanted a bit more spice.",
-            location_id=locations[old_town_id].id,
-            rate=4,
-            date="2026-05-20T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "carol:old-town:2"),
-            customer_id=carol_id,
-            user_image_url=_AVATAR["carol"],
-            feedback="Second visit was fine. The flavours were good but I wished there was a bit more variety on the menu.",
-            location_id=locations[old_town_id].id,
-            rate=3,
-            date="2026-05-07T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "david:old-town"),
-            customer_id=david_id,
-            user_image_url=_AVATAR["david"],
-            feedback="Food was cold and portions disappointingly small. Paid tourist prices for below-average quality.",
-            location_id=locations[old_town_id].id,
-            rate=1,
-            date="2026-04-12T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "david:old-town:2"),
-            customer_id=david_id,
-            user_image_url=_AVATAR["david"],
-            feedback="No improvement from last time. The Khinkali were dense and tasteless. Staff seemed completely uninterested.",
-            location_id=locations[old_town_id].id,
-            rate=1,
-            date="2026-05-04T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "emma:old-town"),
-            customer_id=emma_id,
-            user_image_url=_AVATAR["emma"],
-            feedback="Expected authentic Georgian flavours but everything tasted quite generic. The Khinkali lacked seasoning.",
-            location_id=locations[old_town_id].id,
-            rate=2,
-            date="2026-04-16T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "emma:old-town:2"),
-            customer_id=emma_id,
-            user_image_url=_AVATAR["emma"],
-            feedback="Another disappointment. The Lobio was again underseasoned and the service slow and inattentive.",
-            location_id=locations[old_town_id].id,
-            rate=2,
-            date="2026-05-06T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "frank:old-town"),
-            customer_id=frank_id,
-            user_image_url=_AVATAR["frank"],
-            feedback="Rude staff and overcooked Mtsvadi. Very disappointed — this place has gone downhill.",
-            location_id=locations[old_town_id].id,
-            rate=1,
-            date="2026-04-21T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "frank:old-town:2"),
-            customer_id=frank_id,
-            user_image_url=_AVATAR["frank"],
-            feedback="Got the Mtsvadi this time but it was overcooked and dry. Continues to be a below-average experience.",
-            location_id=locations[old_town_id].id,
-            rate=2,
-            date="2026-05-10T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "grace:old-town"),
-            customer_id=grace_id,
-            user_image_url=_AVATAR["grace"],
-            feedback="The Lobio was underseasoned and the cornbread dry. Overall below average for the area.",
-            location_id=locations[old_town_id].id,
-            rate=2,
-            date="2026-05-03T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "grace:old-town:2"),
-            customer_id=grace_id,
-            user_image_url=_AVATAR["grace"],
-            feedback="Tried the Khachapuri on this visit — wonderfully cheesy and perfectly baked. A real improvement from last time.",
-            location_id=locations[old_town_id].id,
-            rate=4,
-            date="2026-05-15T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "henry:old-town"),
-            customer_id=henry_id,
-            user_image_url=_AVATAR["henry"],
-            feedback="The pineapple tart with vanilla soufflé was simply divine — perfectly balanced and beautifully presented.",
-            location_id=locations[old_town_id].id,
-            rate=5,
-            date="2026-05-09T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "henry:old-town:2"),
-            customer_id=henry_id,
-            user_image_url=_AVATAR["henry"],
-            feedback="The Adjarian Khachapuri was as good as everyone says. Combined with the dessert, a perfect Georgian meal.",
-            location_id=locations[old_town_id].id,
-            rate=5,
-            date="2026-05-18T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "iris:old-town"),
-            customer_id=iris_id,
-            user_image_url=_AVATAR["iris"],
-            feedback="Authentic and delicious Georgian food. The Adjarian Khachapuri was the undisputed highlight of the evening.",
-            location_id=locations[old_town_id].id,
-            rate=4,
-            date="2026-05-13T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "iris:old-town:2"),
-            customer_id=iris_id,
-            user_image_url=_AVATAR["iris"],
-            feedback="Returned and had the Khinkali this time — juicy and flavoursome. The staff were warm and attentive.",
-            location_id=locations[old_town_id].id,
-            rate=4,
-            date="2026-05-05T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "james:old-town"),
-            customer_id=james_id,
-            user_image_url=_AVATAR["james"],
-            feedback="Decent Georgian food but the service was slow and the atmosphere a bit noisy. Would still try again.",
-            location_id=locations[old_town_id].id,
-            rate=3,
-            date="2026-05-17T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "james:old-town:2"),
-            customer_id=james_id,
-            user_image_url=_AVATAR["james"],
-            feedback="Similar experience to before. Good food but the venue gets very crowded and noisy in the evening.",
-            location_id=locations[old_town_id].id,
-            rate=3,
-            date="2026-05-07T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "kate:old-town"),
-            customer_id=kate_id,
-            user_image_url=_AVATAR["kate"],
-            feedback="Underwhelming Georgian food. The flavours were authentic but execution was poor and the wait far too long.",
-            location_id=locations[old_town_id].id,
-            rate=2,
-            date="2026-04-25T00:00:00Z",
-        ),
-        FeedbackCuisine(
-            id=seed_id("feedback-cuisine", "kate:old-town:2"),
-            customer_id=kate_id,
-            user_image_url=_AVATAR["kate"],
-            feedback="Second visit was far better — the Khachapuri was excellent and the service had improved greatly.",
-            location_id=locations[old_town_id].id,
-            rate=4,
-            date="2026-05-16T00:00:00Z",
-        ),
-    ]
+    if not reservations:
+        print("  ! Skipping cuisine feedback seed: no reservations in context")
+        return
+
+    entries: list[FeedbackCuisine] = []
+    for index, reservation in enumerate(reservations):
+        if reservation.status != ReservationStatus.FINISHED:
+            continue
+
+        if not reservation.slot_ids:
+            continue
+
+        first_slot = slots_by_id.get(reservation.slot_ids[0])
+        if first_slot is None:
+            continue
+
+        table_obj = tables_by_id.get(first_slot.table_id)
+        if table_obj is None:
+            continue
+
+        customer = customer_by_id.get(reservation.customer_id)
+        comment = _CULINARY_COMMENTS[index % len(_CULINARY_COMMENTS)]
+        rating = 3 + (uuid5(NAMESPACE_URL, f"culinary-rate:{reservation.id}").int % 3)
+        user_name = None
+        if customer is not None:
+            user_name = f"{customer.fname} {customer.lname}"
+
+        entries.append(
+            FeedbackCuisine(
+                id=uuid5(NAMESPACE_URL, f"culinary:{reservation.id}"),
+                reservation_id=reservation.id,
+                customer_id=reservation.customer_id,
+                user_name=user_name,
+                user_image_url=customer.image_url if customer else None,
+                feedback=comment,
+                location_id=table_obj.location_id,
+                rate=rating,
+                date=reservation.created_at,
+            )
+        )
 
     with table.batch_writer() as batch:
         for entry in entries:
             batch.put_item(Item=entry.model_dump(mode="json"))
 
-    print(
-        f"  ✓ Seeded {len(entries)} cuisine feedback entries (22 per location, 2 per user per location)"
-    )
+    print(f"  ✓ Seeded {len(entries)} cuisine feedback entries (max 1 per reservation)")

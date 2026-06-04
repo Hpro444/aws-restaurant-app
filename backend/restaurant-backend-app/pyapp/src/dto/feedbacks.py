@@ -1,10 +1,78 @@
-"""DTOs for GET /locations/{id}/feedbacks responses."""
+"""DTOs for feedback read and create endpoints."""
 
 from __future__ import annotations
 
 from datetime import datetime
+from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from enums.feedback_type import FeedbackType
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    field_validator,
+)
+
+
+class LeaveFeedbackRequest(BaseModel):
+    """Validated body for POST /feedbacks/."""
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        extra="ignore",
+        str_strip_whitespace=True,
+    )
+
+    # TODO: ukloni alias, i svuda normalizuj "reservationId" na "reservation_id"
+    reservation_id: UUID = Field(
+        ...,
+        alias="reservationId",
+        validation_alias=AliasChoices("reservation_id", "reservationId"),
+    )
+    type: FeedbackType
+    rating: int = Field(..., ge=1, le=5)
+    comment: str | None = None
+
+    @field_validator("type", mode="before")
+    @classmethod
+    def normalize_type(cls, value: object) -> object:
+        """Accept legacy 'cuisine' input and map it to 'culinary'."""
+        if isinstance(value, str) and value.strip().lower() == "cuisine":
+            return FeedbackType.CULINARY
+        return value
+
+    @field_validator("rating", mode="before")
+    @classmethod
+    def coerce_rating(cls, value: object) -> object:
+        """Allow numeric-string ratings while keeping integer validation strict."""
+        if isinstance(value, str) and value.strip():
+            try:
+                return int(value)
+            except ValueError:
+                return value
+        return value
+
+    @field_validator("comment")
+    @classmethod
+    def normalize_comment(
+        cls,
+        value: str | None,
+        info: ValidationInfo,
+    ) -> str:
+        """Store an empty comment when omitted to fit feedback domain schema."""
+        if value is None:
+            return ""
+        return value.strip()
+
+
+class LeaveFeedbackResponse(BaseModel):
+    """Simple success payload for feedback creation."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    message: str
 
 
 class FeedbackResponse(BaseModel):
