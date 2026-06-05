@@ -9,6 +9,7 @@ from uuid import UUID
 
 from commons.app_config import AppConfig
 from commons.log_helper import logger
+from commons.uuid_utils import parse_uuid_or_none
 from domain.slot import Slot
 from domain.table import Table
 from dto.available_tables import (
@@ -56,11 +57,8 @@ class TableAvailabilityService:
         now_utc = datetime.now(timezone.utc)
         is_today = booking_date == now_utc.date().isoformat()
 
-        try:
-            location_uuid = (
-                location_id if isinstance(location_id, UUID) else UUID(location_id)
-            )
-        except (TypeError, ValueError):
+        location_uuid = parse_uuid_or_none(location_id)
+        if location_uuid is None:
             logger.warning("Invalid UUID", value=location_id)
             return AvailableTablesResponse(tables=[])
 
@@ -161,19 +159,96 @@ class TableAvailabilityService:
             location_address=location.address if location else None,
         )
 
+    def get_available_tables_for_waiter(
+        self,
+        location_id: UUID | str,
+        booking_date: str | None,
+        guests_number: int,
+        from_time: str,
+        to_time: str,
+    ) -> AvailableTablesResponse:
+        """Return tables with free slots constrained to a time window.
+
+        Used by the waiter-facing booking flow. Keeps the customer endpoint
+        unchanged while filtering only the slots that fit within from_time/to_time.
+        """
+        logger.info(
+            "get_available_tables_for_waiter called",
+            location_id=str(location_id),
+            date=booking_date,
+            guests=guests_number,
+            from_time=from_time,
+            to_time=to_time,
+        )
+        now_utc = datetime.now(timezone.utc)
+        date_iso = booking_date or now_utc.date().isoformat()
+        is_today = date_iso == now_utc.date().isoformat()
+
+        location_uuid = parse_uuid_or_none(location_id)
+        if location_uuid is None:
+            logger.warning("Invalid UUID", value=location_id)
+            return AvailableTablesResponse(tables=[])
+
+        location = self._location_repo.get(location_uuid)
+        all_tables = self._table_repo.find_by_location_id(location_uuid)
+
+        suitable_tables = [t for t in all_tables if t.capacity >= guests_number]
+        logger.info(
+            "Waiter capacity filter",
+            total_at_location=len(all_tables),
+            suitable=len(suitable_tables),
+        )
+
+        if not suitable_tables:
+            return AvailableTablesResponse(tables=[])
+
+        table_ids = {t.id for t in suitable_tables}
+        slots = self._slot_repo.find_by_table_ids_and_date(table_ids, date_iso)
+        if not slots:
+            logger.info("No slots found", date=date_iso)
+            return AvailableTablesResponse(tables=[])
+
+        requested_start = self._parse_utc_datetime(from_time, date_iso)
+        requested_end = self._parse_utc_datetime(to_time, date_iso)
+
+        free_slots = [
+            slot
+            for slot in slots
+            if slot.status == SlotStatus.FREE
+            and slot.start_time >= requested_start
+            and slot.end_time <= requested_end
+        ]
+
+        if is_today:
+            before_filter = len(free_slots)
+            free_slots = [slot for slot in free_slots if slot.start_time > now_utc]
+            logger.info(
+                "Filtered out past waiter slots for today",
+                before_filter=before_filter,
+                after_filter=len(free_slots),
+            )
+
+        if not free_slots:
+            logger.info(
+                "No waiter free slots in requested window",
+                from_time=from_time,
+                to_time=to_time,
+            )
+            return AvailableTablesResponse(tables=[])
+
+        return self._build_response(
+            suitable_tables,
+            free_slots,
+            location_address=location.address if location else None,
+        )
+
     def get_valid_slot_start_times(
         self,
         location_id: UUID,
         booking_date: str | None = None,
     ) -> list[str]:
         """Return distinct free slot start times for a location and date."""
-        date_iso = booking_date or datetime.now(timezone.utc).date().isoformat()
-        slots = self._get_free_slots_for_location(location_id, date_iso)
-
-        now_utc = datetime.now(timezone.utc)
-        is_today = date_iso == now_utc.date().isoformat()
-        if is_today:
-            slots = [slot for slot in slots if slot.start_time > now_utc]
+        slots = self._get_free_slots_for_location(location_id, booking_date)
 
         start_times = sorted({slot.start_time for slot in slots})
         return [self._format_utc(dt) for dt in start_times]
@@ -185,15 +260,10 @@ class TableAvailabilityService:
         start_time: str | None = None,
     ) -> list[str]:
         """Return distinct free slot end times for a location and date."""
-        date_iso = booking_date or datetime.now(timezone.utc).date().isoformat()
-        slots = self._get_free_slots_for_location(location_id, date_iso)
-
-        now_utc = datetime.now(timezone.utc)
-        is_today = date_iso == now_utc.date().isoformat()
-        if is_today:
-            slots = [slot for slot in slots if slot.start_time > now_utc]
+        slots = self._get_free_slots_for_location(location_id, booking_date)
 
         if start_time:
+            date_iso = booking_date or datetime.now(timezone.utc).date().isoformat()
             start_dt = self._parse_utc_datetime(start_time, date_iso)
             slots = [slot for slot in slots if slot.start_time >= start_dt]
 
@@ -214,16 +284,23 @@ class TableAvailabilityService:
         return slot_dt.time()
 
     def _get_free_slots_for_location(
-        self, location_id: UUID, date_iso: str
+        self, location_id: UUID, booking_date: str | None
     ) -> list[Slot]:
         """Load FREE slots for all tables in location on the requested date."""
+        date_iso = booking_date or datetime.now(timezone.utc).date().isoformat()
         tables = self._table_repo.find_by_location_id(location_id)
         if not tables:
             return []
 
         table_ids = {table.id for table in tables}
         slots = self._slot_repo.find_by_table_ids_and_date(table_ids, date_iso)
-        return [slot for slot in slots if slot.status == SlotStatus.FREE]
+        free_slots = [slot for slot in slots if slot.status == SlotStatus.FREE]
+
+        now_utc = datetime.now(timezone.utc)
+        if date_iso == now_utc.date().isoformat():
+            free_slots = [slot for slot in free_slots if slot.start_time > now_utc]
+
+        return free_slots
 
     @staticmethod
     def _parse_utc_datetime(value: str, date_iso: str) -> datetime:

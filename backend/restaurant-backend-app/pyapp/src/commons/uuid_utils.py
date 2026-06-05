@@ -10,6 +10,17 @@ _DEFAULT_UUID_ERROR_CODE = HttpStatusCode.RESPONSE_UNAUTHORIZED
 _DEFAULT_UUID_ERROR_MESSAGE = "Invalid authenticated identity"
 
 
+def parse_uuid_or_none(value: UUID | str) -> UUID | None:
+    """Return UUID value or None when input cannot be parsed as UUID."""
+    if isinstance(value, UUID):
+        return value
+
+    try:
+        return UUID(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def parse_uuid_or_raise(
     raw_value: UUID | str | None,
     *,

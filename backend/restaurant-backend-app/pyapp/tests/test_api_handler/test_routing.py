@@ -12,6 +12,7 @@ _SIGN_IN_PATH = "/auth/sign-in"
 _REFRESH_PATH = "/auth/refresh"
 _LOGOUT_PATH = "/auth/logout"
 _BOOKINGS_TABLES_PATH = "/bookings/tables"
+_BOOKINGS_WAITER_TABLES_PATH = "/bookings/waiter/tables"
 _DISHES_POPULAR_PATH = "/dishes/popular"
 _UNKNOWN_PATH = "/unknown"
 _MALFORMED_LOCATION_SPECIALITY_PATH = "/api/locations//speciality-dishes"
@@ -105,6 +106,17 @@ class TestRouting(ApiHandlerLambdaTestCase):
             status(
                 self.HANDLER.lambda_handler(
                     make_event(_BOOKINGS_TABLES_PATH, "POST", {}), {}
+                )
+            ),
+            404,
+        )
+
+    def test_wrong_method_on_bookings_waiter_tables_returns_404(self) -> None:
+        """A POST to the bookings/waiter/tables path should return 404."""
+        self.assertEqual(
+            status(
+                self.HANDLER.lambda_handler(
+                    make_event(_BOOKINGS_WAITER_TABLES_PATH, "POST", {}), {}
                 )
             ),
             404,

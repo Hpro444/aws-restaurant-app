@@ -8,7 +8,7 @@ from uuid import UUID, uuid4
 from commons.app_config import AppConfig
 from commons.exceptions import ApplicationException
 from commons.log_helper import logger
-from commons.uuid_utils import parse_uuid_or_raise
+from commons.uuid_utils import coerce_uuid
 from domain.reservation import Reservation
 from domain.reservation_waiter_view import ReservationWaiterView
 from domain.slot import Slot
@@ -109,7 +109,7 @@ class BookingService:
                 for validation, lookup, capacity, or contention failures.
 
         """
-        customer_uuid = parse_uuid_or_raise(customer_id)
+        customer_uuid = coerce_uuid(customer_id, field_name="customer_id")
 
         table = self._find_table(request.location_id, request.table_number)
         self._check_capacity(table, request.guests_number)
@@ -308,7 +308,10 @@ class BookingService:
         # The endpoints must be in the chain — if they are not (e.g.
         # mismatched ordering), surface a 422.
         if start_slot not in chain or end_slot not in chain:
-            self._raise_invalid_time_range()
+            raise ApplicationException(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                "Invalid time range for the selected slots",
+            )
 
         self._validate_slot_chain_duration(chain)
         return chain
@@ -327,26 +330,36 @@ class BookingService:
 
         """
         if not chain:
-            self._raise_invalid_time_range()
+            raise ApplicationException(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                "Invalid time range for the selected slots",
+            )
 
         slot_length = timedelta(minutes=90)
         pause_length = timedelta(minutes=15)
 
-        if any(slot.end_time - slot.start_time != slot_length for slot in chain):
-            self._raise_invalid_time_range()
+        for slot in chain:
+            if slot.end_time - slot.start_time != slot_length:
+                raise ApplicationException(
+                    HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                    "Invalid time range for the selected slots",
+                )
 
-        if any(
-            current.start_time - previous.end_time != pause_length
-            for previous, current in zip(chain, chain[1:])
-        ):
-            self._raise_invalid_time_range()
+        for previous, current in zip(chain, chain[1:]):
+            if current.start_time - previous.end_time != pause_length:
+                raise ApplicationException(
+                    HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                    "Invalid time range for the selected slots",
+                )
 
-    def _raise_invalid_time_range(self) -> None:
-        """Raise a standard 422 error for invalid selected slot range."""
-        raise ApplicationException(
-            HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-            self._INVALID_RANGE_MESSAGE,
-        )
+        n_slots = len(chain)
+        expected_total = slot_length * n_slots + pause_length * (n_slots - 1)
+        actual_total = chain[-1].end_time - chain[0].start_time
+        if actual_total != expected_total:
+            raise ApplicationException(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                "Invalid time range for the selected slots",
+            )
 
     @staticmethod
     def _check_within_operating_hours(chain: list[Slot], location) -> None:
@@ -386,6 +399,22 @@ class BookingService:
     def _parse_utc_datetime(raw_value: str) -> datetime:
         """Parse UTC datetime string for slot matching."""
         return datetime.fromisoformat(raw_value.replace("Z", "+00:00")).astimezone(UTC)
+
+    @staticmethod
+    def _ensure_start_time_in_future(chain: list[Slot]) -> None:
+        """Raise 422 when the reservation starts in the past or at the current time."""
+        first_slot_start = chain[0].start_time
+        now_utc = datetime.now(UTC)
+        if first_slot_start <= now_utc:
+            raise ApplicationException(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                [
+                    {
+                        "field": "timeFrom",
+                        "message": "Cannot book a slot that starts in the past",
+                    }
+                ],
+            )
 
     @staticmethod
     def _ensure_all_free(chain: list[Slot]) -> None:

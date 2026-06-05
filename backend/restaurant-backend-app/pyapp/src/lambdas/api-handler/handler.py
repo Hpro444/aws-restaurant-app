@@ -7,7 +7,7 @@ from uuid import UUID
 from commons import LambdaResponse, build_response, raise_error_response
 from commons.abstract_lambda import AbstractLambda
 from commons.router import Router
-from dto.available_tables import AvailableTablesRequest
+from dto.available_tables import AvailableTablesRequest, WaiterAvailableTablesRequest
 from dto.create_booking import CreateBookingRequest
 from dto.customers import CustomerResponse
 from dto.dishes import GetDishesRequest
@@ -141,6 +141,7 @@ class ApiHandler(AbstractLambda):
         router.add("POST", "/feedbacks", self._leave_feedback)
 
         router.add("GET", "/bookings/tables", self._get_available_tables)
+        router.add("GET", "/bookings/waiter/tables", self._get_waiter_available_tables)
         router.add("POST", "/bookings/client", self._create_booking)
         router.add("GET", "/bookings/client", self._list_dashboard_bookings)
         router.add("GET", "/bookings/client/{reservation_id}", self._get_booking)
@@ -602,6 +603,35 @@ class ApiHandler(AbstractLambda):
             booking_date=request.date,
             guests_number=request.guests_number,
             from_time=request.from_time,
+        )
+
+        return build_response(
+            response.model_dump(by_alias=True, mode="json"),
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    def _get_waiter_available_tables(self, event: dict) -> LambdaResponse:
+        """Handle GET /bookings/waiter/tables for waiter-facing availability.
+
+        Waiters can filter by location, optional date, guest count, and a
+        UTC datetime time window. The customer endpoint remains unchanged.
+        """
+        _, role = self._get_actor_context(event)
+        if role != UserRole.WAITER:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
+                "Only waiters can access this endpoint",
+            )
+
+        params = self._parse_query_params(event)
+        request = self._validate(WaiterAvailableTablesRequest, params)
+
+        response = self._table_availability_service.get_available_tables_for_waiter(
+            location_id=request.location_id,
+            booking_date=request.date,
+            guests_number=request.guests_number,
+            from_time=request.from_time,
+            to_time=request.to_time,
         )
 
         return build_response(

@@ -341,6 +341,51 @@ class TestTableAvailabilityService(unittest.TestCase):
             {_TABLE_2_ID}, "2026-05-20"
         )
 
+    def test_waiter_available_tables_filters_by_time_window(self) -> None:
+        """The waiter view should only return free slots inside the requested window."""
+        table = _table(_TABLE_1_ID, table_number=1, capacity=4)
+        s_before = _slot(_SLOT_1_ID, _TABLE_1_ID, 12, 0)
+        s_inside_1 = _slot(_SLOT_2_ID, _TABLE_1_ID, 13, 45)
+        s_inside_2 = _slot(_SLOT_3_ID, _TABLE_1_ID, 15, 30)
+        s_after = _slot(_SLOT_4_ID, _TABLE_1_ID, 17, 15)
+
+        self.service._table_repo.find_by_location_id.return_value = [table]
+        self.service._slot_repo.find_by_table_ids_and_date.return_value = [
+            s_before,
+            s_inside_1,
+            s_inside_2,
+            s_after,
+        ]
+
+        response = self.service.get_available_tables_for_waiter(
+            location_id=_LOCATION_ID,
+            booking_date="2026-05-20",
+            guests_number=2,
+            from_time="2026-05-20T13:45:00Z",
+            to_time="2026-05-20T17:00:00Z",
+        )
+
+        self.assertEqual(len(response.tables), 1)
+        slot_times = [s.start_time for s in response.tables[0].available_slots]
+        self.assertEqual(
+            slot_times,
+            ["2026-05-20T13:45:00Z", "2026-05-20T15:30:00Z"],
+        )
+
+    def test_waiter_available_tables_returns_empty_for_invalid_uuid(self) -> None:
+        """Invalid UUID input should short-circuit the waiter view too."""
+        response = self.service.get_available_tables_for_waiter(
+            location_id="not-a-uuid",
+            booking_date="2026-05-20",
+            guests_number=2,
+            from_time="2026-05-20T12:00:00Z",
+            to_time="2026-05-20T16:00:00Z",
+        )
+
+        self.assertEqual(response.model_dump(), {"tables": []})
+        self.service._table_repo.find_by_location_id.assert_not_called()
+        self.service._slot_repo.find_by_table_ids_and_date.assert_not_called()
+
     def test_today_without_from_time_auto_selects_next_free_slot(self) -> None:
         """For today's date, missing from_time should auto-pick the next free slot."""
         table1 = _table(_TABLE_1_ID, table_number=1, capacity=4)
