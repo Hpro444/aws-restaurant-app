@@ -115,9 +115,9 @@ class TestReservationSerialization(unittest.TestCase):
         self.reservation = _make_reservation()
         self.item = self.reservation.to_dynamodb_item()
 
-    def test_none_uuid_serialized_as_null(self) -> None:
-        """Optional UUID set to None must be stored as DynamoDB NULL."""
-        self.assertEqual(self.item["customer_id"], {"NULL": True})
+    def test_none_uuid_is_omitted(self) -> None:
+        """Optional GSI-backed UUIDs set to None must be omitted from DynamoDB."""
+        self.assertNotIn("customer_id", self.item)
 
     def test_present_uuid_serialized_as_s(self) -> None:
         """Optional UUID with a value must be stored as DynamoDB S."""

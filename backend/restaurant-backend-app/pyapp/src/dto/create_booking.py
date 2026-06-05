@@ -26,6 +26,9 @@ class CreateBookingRequest(BaseModel):
     table_number: int = Field(..., alias="tableNumber", gt=0)
     date: str = Field(..., min_length=1)
     guests_number: int = Field(..., alias="guestsNumber", gt=0, le=10)
+    existing_customer: bool | None = Field(None, alias="existingCustomer")
+    customer_id: UUID | None = Field(None, alias="customerId")
+    client_name: str | None = Field(None, alias="clientName", min_length=1)
     time_from: str = Field(..., alias="timeFrom", min_length=1)
     time_to: str = Field(..., alias="timeTo", min_length=1)
 
@@ -126,3 +129,4 @@ class CreateBookingResponse(BaseModel):
     time_from: str = Field(..., alias="timeFrom")
     time_to: str = Field(..., alias="timeTo")
     guests_number: int = Field(..., alias="guestsNumber")
+    client_name: str | None = Field(None, alias="clientName")

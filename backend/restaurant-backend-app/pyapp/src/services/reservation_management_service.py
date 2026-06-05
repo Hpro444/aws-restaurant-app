@@ -325,6 +325,7 @@ class ReservationManagementService:
             customer_id=str(reservation.customer_id)
             if reservation.customer_id
             else None,
+            client_name=reservation.client_name,
             waiter_id=str(reservation.waiter_id) if reservation.waiter_id else None,
             location_id=str(table.location_id) if table else None,
             location_address=location.address if location else None,

@@ -32,6 +32,7 @@ class ApiHandlerLambdaTestCase(unittest.TestCase):
         self.mock_registration_service = MagicMock()
         self.mock_user_profile_service = MagicMock()
         self.mock_booking_service = MagicMock()
+        self.mock_customer_repository = MagicMock()
         self.mock_locations_service = MagicMock()
         self.mock_dishes_service = MagicMock()
         self.mock_feedback_service = MagicMock()
@@ -44,6 +45,7 @@ class ApiHandlerLambdaTestCase(unittest.TestCase):
         self.HANDLER._table_availability_service = self.mock_table_availability_service
         self.HANDLER._user_profile_service = self.mock_user_profile_service
         self.HANDLER._booking_service = self.mock_booking_service
+        self.HANDLER._customer_repository = self.mock_customer_repository
         self.HANDLER._locations_service = self.mock_locations_service
         self.HANDLER._dishes_service = self.mock_dishes_service
         self.HANDLER._feedback_service = self.mock_feedback_service
