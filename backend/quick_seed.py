@@ -236,12 +236,21 @@ def _write_ids_json(context: dict, output_path: Path) -> None:
         )
         slots_sample[f"{loc_name}_table_1"] = [str(s.id) for s in today_slots[:3]]
 
-    shifts_by_waiter: dict[str, str] = {}
-    waiter_by_id = {w.id: email for email, w in context.get("waiters", {}).items()}
+    shifts_by_location: dict[str, dict[str, str]] = {
+        "downtown": {},
+        "airport": {},
+        "old_town": {},
+    }
     for shift in context.get("shifts", []):
-        email = waiter_by_id.get(shift.waiter_id, "")
-        if email:
-            shifts_by_waiter[email.split("@")[0]] = str(shift.id)
+        loc_name = location_name_map.get(shift.location_id)
+        if not loc_name:
+            continue
+
+        slot_count = len(shift.slot_ids)
+        label = "first" if "first" in str(shift.id) else "second"
+        shifts_by_location[loc_name][f"{label}_shift_slots_{slot_count}"] = str(
+            shift.id
+        )
 
     reservations_by_status: dict[str, str] = {}
     for res in context.get("reservations", []):
@@ -276,7 +285,7 @@ def _write_ids_json(context: dict, output_path: Path) -> None:
         "tables": tables_by_location,
         "dishes": dishes_by_location,
         "slots": {"date": today_str, "sample": slots_sample},
-        "shifts": shifts_by_waiter,
+        "shifts": shifts_by_location,
         "reservations": reservations_by_status,
     }
 

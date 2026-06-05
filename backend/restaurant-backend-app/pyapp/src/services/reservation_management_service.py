@@ -115,7 +115,11 @@ class ReservationManagementService:
         time_from: str,
         table_name: str,
     ) -> WaiterReservationListResponse:
-        """Return waiter reservations for a single date/start-time/table filter."""
+        """Return reservations for one date/start-time/table at the waiter's location.
+
+        The caller's ``location_id`` is resolved from their Waiter profile, then a
+        single GSI query returns the matching denormalized projection rows.
+        """
         waiter_uuid = parse_uuid_or_raise(waiter_id)
         waiter = self._waiter_repo.get(waiter_uuid)
         if waiter is None:
@@ -228,14 +232,20 @@ class ReservationManagementService:
         actor_id: UUID | str,
         role: str,
     ) -> ReservationView:
-        """Cancel reservation before cutoff when caller is allowed."""
+        """Cancel a reservation if caller is customer or assigned waiter before cutoff."""
         actor_uuid = parse_uuid_or_raise(actor_id)
         reservation = self._get_accessible_reservation(
             reservation_id=reservation_id,
             actor_id=actor_uuid,
             role=role,
         )
-        slots = self._get_reservation_slots(reservation)
+
+        slots = self._slot_repo.find_by_ids(reservation.slot_ids)
+        if not slots:
+            raise ApplicationException(
+                HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                "Reservation slots not found",
+            )
 
         start_time = min(slot.start_time for slot in slots)
         self._ensure_editable(reservation, actor_uuid, role, start_time)
@@ -277,22 +287,26 @@ class ReservationManagementService:
                 "Reservation not found",
             )
 
-        if role == UserRole.CUSTOMER:
-            if reservation.customer_id == actor_uuid:
-                return reservation
-        elif role == UserRole.WAITER:
-            if reservation.waiter_id == actor_uuid:
-                return reservation
-        else:
-            raise ApplicationException(
-                HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
-                "Role is not allowed to access reservations",
-            )
+        if (role, actor_uuid) in {
+            (UserRole.CUSTOMER.value, reservation.customer_id),
+            (UserRole.WAITER.value, reservation.waiter_id),
+        }:
+            return reservation
 
         raise ApplicationException(
             HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
             "You are not allowed to access this reservation",
         )
+
+    def _get_reservation_slots(self, reservation: Reservation):
+        """Return reservation slots or raise 404 when referenced slots are missing."""
+        slots = self._slot_repo.find_by_ids(reservation.slot_ids)
+        if not slots:
+            raise ApplicationException(
+                HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                "Reservation slots not found",
+            )
+        return slots
 
     def _build_reservation_view(
         self,
@@ -300,8 +314,13 @@ class ReservationManagementService:
         actor_id: UUID,
         role: str,
     ) -> ReservationView:
-        """Build reservation view payload with allowed actions."""
-        slots = self._get_reservation_slots(reservation)
+        """Build a frontend-friendly reservation payload with action flags."""
+        slots = self._slot_repo.find_by_ids(reservation.slot_ids)
+        if not slots:
+            raise ApplicationException(
+                HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                "Reservation slots not found",
+            )
 
         start_time = min(slot.start_time for slot in slots)
         end_time = max(slot.end_time for slot in slots)
@@ -321,7 +340,6 @@ class ReservationManagementService:
             customer_id=str(reservation.customer_id)
             if reservation.customer_id
             else None,
-            client_name=reservation.client_name,
             waiter_id=str(reservation.waiter_id) if reservation.waiter_id else None,
             location_id=str(table.location_id) if table else None,
             location_address=location.address if location else None,
@@ -338,7 +356,12 @@ class ReservationManagementService:
         )
 
     def _sync_projection(self, reservation: Reservation, view: ReservationView) -> None:
-        """Sync reservation changes to waiter projection model."""
+        """Keep the waiter-dashboard read model in step with a reservation change.
+
+        Cancelled reservations are removed from the projection; otherwise the
+        flattened row is upserted. The upsert is skipped when the table or
+        location could not be resolved (nothing to key the row on).
+        """
         if reservation.status == ReservationStatus.CANCELLED:
             self._waiter_view_repo.delete(reservation.id)
             return
@@ -349,7 +372,7 @@ class ReservationManagementService:
     def _to_projection(
         self, reservation: Reservation, view: ReservationView
     ) -> ReservationWaiterView:
-        """Map reservation view to waiter projection row."""
+        """Map an enriched ReservationView to its waiter-dashboard projection row."""
         return ReservationWaiterView(
             id=reservation.id,
             customer_id=reservation.customer_id,
@@ -372,7 +395,7 @@ class ReservationManagementService:
         role: str,
         start_time,
     ) -> tuple[bool, bool, str | None]:
-        """Compute edit/cancel permissions and optional cutoff reason."""
+        """Return edit/cancel flags and cutoff reason when actions are disabled."""
         is_owner = role == UserRole.CUSTOMER and reservation.customer_id == actor_id
         is_assigned_waiter = (
             role == UserRole.WAITER and reservation.waiter_id == actor_id
@@ -401,7 +424,7 @@ class ReservationManagementService:
     def _ensure_editable(
         self, reservation: Reservation, actor_id: UUID, role: str, start_time
     ) -> None:
-        """Raise when reservation is not editable for caller and state."""
+        """Raise 422/403 when edit/cancel preconditions are not met."""
         can_edit, _, reason = self._compute_actions(
             reservation=reservation,
             actor_id=actor_id,
@@ -425,7 +448,7 @@ class ReservationManagementService:
         start_time,
         slots,
     ) -> None:
-        """Apply allowed reservation status transitions."""
+        """Apply allowed status transitions for reservation lifecycle."""
         current = reservation.status
 
         if new_status == current:
@@ -463,18 +486,9 @@ class ReservationManagementService:
         )
 
     def _is_cutoff_reached(self, start_time) -> bool:
-        """Return True when reservation entered non-editable cutoff window."""
+        """Return True when reservation starts within the non-editable cutoff window."""
         now_utc = datetime.now(UTC)
         return now_utc + timedelta(minutes=self._CUTOFF_MINUTES) >= start_time
-
-    def _get_reservation_slots(self, reservation: Reservation):
-        slots = self._slot_repo.find_by_ids(reservation.slot_ids)
-        if slots:
-            return slots
-        raise ApplicationException(
-            HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
-            "Reservation slots not found",
-        )
 
     def _release_slots(self, slots) -> None:
         """Set all reservation slots back to FREE state."""

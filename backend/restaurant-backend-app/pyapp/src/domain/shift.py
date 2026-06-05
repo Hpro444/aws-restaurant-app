@@ -8,8 +8,9 @@ from commons.dynamo_model import DynamoModel
 
 
 class Shift(DynamoModel):
-    """Represents a work shift for a waiter."""
+    """Represents one location shift with assigned waiters and slots."""
 
     id: UUID
-    waiter_id: UUID
-    slots: list[UUID]
+    location_id: UUID
+    waiter_ids: list[UUID]
+    slot_ids: list[UUID]

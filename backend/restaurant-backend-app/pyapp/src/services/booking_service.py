@@ -107,7 +107,8 @@ class BookingService:
                 or ``None`` when a waiter creates a visitor reservation.
             client_name: Optional name for customer or visitor.
             waiter_id: Optional UUID of waiter creating the reservation.
-                If provided, waiter becomes the assigned waiter (not random pickup).
+                This value identifies the actor only; assignment is resolved from
+                the preassigned waiter on ``slot[0]``.
 
         Returns:
             :class:`CreateBookingResponse` for the persisted reservation.
@@ -153,10 +154,7 @@ class BookingService:
         self._ensure_all_free(chain)
         self._claim_slots(chain)
 
-        if waiter_id is not None:
-            assigned_waiter_id = coerce_uuid(waiter_id, field_name="waiter_id")
-        else:
-            assigned_waiter_id = self._pick_waiter_for_location(table.location_id)
+        assigned_waiter_id = self._resolve_waiter_for_chain(chain, table.location_id)
 
         reservation = Reservation(
             id=uuid4(),
@@ -246,16 +244,29 @@ class BookingService:
 
     # ── Private helpers ─────────────────────────────────────────────
 
-    def _pick_waiter_for_location(self, location_id: UUID) -> UUID | None:
-        """Return a deterministic waiter id for the reservation location.
+    def _resolve_waiter_for_chain(
+        self,
+        chain: list[Slot],
+        location_id: UUID,
+    ) -> UUID | None:
+        """Resolve reservation waiter from ``slot[0]`` (fallback deterministic waiter).
 
-        If no waiter exists for the location, reservation remains unassigned.
+        Seeded slots should always include ``waiter_id``; fallback exists only
+        for backward compatibility with older data.
         """
+        first_slot_waiter = chain[0].waiter_id
+        if first_slot_waiter is not None:
+            return first_slot_waiter
+
         waiters = self._waiter_repo.find_by_location_id(location_id)
         if not waiters:
             return None
 
-        # Keep assignment deterministic to avoid random dashboard ownership.
+        logger.warning(
+            "Slot waiter_id missing; falling back to deterministic waiter",
+            location_id=str(location_id),
+            slot_id=str(chain[0].id),
+        )
         return sorted(waiters, key=lambda waiter: str(waiter.id))[0].id
 
     def _resolve_client_name(

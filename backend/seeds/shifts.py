@@ -1,54 +1,120 @@
 """Seed module for waiter shifts."""
 
+from datetime import datetime, timezone
+
 from domain.shift import Shift  # type: ignore[import-not-found]
 
 from seeds.utils import seed_id
 
+_SHIFT_WAITERS_BY_LOCATION = {
+    "downtown": {
+        "first": ("lea@example.com", "charlie@example.com"),
+        "second": ("olivia@example.com", "ethan@example.com"),
+    },
+    "airport": {
+        "first": ("max@example.com", "sofia@example.com"),
+        "second": ("liam@example.com", "mia@example.com"),
+    },
+    "old-town": {
+        "first": ("nina@example.com", "noah@example.com"),
+        "second": ("ava@example.com", "luka@example.com"),
+    },
+}
+
+_LOCATION_KEYS = {
+    "downtown": seed_id("location", "downtown"),
+    "airport": seed_id("location", "airport"),
+    "old-town": seed_id("location", "old-town"),
+}
+
 
 def seed(dynamodb, tables: dict, context: dict) -> None:
-    """Seed 1 shift per waiter covering the first 3 slots of their location's first table.
+    """Seed two shifts per location for today's slot halves.
 
-    Requires context['waiters'], context['tables'], and context['slots'].
+    Each shift stores:
+    - location_id
+    - waiter_ids (2 waiters)
+    - slot_ids (first or second half of location slots for one day)
     """
     table = dynamodb.Table(tables["shifts"])
     waiters = context["waiters"]
     tables_list = context["tables"]
     slots_list = context["slots"]
 
-    downtown_id = seed_id("location", "downtown")
-    airport_id = seed_id("location", "airport")
-    old_town_id = seed_id("location", "old-town")
+    today = datetime.now(timezone.utc).date()
 
-    def first_slots_for_location(location_id, count: int = 3) -> list:
-        """Return the first ``count`` slots belonging to the first table of the given location."""
-        location_tables = [t for t in tables_list if t.location_id == location_id]
-        if not location_tables:
-            return []
-        first_table = location_tables[0]
-        table_slots = [s for s in slots_list if s.table_id == first_table.id]
-        return table_slots[:count]
+    tables_by_location: dict = {}
+    for table_obj in tables_list:
+        tables_by_location.setdefault(table_obj.location_id, []).append(table_obj)
 
-    lea_id = waiters["lea@example.com"].id
-    max_id = waiters["max@example.com"].id
-    nina_id = waiters["nina@example.com"].id
+    slots_by_location: dict = {}
+    for slot in slots_list:
+        if slot.start_time.date() != today:
+            continue
 
-    shifts = [
-        Shift(
-            id=seed_id("shift", "lea:tomorrow"),
-            waiter_id=lea_id,
-            slots=[s.id for s in first_slots_for_location(downtown_id)],
-        ),
-        Shift(
-            id=seed_id("shift", "max:tomorrow"),
-            waiter_id=max_id,
-            slots=[s.id for s in first_slots_for_location(airport_id)],
-        ),
-        Shift(
-            id=seed_id("shift", "nina:tomorrow"),
-            waiter_id=nina_id,
-            slots=[s.id for s in first_slots_for_location(old_town_id)],
-        ),
-    ]
+        table_match = next((t for t in tables_list if t.id == slot.table_id), None)
+        if table_match is None:
+            continue
+        slots_by_location.setdefault(table_match.location_id, []).append(slot)
+
+    shifts: list[Shift] = []
+    for location_key, location_id in _LOCATION_KEYS.items():
+        location_slots = sorted(
+            slots_by_location.get(location_id, []),
+            key=lambda slot: (slot.start_time, str(slot.table_id)),
+        )
+        if not location_slots:
+            continue
+
+        first_table = min(
+            tables_by_location[location_id],
+            key=lambda table_obj: table_obj.table_number,
+        )
+        first_table_times = [
+            slot.start_time
+            for slot in location_slots
+            if slot.table_id == first_table.id
+        ]
+
+        if len(first_table_times) % 2 != 0:
+            raise ValueError(f"Odd slot count for location {location_id}")
+
+        split_index = len(first_table_times) // 2
+        first_shift_times = set(first_table_times[:split_index])
+        second_shift_times = set(first_table_times[split_index:])
+
+        first_waiter_ids = [
+            waiters[email].id
+            for email in _SHIFT_WAITERS_BY_LOCATION[location_key]["first"]
+        ]
+        second_waiter_ids = [
+            waiters[email].id
+            for email in _SHIFT_WAITERS_BY_LOCATION[location_key]["second"]
+        ]
+
+        first_shift_slot_ids = [
+            slot.id for slot in location_slots if slot.start_time in first_shift_times
+        ]
+        second_shift_slot_ids = [
+            slot.id for slot in location_slots if slot.start_time in second_shift_times
+        ]
+
+        shifts.extend(
+            [
+                Shift(
+                    id=seed_id("shift", f"{location_key}:first:{today.isoformat()}"),
+                    location_id=location_id,
+                    waiter_ids=first_waiter_ids,
+                    slot_ids=first_shift_slot_ids,
+                ),
+                Shift(
+                    id=seed_id("shift", f"{location_key}:second:{today.isoformat()}"),
+                    location_id=location_id,
+                    waiter_ids=second_waiter_ids,
+                    slot_ids=second_shift_slot_ids,
+                ),
+            ]
+        )
 
     with table.batch_writer() as batch:
         for shift in shifts:
