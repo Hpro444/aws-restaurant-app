@@ -182,9 +182,7 @@ const SignUpForm = () => {
     };
 
     try {
-      const response = await signupUser(payload);
-      console.log("Signup successful:", response.message);
-      console.log("User ID:", response.user_id);
+      await signupUser(payload);
       setSuccess("Your account has been successfully created.");
       setTimeout(() => {
         navigate("/login");

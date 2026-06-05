@@ -64,7 +64,7 @@ const ReservationCard = ({
       <div className="flex justify-end gap-4">
         {can_cancel && (
           <button
-            className="border-[#232323] border-b"
+            className="border-[#232323] border-b cursor-pointer"
             onClick={() => onCancel?.(reservation_id)}
           >
             Cancel
@@ -72,7 +72,7 @@ const ReservationCard = ({
         )}
         {can_edit && (
           <button
-            className="rounded-lg border border-[#00AD0C] py-2 px-9 bg-white text-[#00AD0C]"
+            className="cursor-pointer rounded-lg border border-[#00AD0C] py-2 px-9 bg-white text-[#00AD0C]"
             onClick={() => onEdit?.(reservation)}
           >
             Edit

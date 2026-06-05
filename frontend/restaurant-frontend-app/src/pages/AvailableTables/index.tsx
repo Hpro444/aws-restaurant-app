@@ -105,7 +105,9 @@ const AvailableTablesPage = () => {
             <FoundResults
               tables={tables}
               locationAddress={selectedLocationAddress}
+              locationId={filters.locationId}
               date={filters.date}
+              initialGuests={filters.guests}
             />
           ) : (
             <NoResults />

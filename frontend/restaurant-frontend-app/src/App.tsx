@@ -5,11 +5,20 @@ import RestaurantPage from "./pages/Restaurant";
 import AvailableTablesPage from "./pages/AvailableTables";
 import { useAuth } from "./context/AuthContext";
 import ReservationsPage from "./pages/Reservations";
+import HomePage from "./pages/Home";
 import MenuPage from "./pages/Menu";
+import DashboardPage from "./pages/Dashboard";
 
 const RequireAuth = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
   if (!isAuthenticated) return <Navigate to="/login" replace />;
+  return children;
+};
+
+const RequireAdmin = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated, user } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  else if (user?.role !== "Admin") return <Navigate to="/" replace />;
   return children;
 };
 
@@ -55,6 +64,14 @@ function App() {
             <RequireAuth>
               <ReservationsPage />
             </RequireAuth>
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <RequireAdmin>
+              <DashboardPage />
+            </RequireAdmin>
           }
         />
         <Route path="/menu" element={<MenuPage />} />

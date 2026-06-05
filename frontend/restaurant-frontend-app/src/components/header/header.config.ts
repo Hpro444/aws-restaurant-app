@@ -22,7 +22,7 @@ export const NAV_ITEMS_BY_ROLE: Record<HeaderViewerRole, HeaderNavItem[]> = {
     { label: "Menu", href: "/menu" },
   ],
   admin: [
-    { label: "Reports", href: "/reports" },
+    { label: "Dashboard", href: "/dashboard" },
     { label: "Staff", href: "/staff" },
   ],
 };
