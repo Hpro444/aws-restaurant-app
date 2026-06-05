@@ -6,7 +6,7 @@ from enum import Enum
 class ReservationStatus(str, Enum):
     """Statuses assignable to a reservation."""
 
-    RESERVED = "RESERVED"
-    IN_PROGRESS = "IN_PROGRESS"
-    CANCELLED = "CANCELLED"
-    FINISHED = "FINISHED"
+    RESERVED = "Reserved"
+    IN_PROGRESS = "In Progress"
+    CANCELLED = "Cancelled"
+    FINISHED = "Finished"

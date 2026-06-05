@@ -175,7 +175,7 @@ class TestBookingService(unittest.TestCase):
             time_to=self._utc(slot.end_time),
         )
         resp = self.service.create_booking(req, uuid4())
-        self.assertEqual(resp.status, "RESERVED")
+        self.assertEqual(resp.status, "Reserved")
         self.assertIsNotNone(self.service._reservation_repo.last_created.waiter_id)
 
     def test_single_slot_booking_writes_projection(self):
@@ -218,7 +218,7 @@ class TestBookingService(unittest.TestCase):
             time_to=self._utc(slot2.end_time),
         )
         resp = self.service.create_booking(req, uuid4())
-        self.assertEqual(resp.status, "RESERVED")
+        self.assertEqual(resp.status, "Reserved")
 
     def test_slot_chain_with_gap_fails(self):
         """Test that non-contiguous slot chain is rejected."""
@@ -401,7 +401,7 @@ class TestBookingService(unittest.TestCase):
             time_to=self._utc(slot2.end_time),
         )
         resp = self.service.create_booking(req, uuid4())
-        self.assertEqual(resp.status, "RESERVED")
+        self.assertEqual(resp.status, "Reserved")
 
     def test_multi_slot_chain_invalid_duration_fails(self):
         """Test that booking fails if total duration doesn't match formula."""
@@ -511,7 +511,7 @@ class TestBookingServiceSqsPublishing(unittest.TestCase):
 
         resp = service.create_booking(req, uuid4())
 
-        self.assertEqual(resp.status, "RESERVED")
+        self.assertEqual(resp.status, "Reserved")
 
 
 if __name__ == "__main__":
