@@ -19,6 +19,7 @@ from dto.reservation_management import AllowedActions, ReservationView
 from enums.http_status_code import HttpStatusCode
 from enums.reservation_status import ReservationStatus
 from enums.slot_status import SlotStatus
+from repositories.customer_repository import CustomerRepository
 from repositories.location_repository import LocationRepository
 from repositories.reservation_repository import ReservationRepository
 from repositories.reservation_waiter_view_repository import (
@@ -84,6 +85,7 @@ class BookingService:
         self._slot_repo = slot_repository or SlotRepository(cfg)
         self._reservation_repo = reservation_repository or ReservationRepository(cfg)
         self._location_repo = location_repository or LocationRepository(cfg)
+        self._customer_repo = CustomerRepository(cfg)
         self._waiter_repo = waiter_repository or WaiterRepository(cfg)
         self._waiter_view_repo = (
             waiter_view_repository or ReservationWaiterViewRepository(cfg)
@@ -93,13 +95,19 @@ class BookingService:
     def create_booking(
         self,
         request: CreateBookingRequest,
-        customer_id: UUID | str,
+        customer_id: UUID | str | None,
+        client_name: str | None = None,
+        waiter_id: UUID | str | None = None,
     ) -> CreateBookingResponse:
         """Create a reservation for ``customer_id`` from ``request``.
 
         Args:
             request: Validated booking request DTO.
-            customer_id: UUID (or its string form) of the booking customer.
+            customer_id: UUID (or its string form) of the booking customer,
+                or ``None`` when a waiter creates a visitor reservation.
+            client_name: Optional name for customer or visitor.
+            waiter_id: Optional UUID of waiter creating the reservation.
+                If provided, waiter becomes the assigned waiter (not random pickup).
 
         Returns:
             :class:`CreateBookingResponse` for the persisted reservation.
@@ -109,7 +117,12 @@ class BookingService:
                 for validation, lookup, capacity, or contention failures.
 
         """
-        customer_uuid = coerce_uuid(customer_id, field_name="customer_id")
+        customer_uuid = (
+            coerce_uuid(customer_id, field_name="customer_id")
+            if customer_id is not None
+            else None
+        )
+        resolved_client_name = self._resolve_client_name(customer_uuid, client_name)
 
         table = self._find_table(request.location_id, request.table_number)
         self._check_capacity(table, request.guests_number)
@@ -139,11 +152,16 @@ class BookingService:
         self._ensure_start_time_in_future(chain)
         self._ensure_all_free(chain)
         self._claim_slots(chain)
-        assigned_waiter_id = self._pick_waiter_for_location(table.location_id)
+
+        if waiter_id is not None:
+            assigned_waiter_id = coerce_uuid(waiter_id, field_name="waiter_id")
+        else:
+            assigned_waiter_id = self._pick_waiter_for_location(table.location_id)
 
         reservation = Reservation(
             id=uuid4(),
             customer_id=customer_uuid,
+            client_name=resolved_client_name,
             waiter_id=assigned_waiter_id,
             created_at=datetime.now(UTC),
             slot_ids=[s.id for s in chain],
@@ -179,7 +197,8 @@ class BookingService:
         logger.info(
             "Reservation created",
             reservation_id=str(reservation.id),
-            customer_id=str(customer_uuid),
+            customer_id=str(customer_uuid) if customer_uuid else None,
+            client_name=resolved_client_name,
             waiter_id=str(assigned_waiter_id) if assigned_waiter_id else None,
             slot_count=len(chain),
         )
@@ -189,7 +208,7 @@ class BookingService:
                 event_view = ReservationView(
                     reservation_id=str(reservation.id),
                     status=reservation.status,
-                    customer_id=str(customer_uuid),
+                    customer_id=str(customer_uuid) if customer_uuid else None,
                     waiter_id=str(assigned_waiter_id) if assigned_waiter_id else None,
                     location_id=str(request.location_id),
                     location_address=location.address,
@@ -222,6 +241,7 @@ class BookingService:
             time_from=self._format_utc(chain[0].start_time),
             time_to=self._format_utc(chain[-1].end_time),
             guests_number=request.guests_number,
+            client_name=resolved_client_name,
         )
 
     # ── Private helpers ─────────────────────────────────────────────
@@ -237,6 +257,28 @@ class BookingService:
 
         # Keep assignment deterministic to avoid random dashboard ownership.
         return sorted(waiters, key=lambda waiter: str(waiter.id))[0].id
+
+    def _resolve_client_name(
+        self,
+        customer_id: UUID | None,
+        client_name: str | None,
+    ) -> str | None:
+        """Return reservation client name from explicit input or customer profile."""
+        if client_name:
+            return client_name.strip()
+
+        if customer_id is None:
+            return None
+
+        customer = self._customer_repo.get(customer_id)
+        if customer is None:
+            raise ApplicationException(
+                HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                "Customer not found",
+            )
+
+        full_name = f"{customer.fname} {customer.lname}".strip()
+        return full_name or None
 
     def _find_table(self, location_id: UUID, table_number: int) -> Table:
         """Return the Table at ``location_id`` with matching ``table_number``.

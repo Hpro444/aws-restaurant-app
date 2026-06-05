@@ -23,6 +23,7 @@ class ReservationView(BaseModel):
     reservation_id: str = Field(..., alias="reservationId")
     status: str
     customer_id: str | None = Field(None, alias="customerId")
+    client_name: str | None = Field(None, alias="clientName")
     waiter_id: str | None = Field(None, alias="waiterId")
     location_id: str | None = Field(None, alias="locationId")
     location_address: str | None = Field(None, alias="location_address")

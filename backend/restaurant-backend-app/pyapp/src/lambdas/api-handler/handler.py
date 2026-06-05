@@ -640,12 +640,15 @@ class ApiHandler(AbstractLambda):
         )
 
     def _create_booking(self, event: dict) -> LambdaResponse:
-        """Handle POST /bookings/client — create a reservation for a customer.
+        """Handle POST /bookings/client — create a reservation for customer/waiter flows.
 
         Flow:
             1. Extract the access token and resolve the caller's identity.
-            2. Only callers with ``UserRole.CUSTOMER`` may create a
-               client-side reservation; anything else returns 403.
+                        2. Allow callers with ``UserRole.CUSTOMER`` or ``UserRole.WAITER``.
+                             Customers always create under their own identity.
+                             Waiters must provide ``existingCustomer``:
+                                 - ``existingCustomer=true`` requires ``customerId``.
+                                 - ``existingCustomer=false`` requires ``clientName``.
             3. Validate the JSON body against :class:`CreateBookingRequest`.
             4. Delegate persistence to :class:`BookingService.create_booking`.
             5. Return the saved reservation details for the UI success
@@ -653,19 +656,131 @@ class ApiHandler(AbstractLambda):
 
         """
         user_id, role = self._get_actor_context(event)
-        if role != UserRole.CUSTOMER:
+        if role not in (UserRole.CUSTOMER, UserRole.WAITER):
             raise_error_response(
                 HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
-                "Only customers can create a client reservation",
+                "Only customers and waiters can create a reservation",
             )
 
         request: CreateBookingRequest = self._validate(
             CreateBookingRequest, self._parse_body(event)
         )
 
+        if role == UserRole.CUSTOMER:
+            if request.existing_customer is not None:
+                raise_error_response(
+                    HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                    ValidationErrorResponse(
+                        errors=[
+                            FieldError(
+                                field="existingCustomer",
+                                message=(
+                                    "existingCustomer is not allowed for customer self-booking"
+                                ),
+                            )
+                        ]
+                    ).model_dump(),
+                )
+
+            if request.customer_id is not None:
+                raise_error_response(
+                    HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                    ValidationErrorResponse(
+                        errors=[
+                            FieldError(
+                                field="customerId",
+                                message=(
+                                    "customerId is not allowed for customer self-booking"
+                                ),
+                            )
+                        ]
+                    ).model_dump(),
+                )
+
+            reservation_customer_id = user_id
+            client_name = None
+            creator_waiter_id = None
+        else:
+            if request.existing_customer is None:
+                raise_error_response(
+                    HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                    ValidationErrorResponse(
+                        errors=[
+                            FieldError(
+                                field="existingCustomer",
+                                message=(
+                                    "Waiter booking requires existingCustomer flag"
+                                ),
+                            )
+                        ]
+                    ).model_dump(),
+                )
+
+            if request.existing_customer:
+                if request.customer_id is None:
+                    raise_error_response(
+                        HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                        ValidationErrorResponse(
+                            errors=[
+                                FieldError(
+                                    field="customerId",
+                                    message=(
+                                        "customerId is required when existingCustomer is true"
+                                    ),
+                                )
+                            ]
+                        ).model_dump(),
+                    )
+
+                if self._customer_repository.get(request.customer_id) is None:
+                    raise_error_response(
+                        HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                        "Customer not found",
+                    )
+
+                reservation_customer_id = request.customer_id
+                client_name = None
+            else:
+                if request.customer_id is not None:
+                    raise_error_response(
+                        HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                        ValidationErrorResponse(
+                            errors=[
+                                FieldError(
+                                    field="customerId",
+                                    message=(
+                                        "customerId must be omitted when existingCustomer is false"
+                                    ),
+                                )
+                            ]
+                        ).model_dump(),
+                    )
+
+                if not request.client_name:
+                    raise_error_response(
+                        HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                        ValidationErrorResponse(
+                            errors=[
+                                FieldError(
+                                    field="clientName",
+                                    message=(
+                                        "clientName is required when existingCustomer is false"
+                                    ),
+                                )
+                            ]
+                        ).model_dump(),
+                    )
+
+                reservation_customer_id = None
+                client_name = request.client_name
+
+            creator_waiter_id = user_id
+
         response = self._booking_service.create_booking(
             request=request,
-            customer_id=user_id,
+            customer_id=reservation_customer_id,
+            client_name=client_name,
+            waiter_id=creator_waiter_id,
         )
 
         return build_response(

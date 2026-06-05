@@ -39,6 +39,7 @@ def _success_response() -> CreateBookingResponse:
         time_from=f"{_TOMORROW}T12:15:00Z",
         time_to=f"{_TOMORROW}T14:00:00Z",
         guests_number=4,
+        client_name=None,
     )
 
 
@@ -55,6 +56,7 @@ class TestCreateBooking(ApiHandlerLambdaTestCase):
         self.HANDLER._booking_service.create_booking = MagicMock(
             return_value=_success_response()
         )
+        self.HANDLER._customer_repository.get = MagicMock(return_value=object())
 
     # ── Success cases ────────────────────────────────────────────────
 
@@ -126,10 +128,141 @@ class TestCreateBooking(ApiHandlerLambdaTestCase):
         self.assertEqual(body(result)["message"], "Invalid or expired access token")
         self.HANDLER._booking_service.create_booking.assert_not_called()
 
-    def test_non_customer_role_returns_403(self) -> None:
-        """Waiter (or any non-customer) callers are rejected with 403."""
+    def test_waiter_can_create_visitor_booking(self) -> None:
+        """Waiter can create a booking for clientName without customerId."""
+        waiter_id = str(uuid4())
+        self.HANDLER._cognito_service.get_identity_from_access_token = MagicMock(
+            return_value=(waiter_id, UserRole.WAITER)
+        )
+        waiter_body = {
+            **_VALID_BODY,
+            "existingCustomer": False,
+            "clientName": "Petar Petrovic",
+        }
+
+        event = make_event(_PATH, "POST", body=waiter_body, headers=_VALID_HEADERS)
+        result = self.HANDLER.lambda_handler(event, {})
+
+        self.assertEqual(status(result), 200)
+        kwargs = self.HANDLER._booking_service.create_booking.call_args.kwargs
+        self.assertIsNone(kwargs["customer_id"])
+        self.assertEqual(kwargs["client_name"], "Petar Petrovic")
+        self.assertEqual(kwargs["waiter_id"], waiter_id)
+
+    def test_waiter_can_create_existing_customer_booking(self) -> None:
+        """Waiter can create a booking for an existing customer via customerId."""
+        waiter_id = str(uuid4())
+        self.HANDLER._cognito_service.get_identity_from_access_token = MagicMock(
+            return_value=(waiter_id, UserRole.WAITER)
+        )
+        customer_id = str(uuid4())
+        waiter_body = {
+            **_VALID_BODY,
+            "existingCustomer": True,
+            "customerId": customer_id,
+        }
+
+        event = make_event(_PATH, "POST", body=waiter_body, headers=_VALID_HEADERS)
+        result = self.HANDLER.lambda_handler(event, {})
+
+        self.assertEqual(status(result), 200)
+        kwargs = self.HANDLER._booking_service.create_booking.call_args.kwargs
+        self.assertEqual(str(kwargs["customer_id"]), customer_id)
+        self.assertIsNone(kwargs["client_name"])
+        self.assertEqual(kwargs["waiter_id"], waiter_id)
+
+    def test_waiter_requires_existing_customer_flag(self) -> None:
+        """Waiter request without existingCustomer returns 422."""
         self.HANDLER._cognito_service.get_identity_from_access_token = MagicMock(
             return_value=(str(uuid4()), UserRole.WAITER)
+        )
+
+        event = make_event(_PATH, "POST", body=_VALID_BODY, headers=_VALID_HEADERS)
+        result = self.HANDLER.lambda_handler(event, {})
+
+        self.assertEqual(status(result), 422)
+        self.HANDLER._booking_service.create_booking.assert_not_called()
+
+    def test_waiter_existing_customer_requires_customer_id(self) -> None:
+        """Waiter request with existingCustomer=true and no customerId returns 422."""
+        self.HANDLER._cognito_service.get_identity_from_access_token = MagicMock(
+            return_value=(str(uuid4()), UserRole.WAITER)
+        )
+        bad = {**_VALID_BODY, "existingCustomer": True}
+
+        event = make_event(_PATH, "POST", body=bad, headers=_VALID_HEADERS)
+        result = self.HANDLER.lambda_handler(event, {})
+
+        self.assertEqual(status(result), 422)
+        self.HANDLER._booking_service.create_booking.assert_not_called()
+
+    def test_waiter_non_existing_customer_must_not_send_customer_id(self) -> None:
+        """Waiter request with existingCustomer=false and customerId returns 422."""
+        self.HANDLER._cognito_service.get_identity_from_access_token = MagicMock(
+            return_value=(str(uuid4()), UserRole.WAITER)
+        )
+        bad = {
+            **_VALID_BODY,
+            "existingCustomer": False,
+            "customerId": str(uuid4()),
+            "clientName": "Petar Petrovic",
+        }
+
+        event = make_event(_PATH, "POST", body=bad, headers=_VALID_HEADERS)
+        result = self.HANDLER.lambda_handler(event, {})
+
+        self.assertEqual(status(result), 422)
+        self.HANDLER._booking_service.create_booking.assert_not_called()
+
+    def test_waiter_non_existing_customer_requires_client_name(self) -> None:
+        """Waiter request with existingCustomer=false and no clientName returns 422."""
+        self.HANDLER._cognito_service.get_identity_from_access_token = MagicMock(
+            return_value=(str(uuid4()), UserRole.WAITER)
+        )
+        bad = {**_VALID_BODY, "existingCustomer": False}
+
+        event = make_event(_PATH, "POST", body=bad, headers=_VALID_HEADERS)
+        result = self.HANDLER.lambda_handler(event, {})
+
+        self.assertEqual(status(result), 422)
+        self.HANDLER._booking_service.create_booking.assert_not_called()
+
+    def test_waiter_existing_customer_not_found_returns_404(self) -> None:
+        """Waiter customerId that does not exist is rejected with 404."""
+        self.HANDLER._cognito_service.get_identity_from_access_token = MagicMock(
+            return_value=(str(uuid4()), UserRole.WAITER)
+        )
+        self.HANDLER._customer_repository.get = MagicMock(return_value=None)
+        bad = {
+            **_VALID_BODY,
+            "existingCustomer": True,
+            "customerId": str(uuid4()),
+        }
+
+        event = make_event(_PATH, "POST", body=bad, headers=_VALID_HEADERS)
+        result = self.HANDLER.lambda_handler(event, {})
+
+        self.assertEqual(status(result), 404)
+        self.HANDLER._booking_service.create_booking.assert_not_called()
+
+    def test_customer_cannot_send_existing_customer_or_customer_id(self) -> None:
+        """Customer self-booking rejects waiter-specific ownership fields."""
+        bad = {
+            **_VALID_BODY,
+            "existingCustomer": True,
+            "customerId": str(uuid4()),
+        }
+
+        event = make_event(_PATH, "POST", body=bad, headers=_VALID_HEADERS)
+        result = self.HANDLER.lambda_handler(event, {})
+
+        self.assertEqual(status(result), 422)
+        self.HANDLER._booking_service.create_booking.assert_not_called()
+
+    def test_unsupported_role_returns_403(self) -> None:
+        """Only customer and waiter roles can create a reservation."""
+        self.HANDLER._cognito_service.get_identity_from_access_token = MagicMock(
+            return_value=(str(uuid4()), UserRole.ADMIN)
         )
 
         event = make_event(_PATH, "POST", body=_VALID_BODY, headers=_VALID_HEADERS)

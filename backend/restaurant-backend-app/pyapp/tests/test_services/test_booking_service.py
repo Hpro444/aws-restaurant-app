@@ -9,7 +9,7 @@ from commons.exceptions import ApplicationException
 from domain.location import Location
 from domain.slot import Slot
 from domain.table import Table
-from domain.user import Waiter
+from domain.user import Customer, Waiter
 from dto.create_booking import CreateBookingRequest
 from dto.reservation_event import ReservationEventMessage, ReservationEventType
 from enums.slot_status import SlotStatus
@@ -92,6 +92,20 @@ class DummyWaiterRepo:
         ]
 
 
+class DummyCustomerRepo:
+    """Mock customer repository for resolving client_name."""
+
+    def get(self, customer_id):
+        """Return synthetic customer profile for provided id."""
+        return Customer(
+            id=customer_id,
+            fname="Ana",
+            lname="Nikolic",
+            email="ana@example.com",
+            image_url="",
+        )
+
+
 class DummyWaiterViewRepo:
     """Mock waiter-dashboard projection repository for testing."""
 
@@ -145,6 +159,7 @@ def _build_service():
     service._slot_repo = None
     service._reservation_repo = DummyReservationRepo()
     service._location_repo = DummyLocationRepo(location)
+    service._customer_repo = DummyCustomerRepo()
     service._waiter_repo = DummyWaiterRepo(table.location_id)
     service._waiter_view_repo = DummyWaiterViewRepo()
     return service, table, location
@@ -177,6 +192,38 @@ class TestBookingService(unittest.TestCase):
         resp = self.service.create_booking(req, uuid4())
         self.assertEqual(resp.status, "Reserved")
         self.assertIsNotNone(self.service._reservation_repo.last_created.waiter_id)
+        self.assertEqual(
+            self.service._reservation_repo.last_created.client_name, "Ana Nikolic"
+        )
+        self.assertEqual(resp.client_name, "Ana Nikolic")
+
+    def test_waiter_visitor_booking_persists_without_customer_id(self):
+        """Visitor flow stores customer_id=None and keeps client_name; waiter becomes assigned."""
+        waiter_id = uuid4()
+        slot = make_slot(12)
+        self.service._slot_repo = DummySlotRepo([slot])
+        req = CreateBookingRequest(
+            location_id=self.table.location_id,
+            table_number=1,
+            date=slot.start_time.date().isoformat(),
+            guests_number=2,
+            time_from=self._utc(slot.start_time),
+            time_to=self._utc(slot.end_time),
+        )
+
+        resp = self.service.create_booking(
+            req, None, client_name="Petar Petrovic", waiter_id=waiter_id
+        )
+
+        self.assertEqual(resp.status, "RESERVED")
+        self.assertIsNone(self.service._reservation_repo.last_created.customer_id)
+        self.assertEqual(
+            self.service._reservation_repo.last_created.client_name, "Petar Petrovic"
+        )
+        self.assertEqual(
+            self.service._reservation_repo.last_created.waiter_id, waiter_id
+        )
+        self.assertEqual(resp.client_name, "Petar Petrovic")
 
     def test_single_slot_booking_writes_projection(self):
         """A successful booking upserts a waiter-view row keyed by the reservation id."""
