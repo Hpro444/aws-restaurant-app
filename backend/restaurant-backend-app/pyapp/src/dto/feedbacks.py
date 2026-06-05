@@ -25,7 +25,6 @@ class LeaveFeedbackRequest(BaseModel):
         str_strip_whitespace=True,
     )
 
-    # TODO: ukloni alias, i svuda normalizuj "reservationId" na "reservation_id"
     reservation_id: UUID = Field(
         ...,
         alias="reservationId",
@@ -73,6 +72,36 @@ class LeaveFeedbackResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     message: str
+
+
+class GetFeedbacksRequest(BaseModel):
+    """Validated query params for GET /locations/{id}/feedbacks."""
+
+    model_config = ConfigDict(extra="ignore", str_strip_whitespace=True)
+
+    type: str
+    sort: str = "date,desc"
+    page: int = Field(0, ge=0)
+    size: int = Field(20, ge=1, le=100)
+
+    @field_validator("type")
+    @classmethod
+    def validate_type(cls, value: str) -> str:
+        """Allow only supported feedback type filters."""
+        if value not in {"cuisine", "service"}:
+            raise ValueError("Must be one of: cuisine, service")
+        return value
+
+    @field_validator("sort")
+    @classmethod
+    def validate_sort(cls, value: str) -> str:
+        """Validate sort key and optional direction token."""
+        sort_key, _, sort_direction = value.partition(",")
+        if sort_key not in {"date", "rate"}:
+            raise ValueError("Sort field must be one of: date, rate")
+        if sort_direction and sort_direction not in {"asc", "desc"}:
+            raise ValueError("Sort direction must be one of: asc, desc")
+        return value
 
 
 class FeedbackResponse(BaseModel):

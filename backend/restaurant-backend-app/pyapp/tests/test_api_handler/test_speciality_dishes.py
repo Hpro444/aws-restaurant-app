@@ -3,6 +3,7 @@
 from unittest.mock import MagicMock
 from uuid import UUID
 
+from commons.exceptions import ApplicationException
 from dto.dishes import DishResponse
 from pyapp.tests.test_api_handler import ApiHandlerLambdaTestCase, body, status
 
@@ -90,6 +91,25 @@ class TestSpecialityDishes(ApiHandlerLambdaTestCase):
 
         self.assertEqual(status(result), 422)
         self.HANDLER._dishes_service.get_speciality_dishes_by_location.assert_not_called()
+
+    def test_unknown_location_id_returns_404(self) -> None:
+        """A valid UUID that does not exist should return 404 with clear message."""
+        self.HANDLER._dishes_service.get_speciality_dishes_by_location = MagicMock(
+            side_effect=ApplicationException(code=404, content="Location not found")
+        )
+
+        result = self.HANDLER.lambda_handler(
+            {
+                "path": "/locations/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/speciality-dishes",
+                "httpMethod": "GET",
+                "queryStringParameters": None,
+            },
+            {},
+        )
+
+        self.assertEqual(status(result), 404)
+        self.assertEqual(body(result)["message"], "Location not found")
+        self.HANDLER._dishes_service.get_speciality_dishes_by_location.assert_called_once()
 
     def test_path_parameters_id_is_used_when_present(self) -> None:
         """When API Gateway provides pathParameters.id, handler should use it."""

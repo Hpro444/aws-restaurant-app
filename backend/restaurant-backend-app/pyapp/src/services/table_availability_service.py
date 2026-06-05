@@ -23,31 +23,7 @@ from repositories.table_repository import TableRepository
 
 
 class TableAvailabilityService:
-    """Determine available tables and bookable time slots.
-
-    Orchestrates targeted DynamoDB queries across Table and Slot
-    repositories to determine bookable time slots. Slot booking state is
-    read directly from the Slot's ``status`` field — no reservation
-    lookup is needed.
-
-    All data access uses GSI-backed Query operations — no table scans.
-
-    Filtering logic (all criteria combined with AND):
-        1. Location  — only tables whose location_id matches (GSI query).
-        2. Capacity  — only tables with capacity >= guests_number.
-        3. Date      — only slots on the requested date (GSI query).
-        4. from_time (optional, auto-selected for today) — snap to the first
-           valid slot start >= from_time; only tables with that slot FREE
-           qualify; return all free slots from that point onwards. For today
-           without explicit from_time, auto-picks the next FREE future slot.
-        5. Availability — only slots with ``status == FREE``.
-
-    Query flow (for 3 tables with 7 slots each):
-        1 Query  → tables at location           (location_id-index)
-        3 Queries → slots per table per date    (table_id-date-index)
-       ─────────
-        4 total DynamoDB calls, each reading 0–7 items max.
-    """
+    """Determine available tables and free slots for a location/date filter."""
 
     def __init__(
         self,
@@ -56,15 +32,7 @@ class TableAvailabilityService:
         slot_repository: SlotRepository | None = None,
         location_repository: LocationRepository | None = None,
     ) -> None:
-        """Create repositories used by this service, creating defaults when omitted.
-
-        Args:
-            settings: Shared application config.
-            table_repository: Optional TableRepository instance.
-            slot_repository: Optional SlotRepository instance.
-            location_repository: Optional LocationRepository instance.
-
-        """
+        """Initialize repositories, using defaults when omitted."""
         cfg = settings or AppConfig()
         self._table_repo = table_repository or TableRepository(cfg)
         self._slot_repo = slot_repository or SlotRepository(cfg)
@@ -77,21 +45,7 @@ class TableAvailabilityService:
         guests_number: int,
         from_time: Optional[str] = None,
     ) -> AvailableTablesResponse:
-        """Return tables with free time slots for the given criteria.
-
-        Args:
-            location_id: UUID (or UUID string) of the restaurant location.
-            booking_date: Calendar date as "YYYY-MM-DD" (pre-validated).
-            guests_number: Minimum table capacity required (pre-validated).
-            from_time: Optional filter snapped to the nearest slot start.
-                Only tables that have that slot FREE are returned, along
-                with all their free slots from that point onwards.
-
-        Returns:
-            Response DTO with available tables and their free slots.
-            Returns empty tables list when no tables match all criteria.
-
-        """
+        """Return tables with free slots for location/date/guest filters."""
         logger.info(
             "get_available_tables called",
             location_id=str(location_id),
@@ -102,16 +56,17 @@ class TableAvailabilityService:
         now_utc = datetime.now(timezone.utc)
         is_today = booking_date == now_utc.date().isoformat()
 
-        # ── Step 1: Parse location UUID ──────────────────────────────
-        location_uuid = self._parse_uuid(location_id)
-        if location_uuid is None:
+        try:
+            location_uuid = (
+                location_id if isinstance(location_id, UUID) else UUID(location_id)
+            )
+        except (TypeError, ValueError):
+            logger.warning("Invalid UUID", value=location_id)
             return AvailableTablesResponse(tables=[])
 
-        # ── Step 2: Filter by location — query tables at location (GSI)
         location = self._location_repo.get(location_uuid)
         all_tables = self._table_repo.find_by_location_id(location_uuid)
 
-        # ── Step 3: Filter by guest count — capacity >= requested ────
         suitable_tables = [t for t in all_tables if t.capacity >= guests_number]
         logger.info(
             "Capacity filter",
@@ -122,7 +77,6 @@ class TableAvailabilityService:
         if not suitable_tables:
             return AvailableTablesResponse(tables=[])
 
-        # ── Step 4: Filter by timeslot — query slots for date (GSI) ──
         table_ids = {t.id for t in suitable_tables}
         slots = self._slot_repo.find_by_table_ids_and_date(table_ids, booking_date)
 
@@ -130,7 +84,6 @@ class TableAvailabilityService:
             logger.info("No slots found", date=booking_date)
             return AvailableTablesResponse(tables=[])
 
-        # ── Step 5: Resolve from_time (explicit or auto-selected for today) ──
         effective_from_time = from_time
         if not effective_from_time and is_today:
             future_slots = [
@@ -150,7 +103,6 @@ class TableAvailabilityService:
                 auto_from_time=effective_from_time,
             )
 
-        # ── Step 6: Snap from_time and qualify tables ────────────────
         if effective_from_time:
             requested_time = self._extract_requested_time(effective_from_time)
             snapped = self._snap_to_slot_start(location.open_time, requested_time)
@@ -160,7 +112,6 @@ class TableAvailabilityService:
                 snapped=str(snapped),
             )
 
-            # For today, reject snapped times that are already in the past
             if is_today:
                 snapped_dt = datetime.combine(
                     now_utc.date(), snapped, tzinfo=timezone.utc
@@ -173,7 +124,6 @@ class TableAvailabilityService:
                     )
                     return AvailableTablesResponse(tables=[])
 
-            # Tables must have the snapped slot FREE
             qualifying_ids = {
                 s.table_id
                 for s in slots
@@ -184,15 +134,12 @@ class TableAvailabilityService:
                 return AvailableTablesResponse(tables=[])
 
             suitable_tables = [t for t in suitable_tables if t.id in qualifying_ids]
-            # Keep only slots >= snapped for qualifying tables
             slots = [
                 s
                 for s in slots
                 if s.table_id in qualifying_ids and s.start_time.time() >= snapped
             ]
 
-        # ── Step 7: Filter by availability — keep only FREE slots ────
-        # For today, also exclude any slots that have already started
         free_slots = [s for s in slots if s.status == SlotStatus.FREE]
         before_filter = len(free_slots)
         if is_today:
@@ -208,49 +155,90 @@ class TableAvailabilityService:
             free=len(free_slots),
         )
 
-        # ── Step 8: Build response grouped by table ──────────────────
         return self._build_response(
             suitable_tables,
             free_slots,
             location_address=location.address if location else None,
         )
 
+    def get_valid_slot_start_times(
+        self,
+        location_id: UUID,
+        booking_date: str | None = None,
+    ) -> list[str]:
+        """Return distinct free slot start times for a location and date."""
+        date_iso = booking_date or datetime.now(timezone.utc).date().isoformat()
+        slots = self._get_free_slots_for_location(location_id, date_iso)
+
+        now_utc = datetime.now(timezone.utc)
+        is_today = date_iso == now_utc.date().isoformat()
+        if is_today:
+            slots = [slot for slot in slots if slot.start_time > now_utc]
+
+        start_times = sorted({slot.start_time for slot in slots})
+        return [self._format_utc(dt) for dt in start_times]
+
+    def get_valid_slot_end_times(
+        self,
+        location_id: UUID,
+        booking_date: str | None = None,
+        start_time: str | None = None,
+    ) -> list[str]:
+        """Return distinct free slot end times for a location and date."""
+        date_iso = booking_date or datetime.now(timezone.utc).date().isoformat()
+        slots = self._get_free_slots_for_location(location_id, date_iso)
+
+        now_utc = datetime.now(timezone.utc)
+        is_today = date_iso == now_utc.date().isoformat()
+        if is_today:
+            slots = [slot for slot in slots if slot.start_time > now_utc]
+
+        if start_time:
+            start_dt = self._parse_utc_datetime(start_time, date_iso)
+            slots = [slot for slot in slots if slot.start_time >= start_dt]
+
+        end_times = sorted({slot.end_time for slot in slots})
+        return [self._format_utc(dt) for dt in end_times]
+
     # ── Private helpers ──────────────────────────────────────────────
 
     @staticmethod
-    def _parse_uuid(value: UUID | str) -> UUID | None:
-        """Return UUID value or None when input is not a valid UUID."""
-        if isinstance(value, UUID):
-            return value
-
-        try:
-            return UUID(value)
-        except ValueError:
-            logger.warning("Invalid UUID", value=value)
-            return None
-
-    @staticmethod
     def _snap_to_slot_start(open_time: time, requested_time: time) -> time:
-        """Return the first valid slot start time >= requested_time.
-
-        Slot schedule starts at ``open_time``; each slot is 90 minutes
-        followed by a 15-minute break (105-minute period).
-
-        Args:
-            open_time: Location opening time (naive ``datetime.time``).
-            requested_time: Requested filter time in UTC.
-
-        Returns:
-            The earliest slot start time that is >= requested_time.
-
-        """
+        """Return earliest slot start not earlier than requested_time."""
         slot_dt = datetime.combine(date_type.min, open_time)
         target_dt = datetime.combine(date_type.min, requested_time)
 
         while slot_dt < target_dt:
-            slot_dt += timedelta(minutes=105)  # 90 min slot + 15 min break
+            slot_dt += timedelta(minutes=105)
 
         return slot_dt.time()
+
+    def _get_free_slots_for_location(
+        self, location_id: UUID, date_iso: str
+    ) -> list[Slot]:
+        """Load FREE slots for all tables in location on the requested date."""
+        tables = self._table_repo.find_by_location_id(location_id)
+        if not tables:
+            return []
+
+        table_ids = {table.id for table in tables}
+        slots = self._slot_repo.find_by_table_ids_and_date(table_ids, date_iso)
+        return [slot for slot in slots if slot.status == SlotStatus.FREE]
+
+    @staticmethod
+    def _parse_utc_datetime(value: str, date_iso: str) -> datetime:
+        """Parse an incoming UTC datetime (or HH:MM) into aware datetime."""
+        normalized = value.strip()
+        if "T" in normalized:
+            parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+            return parsed.astimezone(timezone.utc)
+
+        parsed_time = time.fromisoformat(normalized)
+        return datetime.combine(
+            date_type.fromisoformat(date_iso),
+            parsed_time,
+            tzinfo=timezone.utc,
+        )
 
     @staticmethod
     def _extract_requested_time(from_time_value: str) -> time:
@@ -269,14 +257,9 @@ class TableAvailabilityService:
         free_slots: list[Slot],
         location_address: str | None = None,
     ) -> AvailableTablesResponse:
-        """Group free slots by table and build the response DTO.
-
-        Tables with zero free slots are excluded from the response.
-        Tables sorted by table_number, slots sorted by start_time.
-        """
+        """Group free slots by table and build response."""
         table_by_id = {t.id: t for t in tables}
 
-        # Group slots by table
         slots_by_table: dict[UUID, list[SlotResponse]] = {}
         for slot in free_slots:
             if slot.table_id not in table_by_id:
@@ -288,7 +271,6 @@ class TableAvailabilityService:
             )
             slots_by_table.setdefault(slot.table_id, []).append(sr)
 
-        # Build table cards (only tables with free slots)
         result: list[TableAvailabilityResponse] = []
         for table_id, slot_list in slots_by_table.items():
             table = table_by_id[table_id]

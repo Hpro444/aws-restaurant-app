@@ -8,7 +8,7 @@ from uuid import UUID, uuid4
 from commons.app_config import AppConfig
 from commons.exceptions import ApplicationException
 from commons.log_helper import logger
-from commons.uuid_utils import coerce_uuid
+from commons.uuid_utils import parse_uuid_or_raise
 from domain.reservation import Reservation
 from domain.reservation_waiter_view import ReservationWaiterView
 from domain.slot import Slot
@@ -109,7 +109,7 @@ class BookingService:
                 for validation, lookup, capacity, or contention failures.
 
         """
-        customer_uuid = coerce_uuid(customer_id, field_name="customer_id")
+        customer_uuid = parse_uuid_or_raise(customer_id)
 
         table = self._find_table(request.location_id, request.table_number)
         self._check_capacity(table, request.guests_number)

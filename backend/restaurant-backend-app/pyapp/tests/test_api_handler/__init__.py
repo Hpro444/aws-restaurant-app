@@ -56,13 +56,13 @@ class ApiHandlerLambdaTestCase(unittest.TestCase):
 def make_event(
     path: str,
     method: str,
-    body: dict | None = None,
+    body: dict | str | None = None,
     headers: dict[str, str] | None = None,
 ) -> dict:
     """Build a minimal API Gateway-style Lambda event."""
     event = {"path": path, "httpMethod": method}
     if body is not None:
-        event["body"] = json.dumps(body)
+        event["body"] = body if isinstance(body, str) else json.dumps(body)
     if headers is not None:
         event["headers"] = headers
     return event
