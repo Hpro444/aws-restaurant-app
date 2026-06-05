@@ -1,15 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
-import {
-  getReservations,
-  type ReservationResponse,
-} from "./reservations.services";
+import { getReservations } from "./reservations.services";
 import ReservationCard from "./components/ReservationCard";
 import Header from "../../components/header";
 import logoWhite from "../../assets/logoWhite.png";
 import subheading from "../../assets/reservations/subheading.png";
 import Layout from "../../components/layout";
 import NoResults from "./components/NoResults";
+import type { ReservationResponse } from "../../types/location";
 
 const ReservationsPage = () => {
   const { accessToken, user, isAuthenticated } = useAuth();

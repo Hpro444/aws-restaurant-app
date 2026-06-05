@@ -1,4 +1,4 @@
-import type { AvailableSlot } from "../availableTables.services";
+import type { AvailableSlot } from "../../../types/location";
 import clock_icon from "../../../assets/availableTables/Clock.png";
 import { formatSlotTime } from "../../../utils/reservationHelpers";
 

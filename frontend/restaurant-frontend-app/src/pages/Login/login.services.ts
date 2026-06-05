@@ -1,23 +1,11 @@
 import getApiBaseUrl from "../../config/GetApiBaseUrl";
+import type {
+  ApiErrorResponse,
+  LoginPayload,
+  LoginResponse,
+} from "../../types/auth";
 
-export interface LoginPayload {
-  email: string;
-  password: string;
-}
-
-export interface LoginResponse {
-  access_token: string;
-  refresh_token: string;
-  username: string;
-  role: "Customer" | "Waiter" | "Admin" | "Visitor";
-}
-
-export interface ApiErrorResponse {
-  error?: string;
-  message?: string;
-}
-
-const  isApiErrorResponse = (value: unknown): value is ApiErrorResponse => {
+const isApiErrorResponse = (value: unknown): value is ApiErrorResponse => {
   if (typeof value !== "object" || value === null) {
     return false;
   }

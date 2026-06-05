@@ -2,57 +2,18 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Header from "../../components/header";
 import locationImg from "../../assets/restaurant/location.png";
-import DiscCard from "../../components/common/DishCard";
-import FeedbackCard, {
-  type Feedback,
-} from "../../components/common/FeedbackCard";
+import DishCard from "../../components/common/DishCard";
+import FeedbackCard from "../../components/common/FeedbackCard";
 import star_icon from "../../assets/restaurant/star-icon.png";
 import location_icon from "../../assets/restaurant/location-icon.png";
 import arrow_right_icon from "../../assets/restaurant/arrow-right-icon.png";
 import getApiBaseUrl from "../../config/GetApiBaseUrl";
-
-type LocationData = {
-  id: string;
-  name: string;
-  address: string;
-  description: string;
-  rating?: number;
-  image?: string;
-};
-
-type Dish = {
-  id: string;
-  name: string;
-  description?: string;
-  price: number;
-  image?: string;
-  weight?: string | number;
-};
-
-type FeedbackResponse = {
-  totalPages: number;
-  totalElements: number;
-  size: number;
-  content: Feedback[];
-  number: number;
-  sort: string[];
-  first: boolean;
-  last: boolean;
-  numberOfElements: number;
-  pageable: {
-    offset: number;
-    sort: string[];
-    paged: boolean;
-    pageSize: number;
-    pageNumber: number;
-    unpaged: boolean;
-  };
-  empty: boolean;
-};
+import type { Dish } from "../../types/dish";
+import type { FeedbackResponse, Location } from "../../types/location";
 
 const RestaurantPage = () => {
   const { id } = useParams<{ id: string }>();
-  const [locationData, setLocationData] = useState<LocationData | null>(null);
+  const [locationData, setLocationData] = useState<Location | null>(null);
   const [specialtyDishes, setSpecialtyDishes] = useState<Dish[]>([]);
   const [feedbackResponse, setFeedbackResponse] =
     useState<FeedbackResponse | null>(null);
@@ -178,7 +139,7 @@ const RestaurantPage = () => {
     fetchFeedbacks();
   }, [id, activeTab, sortBy, currentPage, pageSize]);
 
-  const locationName = locationData?.name || "Green & Tasty";
+  // const locationName = locationData?.name || "Green & Tasty";
   const locationAddress = locationData?.address || "Neka lokacija";
   const locationRating = locationData?.rating || 4.73;
   const locationDescription = locationData?.description || "";
@@ -246,7 +207,7 @@ const RestaurantPage = () => {
         <section className="flex gap-20">
           <div className="flex flex-col gap-6">
             <h1 className="font-medium text-5xl leading-[48px] tracking-normal align-middle">
-              {locationName}
+              Green & Tasty
             </h1>
             <div className="flex justify-between">
               <p className="flex items-center gap-1">
@@ -290,7 +251,7 @@ const RestaurantPage = () => {
           </div>
           <div className="flex-1">
             <img
-              src={locationData?.image || locationImg}
+              src={locationData?.image_url || locationImg}
               alt="Location"
               className="object-cover h-full rounded-[24px]"
               onError={(e) => {
@@ -322,7 +283,7 @@ const RestaurantPage = () => {
             ) : specialtyDishes.length > 0 ? (
               specialtyDishes
                 .slice(0, 4)
-                .map((dish) => <DiscCard key={dish.id} dish={dish} />)
+                .map((dish) => <DishCard key={dish.id} dish={dish} />)
             ) : (
               <div className="col-span-4 text-center py-8">
                 <p className="text-gray-500">No specialty dishes available</p>

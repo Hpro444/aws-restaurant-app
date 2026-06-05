@@ -1,4 +1,4 @@
-import type { FormInputProps } from "../login.types";
+import type { FormInputProps } from "../../../types/auth";
 import classes from "../login.styles";
 
 const FormInput = ({

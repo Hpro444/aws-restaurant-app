@@ -7,16 +7,12 @@ import { useAuth } from "../../context/AuthContext";
 import {
   getAvailableTables,
   getLocationSelectOptions,
-  type LocationSelectOption,
-  type TableResult,
 } from "./availableTables.services";
-
-type Filters = {
-  locationId: string;
-  date: string;
-  fromTime: string;
-  guests: number;
-};
+import type {
+  Filters,
+  LocationSelectOption,
+  TableResult,
+} from "../../types/location";
 
 const AvailableTablesPage = () => {
   const { accessToken } = useAuth();

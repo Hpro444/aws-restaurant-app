@@ -1,4 +1,4 @@
-import type { FieldConfig } from "./signup.types";
+import type { FieldConfig } from "../../types/auth";
 
 export const nameFields: FieldConfig[] = [
   {

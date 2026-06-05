@@ -1,7 +1,7 @@
 import clock_icon from "../../../assets/availableTables/Clock.png";
 import close_icon from "../../../assets/close_icon.png";
+import type { AvailableSlot } from "../../../types/location";
 import { formatDate, formatSlotTime } from "../../../utils/reservationHelpers";
-import type { AvailableSlot } from "../availableTables.services";
 
 type AvailableSlotsModalProps = {
   slots: AvailableSlot[];

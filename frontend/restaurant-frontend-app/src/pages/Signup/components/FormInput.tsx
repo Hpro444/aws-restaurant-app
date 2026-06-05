@@ -1,4 +1,4 @@
-import type { FormInputProps } from "../signup.types";
+import type { FormInputProps } from "../../../types/auth";
 import classes from "../signup.styles";
 
 const FormInput = ({

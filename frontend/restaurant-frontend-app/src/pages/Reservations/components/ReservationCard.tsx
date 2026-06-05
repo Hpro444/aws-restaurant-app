@@ -1,4 +1,3 @@
-import { type ReservationResponse } from "../reservations.services";
 import {
   getStatusColor,
   formatDate,
@@ -8,6 +7,7 @@ import location_icon from "../../../assets/reservations/location-icon.png";
 import calendar_icon from "../../../assets/reservations/Calendar.png";
 import clock_icon from "../../../assets/reservations/Clock.png";
 import people_icon from "../../../assets/reservations/People.png";
+import type { ReservationResponse } from "../../../types/location";
 
 interface ReservationCardProps {
   reservation: ReservationResponse;

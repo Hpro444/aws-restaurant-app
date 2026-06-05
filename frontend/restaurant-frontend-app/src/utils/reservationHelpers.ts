@@ -1,5 +1,3 @@
-// import type { IntlShape } from "react-intl";
-
 export const getStatusColor = (status: string): string => {
   switch (status.toLowerCase()) {
     case "reserved":
