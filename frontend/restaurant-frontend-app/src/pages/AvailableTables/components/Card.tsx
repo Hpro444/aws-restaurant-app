@@ -3,10 +3,7 @@ import clock_icon from "../../../assets/availableTables/Clock.png";
 import location from "../../../assets/availableTables/location.png";
 import location_icon from "../../../assets/availableTables/location-icon.png";
 import plus_icon from "../../../assets/availableTables/plus-icon.png";
-import {
-  type TableResult,
-  type AvailableSlot,
-} from "../availableTables.services";
+import { type TableResult, type AvailableSlot } from "../../../types/location";
 import AvailableSlotsModal from "./AvailableSlotsModal";
 import { formatDate, formatSlotTime } from "../../../utils/reservationHelpers";
 

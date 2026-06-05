@@ -10,7 +10,7 @@ type BreadcrumbProps = {
   items: BreadcrumbItem[];
 };
 
-const Breadcrumb = ({ items }: BreadcrumbProps) => {
+const Breadcrumbs = ({ items }: BreadcrumbProps) => {
   return (
     <section className="flex gap-2 mt-2 font-light text-[14px] leading-[24px] tracking-normal">
       {items.map((item, index) => (
@@ -40,4 +40,4 @@ const Breadcrumb = ({ items }: BreadcrumbProps) => {
   );
 };
 
-export default Breadcrumb;
+export default Breadcrumbs;

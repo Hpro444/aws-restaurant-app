@@ -5,28 +5,14 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import {
-  loginUser,
-  type LoginPayload,
-  type LoginResponse,
-} from "../pages/Login/login.services";
-
-type AuthUser = {
-  username: string;
-  role: LoginResponse["role"];
-};
-
-type ViewerRole = "guest" | "customer" | "waiter" | "admin";
-
-type AuthContextValue = {
-  user: AuthUser | null;
-  accessToken: string | null;
-  refreshToken: string | null;
-  isAuthenticated: boolean;
-  viewerRole: ViewerRole;
-  signIn: (payload: LoginPayload) => Promise<void>;
-  signOut: () => void;
-};
+import { loginUser } from "../pages/Login/login.services";
+import type {
+  AuthContextValue,
+  AuthUser,
+  LoginPayload,
+  LoginResponse,
+  ViewerRole,
+} from "../types/auth";
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 

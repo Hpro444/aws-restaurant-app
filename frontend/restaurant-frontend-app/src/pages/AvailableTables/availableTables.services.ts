@@ -1,34 +1,5 @@
 import getApiBaseUrl from "../../config/GetApiBaseUrl";
-
-export interface AvailableSlot {
-  slot_id: string;
-  start_time: string;
-  end_time: string;
-}
-
-export interface TableResult {
-  table_id: string;
-  table_number: number;
-  capacity: number;
-  available_slots: AvailableSlot[];
-}
-
-export interface GetTablesParams {
-  location_id: string;
-  date: string;
-  guests_number: number;
-  from_time?: string;
-  to_time?: string;
-}
-
-export interface GetTablesResponse {
-  tables: TableResult[];
-}
-
-export interface LocationSelectOption {
-  location_id: string;
-  location_address: string;
-}
+import type { GetTablesParams, GetTablesResponse, LocationSelectOption } from "../../types/location";
 
 export const getLocationSelectOptions = async (
   accessToken?: string,

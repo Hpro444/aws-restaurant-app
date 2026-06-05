@@ -1,15 +1,7 @@
 import dish_image from "../../assets/home/dish.png";
+import type { Dish } from "../../types/dish";
 
-type Dish = {
-  id?: string;
-  name: string;
-  description?: string;
-  price: number;
-  image_url?: string;
-  weight_gram?: string | number;
-};
-
-const DiscCard = ({
+const DishCard = ({
   dish,
   imageClassName,
 }: {
@@ -29,7 +21,7 @@ const DiscCard = ({
         onError={(e) => {
           e.currentTarget.src = dish_image;
         }}
-        className={imageClassName}
+        className={`${imageClassName}`}
       />
       <div className="flex flex-col gap-1">
         <p className="font-medium text-[14px] leading-[24px] align-middle">
@@ -44,4 +36,4 @@ const DiscCard = ({
   );
 };
 
-export default DiscCard;
+export default DishCard;

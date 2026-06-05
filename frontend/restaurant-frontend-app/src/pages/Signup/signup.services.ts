@@ -1,22 +1,9 @@
 import getApiBaseUrl from "../../config/GetApiBaseUrl";
-
-export interface SignupPayload {
-  first_name: string;
-  last_name: string;
-  password: string;
-  email: string;
-  confirmPassword: string;
-}
-
-export interface SignupResponse {
-  message: string;
-  user_id: string;
-}
-
-type ApiErrorResponse = {
-  message?: string;
-  error?: string;
-};
+import type {
+  ApiErrorResponse,
+  SignupPayload,
+  SignupResponse,
+} from "../../types/auth";
 
 const isApiErrorResponse = (value: unknown): value is ApiErrorResponse => {
   if (typeof value !== "object" || value === null) return false;

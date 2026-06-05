@@ -1,4 +1,4 @@
-export default  {
+export default {
   form: "flex flex-col gap-6",
   row: "flex gap-4",
   fieldWrap: "flex flex-col gap-1",
@@ -8,7 +8,8 @@ export default  {
   helper: "font-light text-xs leading-4 text-[var(--color-text-muted)]",
   rulesList: "text-[var(--color-text-muted)]",
   ruleItem: "flex items-start gap-2",
-  ruleDot: "mt-1 inline-block w-2 h-2 rounded-full bg-[var(--color-text-muted)] shrink-0",
+  ruleDot:
+    "mt-1 inline-block w-2 h-2 rounded-full bg-[var(--color-text-muted)] shrink-0",
   submit: "rounded-lg px-2 py-4 bg-[var(--color-text-muted)] text-white",
   loginText: "font-light text-xs text-[var(--color-text-strong)]",
   loginLink: "font-bold text-xs underline text-[var(--color-link)]",

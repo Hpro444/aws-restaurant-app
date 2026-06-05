@@ -1,25 +1,5 @@
 import getApiBaseUrl from "../../config/GetApiBaseUrl";
-
-export interface AllowedActions {
-  can_edit: boolean;
-  can_cancel: boolean;
-}
-
-export interface ReservationResponse {
-  reservation_id: string;
-  status: string;
-  customer_id?: string;
-  waiter_id?: string;
-  location_id?: string;
-  location_address?: string;
-  table_number?: number;
-  date: string;
-  time_from: string;
-  time_to: string;
-  guests_number: number;
-  allowed_actions: AllowedActions;
-  cutoff_reason?: string;
-}
+import type { ReservationResponse } from "../../types/location";
 
 export const getReservations = async (
   accessToken: string,

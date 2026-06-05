@@ -1,6 +1,6 @@
-import type { FieldConfig } from "./login.types";
+import type { FieldConfig } from "../../types/auth";
 
-export const emailField : FieldConfig = {
+export const emailField: FieldConfig = {
   id: "email",
   label: "Email",
   type: "email",

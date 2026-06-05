@@ -6,24 +6,8 @@ import Layout from "../../components/layout";
 import LocationCard from "./components/LocationCard";
 import { Link } from "react-router-dom";
 import getApiBaseUrl from "../../config/GetApiBaseUrl";
-
-type Dish = {
-  id: string;
-  name: string;
-  description?: string;
-  price: number;
-  image?: string;
-  weight?: string | number;
-};
-
-type Location = {
-  id: string;
-  name: string;
-  address: string;
-  image?: string;
-  totalCapacity?: number;
-  averageOccupancy?: number;
-};
+import type { Dish } from "../../types/dish";
+import type { Location } from "../../types/location";
 
 const HomePage = () => {
   const [popularDishes, setPopularDishes] = useState<Dish[]>([]);
@@ -91,11 +75,9 @@ const HomePage = () => {
     <>
       <Header />
       <section
-        className="relative flex justify-start font-poppins"
+        className="relative flex justify-start font-poppins bg-cover bg-center"
         style={{
           backgroundImage: `url(${section_image})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
         }}
       >
         <div className="max-w-[1440px] w-full mx-auto flex">
@@ -115,9 +97,12 @@ const HomePage = () => {
                 twist.
               </p>
             </div>
-            <button className="pt-3.5 rotate-0 opacity-100 rounded-[8px] bg-[var(--color-brand)] text-white hover:bg-[#009a0b] py-4 text-center">
+            <Link
+              to="/menu"
+              className="pt-3.5 rotate-0 opacity-100 rounded-[8px] bg-[var(--color-brand)] text-white hover:bg-[#009a0b] py-4 text-center"
+            >
               View Menu
-            </button>
+            </Link>
           </div>
         </div>
       </section>

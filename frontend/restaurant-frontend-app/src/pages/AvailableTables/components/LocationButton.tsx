@@ -1,7 +1,7 @@
 import { useState } from "react";
 import location_icon from "../../../assets/availableTables/location-icon.png";
 import arrow_down from "../../../assets/restaurant/arrow-down-icon.png";
-import { type LocationSelectOption } from "../availableTables.services";
+import { type LocationSelectOption } from "../../../types/location";
 
 type LocationButtonProps = {
   value: string;

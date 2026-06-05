@@ -9,12 +9,13 @@ import {
 import RulesList from "./RulesList";
 import { useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
-import { signupUser, type SignupPayload } from "../signup.services";
+import { signupUser } from "../signup.services";
 import { useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
 
 import eyeClosed from "../../../assets/signup/Eye closed.png";
 import eyeOpen from "../../../assets/signup/Eye.png";
+import type { SignupPayload } from "../../../types/auth";
 
 const VALID_COLOR = "#00AD0C";
 const INVALID_COLOR = "#B70B0B";

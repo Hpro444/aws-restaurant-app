@@ -1,23 +1,10 @@
 import locationImg from "../../../assets/home/location.jpg";
 import location_icon from "../../../assets/home/location-icon.png";
+import type { Location } from "../../../types/location";
 
-type Location = {
-  id: string;
-  name: string;
-  address: string;
-  image?: string;
-  total_capacity?: number;
-  average_occupancy?: number;
-};
-
-type LocationCardProps = {
-  location?: Location;
-};
-
-const LocationCard = ({ location }: LocationCardProps) => {
-  const locationName = location?.name || "48 Text";
-  const locationAddress = location?.address || locationName;
-  const locationImage = location?.image || locationImg;
+const LocationCard = ({ location }: { location?: Location }) => {
+  const locationAddress = location?.address || "Unknown Location";
+  const locationImage = location?.image_url || locationImg;
   const totalCapacity = location?.total_capacity || 100;
   const averageOccupancy = location?.average_occupancy || 75;
 
@@ -26,7 +13,7 @@ const LocationCard = ({ location }: LocationCardProps) => {
       <div className="h-[140px]">
         <img
           src={locationImage}
-          alt={locationName}
+          alt={locationAddress}
           className="rotate-0 object-cover h-full opacity-100 w-full rounded-tl-[24px] rounded-tr-[24px]"
           onError={(e) => {
             e.currentTarget.src = locationImg;

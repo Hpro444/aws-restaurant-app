@@ -23,7 +23,7 @@ function App() {
   return (
     <>
       <Routes>
-        <Route path="/" element={<MenuPage />} />
+        <Route path="/" element={<HomePage />} />
         <Route
           path="/login"
           element={
@@ -57,6 +57,7 @@ function App() {
             </RequireAuth>
           }
         />
+        <Route path="/menu" element={<MenuPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>

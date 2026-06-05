@@ -4,7 +4,8 @@ import DateButton from "./DateButton";
 import TimeButton from "./TimeButton";
 import GuestsButton from "./GuestsButton";
 
-import { type LocationSelectOption } from "../availableTables.services";
+import { type LocationSelectOption } from "../../../types/location";
+import type { Filters } from "../../../types/location";
 
 type HeaderSectionProps = {
   filters: Filters;
@@ -12,13 +13,6 @@ type HeaderSectionProps = {
   onSearch: () => void;
   isLoading: boolean;
   locations: LocationSelectOption[];
-};
-
-type Filters = {
-  locationId: string;
-  date: string;
-  fromTime: string;
-  guests: number;
 };
 
 const HeaderSection = ({

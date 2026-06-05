@@ -1,21 +1,8 @@
 import star_icon from "../../assets/restaurant/star-icon.png";
+import type { Feedback } from "../../types/location";
 import { formatDate } from "../../utils/reservationHelpers";
 
-export type Feedback = {
-  id: string;
-  customer_id?: string;
-  feedback: string;
-  rate: number;
-  date: string;
-  user_name: string;
-  user_image_url: string;
-};
-
-type FeedbackCardProps = {
-  feedback: Feedback;
-};
-
-const FeedbackCard = ({ feedback }: FeedbackCardProps) => {
+const FeedbackCard = ({ feedback }: { feedback: Feedback }) => {
   const rating = feedback.rate;
 
   const renderStars = (rating: number) => {
@@ -34,7 +21,7 @@ const FeedbackCard = ({ feedback }: FeedbackCardProps) => {
 
   return (
     <div className="flex flex-col shadow-[0px_0px_10px_4px_#DADADAB2] rounded-3xl">
-      <div className="p-6 flex justify-between items-center gap-3">
+      <div className="p-6 flex justify-between gap-3">
         <div className="w-[60px] h-[60px]">
           <img
             src={feedback.user_image_url}
