@@ -8,7 +8,7 @@ from uuid import UUID
 from commons.app_config import AppConfig
 from commons.exceptions import ApplicationException
 from commons.log_helper import logger
-from commons.uuid_utils import coerce_uuid
+from commons.uuid_utils import parse_uuid_or_raise
 from domain.reservation import Reservation
 from domain.reservation_waiter_view import ReservationWaiterView
 from dto.reservation_event import ReservationEventMessage, ReservationEventType
@@ -85,7 +85,7 @@ class ReservationManagementService:
         role: str,
     ) -> ReservationListResponse:
         """Return reservations visible to a customer or assigned waiter."""
-        actor_uuid = coerce_uuid(actor_id)
+        actor_uuid = parse_uuid_or_raise(actor_id)
 
         if role == UserRole.CUSTOMER:
             reservations = self._reservation_repo.find_by_customer_id(actor_uuid)
@@ -115,12 +115,8 @@ class ReservationManagementService:
         time_from: str,
         table_name: str,
     ) -> WaiterReservationListResponse:
-        """Return reservations for one date/start-time/table at the waiter's location.
-
-        The caller's ``location_id`` is resolved from their Waiter profile, then a
-        single GSI query returns the matching denormalized projection rows.
-        """
-        waiter_uuid = coerce_uuid(waiter_id)
+        """Return waiter reservations for a single date/start-time/table filter."""
+        waiter_uuid = parse_uuid_or_raise(waiter_id)
         waiter = self._waiter_repo.get(waiter_uuid)
         if waiter is None:
             raise ApplicationException(
@@ -167,7 +163,7 @@ class ReservationManagementService:
 
         return self._build_reservation_view(
             reservation=reservation,
-            actor_id=coerce_uuid(actor_id),
+            actor_id=parse_uuid_or_raise(actor_id),
             role=role,
         )
 
@@ -179,7 +175,7 @@ class ReservationManagementService:
         role: str,
     ) -> ReservationView:
         """Apply allowed edits/status updates and return refreshed reservation payload."""
-        actor_uuid = coerce_uuid(actor_id)
+        actor_uuid = parse_uuid_or_raise(actor_id)
         reservation = self._get_accessible_reservation(
             reservation_id=reservation_id,
             actor_id=actor_uuid,
@@ -232,8 +228,8 @@ class ReservationManagementService:
         actor_id: UUID | str,
         role: str,
     ) -> ReservationView:
-        """Cancel a reservation if caller is customer or assigned waiter before cutoff."""
-        actor_uuid = coerce_uuid(actor_id)
+        """Cancel reservation before cutoff when caller is allowed."""
+        actor_uuid = parse_uuid_or_raise(actor_id)
         reservation = self._get_accessible_reservation(
             reservation_id=reservation_id,
             actor_id=actor_uuid,
@@ -271,8 +267,8 @@ class ReservationManagementService:
         role: str,
     ) -> Reservation:
         """Load reservation and ensure actor has ownership/assignment access."""
-        reservation_uuid = coerce_uuid(reservation_id)
-        actor_uuid = coerce_uuid(actor_id)
+        reservation_uuid = parse_uuid_or_raise(reservation_id)
+        actor_uuid = parse_uuid_or_raise(actor_id)
 
         reservation = self._reservation_repo.get(reservation_uuid)
         if reservation is None:
@@ -304,7 +300,7 @@ class ReservationManagementService:
         actor_id: UUID,
         role: str,
     ) -> ReservationView:
-        """Build a frontend-friendly reservation payload with action flags."""
+        """Build reservation view payload with allowed actions."""
         slots = self._get_reservation_slots(reservation)
 
         start_time = min(slot.start_time for slot in slots)
@@ -341,12 +337,7 @@ class ReservationManagementService:
         )
 
     def _sync_projection(self, reservation: Reservation, view: ReservationView) -> None:
-        """Keep the waiter-dashboard read model in step with a reservation change.
-
-        Cancelled reservations are removed from the projection; otherwise the
-        flattened row is upserted. The upsert is skipped when the table or
-        location could not be resolved (nothing to key the row on).
-        """
+        """Sync reservation changes to waiter projection model."""
         if reservation.status == ReservationStatus.CANCELLED:
             self._waiter_view_repo.delete(reservation.id)
             return
@@ -357,7 +348,7 @@ class ReservationManagementService:
     def _to_projection(
         self, reservation: Reservation, view: ReservationView
     ) -> ReservationWaiterView:
-        """Map an enriched ReservationView to its waiter-dashboard projection row."""
+        """Map reservation view to waiter projection row."""
         return ReservationWaiterView(
             id=reservation.id,
             customer_id=reservation.customer_id,
@@ -380,7 +371,7 @@ class ReservationManagementService:
         role: str,
         start_time,
     ) -> tuple[bool, bool, str | None]:
-        """Return edit/cancel flags and cutoff reason when actions are disabled."""
+        """Compute edit/cancel permissions and optional cutoff reason."""
         is_owner = role == UserRole.CUSTOMER and reservation.customer_id == actor_id
         is_assigned_waiter = (
             role == UserRole.WAITER and reservation.waiter_id == actor_id
@@ -409,7 +400,7 @@ class ReservationManagementService:
     def _ensure_editable(
         self, reservation: Reservation, actor_id: UUID, role: str, start_time
     ) -> None:
-        """Raise 422/403 when edit/cancel preconditions are not met."""
+        """Raise when reservation is not editable for caller and state."""
         can_edit, _, reason = self._compute_actions(
             reservation=reservation,
             actor_id=actor_id,
@@ -433,7 +424,7 @@ class ReservationManagementService:
         start_time,
         slots,
     ) -> None:
-        """Apply allowed status transitions for reservation lifecycle."""
+        """Apply allowed reservation status transitions."""
         current = reservation.status
 
         if new_status == current:
@@ -471,7 +462,7 @@ class ReservationManagementService:
         )
 
     def _is_cutoff_reached(self, start_time) -> bool:
-        """Return True when reservation starts within the non-editable cutoff window."""
+        """Return True when reservation entered non-editable cutoff window."""
         now_utc = datetime.now(UTC)
         return now_utc + timedelta(minutes=self._CUTOFF_MINUTES) >= start_time
 

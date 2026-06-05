@@ -1,43 +1,55 @@
 """Shared UUID parsing helpers used across services and handlers."""
 
-from __future__ import annotations
-
 from uuid import UUID
 
 from enums.http_status_code import HttpStatusCode
 
 from commons.exceptions import ApplicationException
-from commons.log_helper import logger
+
+_DEFAULT_UUID_ERROR_CODE = HttpStatusCode.RESPONSE_UNAUTHORIZED
+_DEFAULT_UUID_ERROR_MESSAGE = "Invalid authenticated identity"
+
+
+def parse_uuid_or_raise(
+    raw_value: UUID | str | None,
+    *,
+    code: int = _DEFAULT_UUID_ERROR_CODE,
+    message: str = _DEFAULT_UUID_ERROR_MESSAGE,
+    missing_message: str | None = None,
+    invalid_message: str | None = None,
+) -> UUID:
+    """Return UUID value or raise ApplicationException with provided error details."""
+    if missing_message is None:
+        missing_message = message
+    if invalid_message is None:
+        invalid_message = message
+
+    if isinstance(raw_value, UUID):
+        return raw_value
+
+    normalized_value = raw_value.strip() if isinstance(raw_value, str) else raw_value
+
+    if normalized_value is None or normalized_value == "":
+        raise ApplicationException(code, missing_message)
+
+    try:
+        return UUID(normalized_value)
+    except (TypeError, ValueError):
+        raise ApplicationException(code, invalid_message)
 
 
 def coerce_uuid(
-    value: UUID | str,
+    value: UUID | str | None,
     *,
-    error_code: int = HttpStatusCode.RESPONSE_UNAUTHORIZED,
-    error_message: str = "Invalid authenticated identity",
+    code: int = _DEFAULT_UUID_ERROR_CODE,
     field_name: str | None = None,
+    message: str | None = None,
 ) -> UUID:
-    """Convert UUID-like input to UUID or raise ApplicationException.
-
-    Args:
-        value: UUID object or UUID string.
-        error_code: HTTP status code to use on parse failure.
-        error_message: Error payload message for parse failure.
-        field_name: Optional field name for structured warning logs.
-
-    Returns:
-        Parsed UUID instance.
-
-    Raises:
-        ApplicationException: If value cannot be parsed as UUID.
-
-    """
-    if isinstance(value, UUID):
-        return value
-
-    try:
-        return UUID(value)
-    except (TypeError, ValueError) as exc:
+    """Backward-compatible UUID coercion API used by service layer code."""
+    resolved_message = message
+    if resolved_message is None:
         if field_name:
-            logger.warning("Invalid UUID for field", field=field_name, value=value)
-        raise ApplicationException(error_code, error_message) from exc
+            resolved_message = f"Invalid {field_name}"
+        else:
+            resolved_message = _DEFAULT_UUID_ERROR_MESSAGE
+    return parse_uuid_or_raise(value, code=code, message=resolved_message)

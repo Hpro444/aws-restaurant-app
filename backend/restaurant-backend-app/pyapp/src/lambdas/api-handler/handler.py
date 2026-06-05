@@ -780,40 +780,6 @@ class ApiHandler(AbstractLambda):
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 
-    def _get_waiter_reservations(self, event: dict) -> LambdaResponse:
-        """Handle GET /reservations/waiter — table-filtered view for a waiter.
-
-        Only callers with ``UserRole.WAITER`` may access this endpoint; any other
-        role returns 403. The required ``date``, ``time_from`` and ``table_name``
-        query parameters are validated, then reservations are returned for the
-        waiter's assigned location only.
-
-        Returns:
-            A Lambda proxy response with statusCode 200 and a JSON object of the
-            form ``{"reservations": [...]}``.
-
-        """
-        user_id, role = self._get_actor_context(event)
-        if role != UserRole.WAITER:
-            raise_error_response(
-                HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
-                "Only waiters can access this endpoint",
-            )
-
-        request = self._validate(
-            GetWaiterReservationsRequest, self._parse_query_params(event)
-        )
-        response = self._reservation_management_service.list_for_waiter_table(
-            waiter_id=user_id,
-            date=request.date,
-            time_from=request.time_from,
-            table_name=request.table_name,
-        )
-        return build_response(
-            response.model_dump(by_alias=True, mode="json"),
-            code=HttpStatusCode.RESPONSE_OK_CODE,
-        )
-
     def _get_popular_dishes(self, event: dict) -> LambdaResponse:
         """Handle GET /dishes/popular — retrieve all popular dishes across locations.
 

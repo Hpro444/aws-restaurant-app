@@ -5,10 +5,13 @@ from __future__ import annotations
 from uuid import UUID
 
 from commons.app_config import AppConfig
+from commons.exceptions import ApplicationException
 from commons.log_helper import logger
 from dto.dishes import DishResponse, DishSort
 from enums.dish_type import DishType
+from enums.http_status_code import HttpStatusCode
 from repositories.dish_repository import DishRepository
+from repositories.location_repository import LocationRepository
 
 
 class DishesService:
@@ -22,16 +25,19 @@ class DishesService:
         self,
         settings: AppConfig | None = None,
         dish_repository: DishRepository | None = None,
+        location_repository: LocationRepository | None = None,
     ) -> None:
         """Create repository for dish queries, creating defaults when omitted.
 
         Args:
             settings: Shared application config.
             dish_repository: Optional DishRepository instance.
+            location_repository: Optional LocationRepository instance.
 
         """
         cfg = settings or AppConfig()
         self._dish_repo = dish_repository or DishRepository(cfg)
+        self._location_repo = location_repository or LocationRepository(cfg)
 
     def get_popular_dishes(self) -> list[DishResponse]:
         """Retrieve all popular dishes across all locations.
@@ -88,6 +94,12 @@ class DishesService:
         logger.info(
             "Retrieving specialty dishes for location", location_id=str(location_id)
         )
+
+        if not self._location_repo.get(location_id):
+            raise ApplicationException(
+                code=HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                content="Location not found",
+            )
 
         # Query using GSI on location_id and filter on specialty locally
         specialty_dishes = self._dish_repo.find_by_location_and_specialty(

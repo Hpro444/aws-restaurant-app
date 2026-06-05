@@ -19,29 +19,15 @@ from services.login_attempts_service import LoginAttemptsService
 class CognitoService:
     """Wraps boto3 Cognito IdP calls for user registration and authentication."""
 
-    def __init__(
-        self,
-        settings: AppConfig | None = None,
-        client: object | None = None,
-        login_attempts_service: LoginAttemptsService | None = None,
-    ) -> None:
-        """Initialise settings, Cognito client, and login-attempts service.
-
-        Args:
-            settings: Application config; a fresh instance is created when omitted.
-            client: Optional boto3 Cognito IdP client.
-            login_attempts_service: Optional LoginAttemptsService instance.
-
-        """
-        self._settings = settings or AppConfig()
-        self._client = client or boto3.client(
+    def __init__(self) -> None:
+        """Initialise settings, boto3 Cognito client, pool ID cache, and login-attempts service."""
+        self._settings = AppConfig()
+        self._client = boto3.client(
             "cognito-idp", region_name=self._settings.aws_region
         )
         self._pool_id: str | None = None
         self._client_id: str | None = None
-        self._login_attempts_service = login_attempts_service or LoginAttemptsService(
-            self._settings
-        )
+        self._login_attempts_service = LoginAttemptsService(self._settings)
 
     def _resolve_pool_id(self) -> str:
         """Return the Cognito User Pool ID, resolving it by name on first call.
