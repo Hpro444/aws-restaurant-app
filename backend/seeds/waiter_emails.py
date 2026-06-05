@@ -6,7 +6,7 @@ from seeds.utils import seed_id
 
 
 def seed(dynamodb, tables: dict, context: dict) -> None:
-    """Seed waiter email allow-list so lea and max can register as waiters.
+    """Seed waiter email allow-list with 4 waiters per location.
 
     Requires context['locations'] populated by the locations seeder.
     """
@@ -23,7 +23,31 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             location_id=locations[downtown_id].id,
         ),
         WaiterEmail(
+            email="charlie@example.com",
+            location_id=locations[downtown_id].id,
+        ),
+        WaiterEmail(
+            email="olivia@example.com",
+            location_id=locations[downtown_id].id,
+        ),
+        WaiterEmail(
+            email="ethan@example.com",
+            location_id=locations[downtown_id].id,
+        ),
+        WaiterEmail(
             email="max@example.com",
+            location_id=locations[airport_id].id,
+        ),
+        WaiterEmail(
+            email="sofia@example.com",
+            location_id=locations[airport_id].id,
+        ),
+        WaiterEmail(
+            email="liam@example.com",
+            location_id=locations[airport_id].id,
+        ),
+        WaiterEmail(
+            email="mia@example.com",
             location_id=locations[airport_id].id,
         ),
         WaiterEmail(
@@ -31,8 +55,16 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             location_id=locations[old_town_id].id,
         ),
         WaiterEmail(
-            email="charlie@example.com",
-            location_id=locations[downtown_id].id,
+            email="noah@example.com",
+            location_id=locations[old_town_id].id,
+        ),
+        WaiterEmail(
+            email="ava@example.com",
+            location_id=locations[old_town_id].id,
+        ),
+        WaiterEmail(
+            email="luka@example.com",
+            location_id=locations[old_town_id].id,
         ),
     ]
 

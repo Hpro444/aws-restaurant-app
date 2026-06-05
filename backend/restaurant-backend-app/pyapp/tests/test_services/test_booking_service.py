@@ -135,6 +135,7 @@ def make_slot(start, status=SlotStatus.FREE, days_offset=1):
     return Slot(
         id=uuid4(),
         table_id=uuid4(),
+        waiter_id=uuid4(),
         start_time=dt,
         end_time=dt + timedelta(minutes=90),
         status=status,
@@ -198,8 +199,7 @@ class TestBookingService(unittest.TestCase):
         self.assertEqual(resp.client_name, "Ana Nikolic")
 
     def test_waiter_visitor_booking_persists_without_customer_id(self):
-        """Visitor flow stores customer_id=None and keeps client_name; waiter becomes assigned."""
-        waiter_id = uuid4()
+        """Visitor flow stores customer_id=None and waiter is derived from slot[0]."""
         slot = make_slot(12)
         self.service._slot_repo = DummySlotRepo([slot])
         req = CreateBookingRequest(
@@ -212,16 +212,16 @@ class TestBookingService(unittest.TestCase):
         )
 
         resp = self.service.create_booking(
-            req, None, client_name="Petar Petrovic", waiter_id=waiter_id
+            req, None, client_name="Petar Petrovic", waiter_id=uuid4()
         )
 
-        self.assertEqual(resp.status, "RESERVED")
+        self.assertEqual(resp.status, "Reserved")
         self.assertIsNone(self.service._reservation_repo.last_created.customer_id)
         self.assertEqual(
             self.service._reservation_repo.last_created.client_name, "Petar Petrovic"
         )
         self.assertEqual(
-            self.service._reservation_repo.last_created.waiter_id, waiter_id
+            self.service._reservation_repo.last_created.waiter_id, slot.waiter_id
         )
         self.assertEqual(resp.client_name, "Petar Petrovic")
 

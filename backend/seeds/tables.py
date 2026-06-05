@@ -6,7 +6,7 @@ from seeds.utils import seed_id
 
 
 def seed(dynamodb, tables: dict, context: dict) -> None:
-    """Seed 5 tables per location and write them to context['tables'].
+    """Seed 6 tables per location and write them to context['tables'].
 
     Requires context['locations'] populated by the locations seeder.
     """
@@ -15,7 +15,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
 
     tables_list = []
     for location_id, location_obj in locations.items():
-        for table_num in range(1, 6):
+        for table_num in range(1, 7):
             t = Table(
                 id=seed_id("table", f"{location_id}:{table_num}"),
                 table_number=table_num,

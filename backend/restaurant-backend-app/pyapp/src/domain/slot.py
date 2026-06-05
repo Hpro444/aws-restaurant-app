@@ -18,6 +18,7 @@ class Slot(DynamoModel):
 
     id: UUID
     table_id: UUID
+    waiter_id: UUID | None = None
     start_time: AwareDatetime
     end_time: AwareDatetime
     date: AwareDatetime

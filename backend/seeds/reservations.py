@@ -23,7 +23,6 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
     slots_table = dynamodb.Table(tables["slots"])
     slots_list = context["slots"]
     customers = context["customers"]
-    waiters = context["waiters"]
 
     if len(slots_list) < 17:
         print("  ! Skipping reservations seed: not enough slots generated")
@@ -48,7 +47,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         Reservation(
             id=seed_id("reservation", f"{chosen_slots[0].id}:reserved"),
             customer_id=customers["alice@example.com"].id,
-            waiter_id=waiters["lea@example.com"].id,
+            waiter_id=chosen_slots[0].waiter_id,
             created_at=created_at,
             slot_ids=[chosen_slots[0].id],
             status=ReservationStatus.RESERVED,
@@ -57,7 +56,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         Reservation(
             id=seed_id("reservation", f"{chosen_slots[1].id}:in-progress"),
             customer_id=customers["bob@example.com"].id,
-            waiter_id=waiters["max@example.com"].id,
+            waiter_id=chosen_slots[1].waiter_id,
             created_at=created_at,
             slot_ids=[chosen_slots[1].id],
             status=ReservationStatus.IN_PROGRESS,
@@ -66,7 +65,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         Reservation(
             id=seed_id("reservation", f"{chosen_slots[2].id}:cancelled"),
             customer_id=customers["carol@example.com"].id,
-            waiter_id=None,
+            waiter_id=chosen_slots[2].waiter_id,
             created_at=created_at,
             slot_ids=[chosen_slots[2].id],
             status=ReservationStatus.CANCELLED,
@@ -75,7 +74,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         Reservation(
             id=seed_id("reservation", f"{chosen_slots[3].id}:finished"),
             customer_id=customers["david@example.com"].id,
-            waiter_id=waiters["lea@example.com"].id,
+            waiter_id=chosen_slots[3].waiter_id,
             created_at=created_at,
             slot_ids=[chosen_slots[3].id],
             status=ReservationStatus.FINISHED,
@@ -84,7 +83,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         Reservation(
             id=seed_id("reservation", f"{chosen_slots[4].id}:finished"),
             customer_id=customers["emma@example.com"].id,
-            waiter_id=waiters["max@example.com"].id,
+            waiter_id=chosen_slots[4].waiter_id,
             created_at=created_at,
             slot_ids=[chosen_slots[4].id],
             status=ReservationStatus.FINISHED,
@@ -93,7 +92,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         Reservation(
             id=seed_id("reservation", f"{chosen_slots[5].id}:reserved"),
             customer_id=customers["frank@example.com"].id,
-            waiter_id=waiters["nina@example.com"].id,
+            waiter_id=chosen_slots[5].waiter_id,
             created_at=created_at,
             slot_ids=[chosen_slots[5].id],
             status=ReservationStatus.RESERVED,
@@ -102,7 +101,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         Reservation(
             id=seed_id("reservation", f"{chosen_slots[6].id}:finished"),
             customer_id=customers["grace@example.com"].id,
-            waiter_id=waiters["lea@example.com"].id,
+            waiter_id=chosen_slots[6].waiter_id,
             created_at=created_at,
             slot_ids=[chosen_slots[6].id],
             status=ReservationStatus.FINISHED,
@@ -111,7 +110,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         Reservation(
             id=seed_id("reservation", f"{chosen_slots[7].id}:in-progress"),
             customer_id=customers["henry@example.com"].id,
-            waiter_id=waiters["max@example.com"].id,
+            waiter_id=chosen_slots[7].waiter_id,
             created_at=created_at,
             slot_ids=[chosen_slots[7].id],
             status=ReservationStatus.IN_PROGRESS,
@@ -120,7 +119,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         Reservation(
             id=seed_id("reservation", f"{chosen_slots[8].id}:finished"),
             customer_id=customers["iris@example.com"].id,
-            waiter_id=waiters["nina@example.com"].id,
+            waiter_id=chosen_slots[8].waiter_id,
             created_at=created_at,
             slot_ids=[chosen_slots[8].id],
             status=ReservationStatus.FINISHED,

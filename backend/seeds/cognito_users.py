@@ -38,8 +38,17 @@ _USERS: list[tuple[str, str, str, str]] = [
     ("james@example.com", "James", "Anderson", "Customer"),
     ("kate@example.com", "Kate", "Thompson", "Customer"),
     ("lea@example.com", "Lea", "Martinez", "Waiter"),
+    ("charlie@example.com", "Charlie", "Petrov", "Waiter"),
+    ("olivia@example.com", "Olivia", "Mchedlishvili", "Waiter"),
+    ("ethan@example.com", "Ethan", "Kapanadze", "Waiter"),
     ("max@example.com", "Max", "Fischer", "Waiter"),
+    ("sofia@example.com", "Sofia", "Abashidze", "Waiter"),
+    ("liam@example.com", "Liam", "Gelashvili", "Waiter"),
+    ("mia@example.com", "Mia", "Gogoladze", "Waiter"),
     ("nina@example.com", "Nina", "Beridze", "Waiter"),
+    ("noah@example.com", "Noah", "Chelidze", "Waiter"),
+    ("ava@example.com", "Ava", "Dolidze", "Waiter"),
+    ("luka@example.com", "Luka", "Maisuradze", "Waiter"),
 ]
 
 
