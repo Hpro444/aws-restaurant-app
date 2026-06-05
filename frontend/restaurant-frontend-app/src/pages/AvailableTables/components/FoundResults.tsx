@@ -4,10 +4,18 @@ import Card from "./Card";
 type FoundResultsProps = {
   tables: TableResult[];
   locationAddress: string;
+  locationId: string;
   date: string;
+  initialGuests: number;
 };
 
-const FoundResults = ({ tables, locationAddress, date }: FoundResultsProps) => {
+const FoundResults = ({
+  tables,
+  locationId,
+  locationAddress,
+  date,
+  initialGuests,
+}: FoundResultsProps) => {
   return (
     <>
       <p>
@@ -18,8 +26,10 @@ const FoundResults = ({ tables, locationAddress, date }: FoundResultsProps) => {
           <Card
             key={table.table_id}
             table={table}
+            locationId={locationId}
             locationAddress={locationAddress}
             date={date}
+            initialGuests={initialGuests}
           />
         ))}
       </section>

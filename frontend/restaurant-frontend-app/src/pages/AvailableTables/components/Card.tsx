@@ -5,13 +5,22 @@ import location_icon from "../../../assets/availableTables/location-icon.png";
 import plus_icon from "../../../assets/availableTables/plus-icon.png";
 import { type TableResult, type AvailableSlot } from "../../../types/location";
 import AvailableSlotsModal from "./AvailableSlotsModal";
+import MakeReservationModal from "./MakeReservationModal";
 import { formatDate, formatSlotTime } from "../../../utils/reservationHelpers";
 
 const SLOTS_PREVIEW = 4;
 
-const SlotButton = ({ slot }: { slot: AvailableSlot }) => {
+type SlotButtonProps = {
+  slot: AvailableSlot;
+  onClick: () => void;
+};
+
+const SlotButton = ({ slot, onClick }: SlotButtonProps) => {
   return (
-    <button className="font-medium text-[14px] leading-[24px] align-middle border border-[var(--color-brand)] rounded-lg p-2 flex gap-2 items-center cursor-pointer hover:bg-green-50">
+    <button
+      onClick={onClick}
+      className="font-medium text-[14px] leading-[24px] align-middle border border-[var(--color-brand)] rounded-lg p-2 flex gap-2 items-center cursor-pointer hover:bg-green-50"
+    >
       <img src={clock_icon} alt="Clock icon" className="w-4 h-4" />
       <span>
         {formatSlotTime(slot.start_time)} - {formatSlotTime(slot.end_time)}
@@ -23,14 +32,43 @@ const SlotButton = ({ slot }: { slot: AvailableSlot }) => {
 type CardProps = {
   table: TableResult;
   locationAddress: string;
+  locationId: string;
   date: string;
+  initialGuests?: number;
 };
 
-const Card = ({ table, locationAddress, date }: CardProps) => {
+const Card = ({
+  table,
+  locationId,
+  locationAddress,
+  date,
+  initialGuests = 1,
+}: CardProps) => {
   const [isSlotsModalOpen, setIsSlotsModalOpen] = useState(false);
+  const [isMakeReservationOpen, setIsMakeReservationOpen] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
 
   const slots = table.available_slots.slice(0, SLOTS_PREVIEW);
   const hasMore = table.available_slots.length > SLOTS_PREVIEW;
+
+  const handlePreviewSlotClick = (slot: AvailableSlot) => {
+    setSelectedSlot(slot);
+    setIsMakeReservationOpen(true);
+  };
+
+  const handleShowAllClick = () => {
+    setIsSlotsModalOpen(true);
+  };
+
+  const handleSlotSelectFromModal = (slot: AvailableSlot) => {
+    setSelectedSlot(slot);
+    setIsSlotsModalOpen(false);
+    setIsMakeReservationOpen(true);
+  };
+
+  const handleCloseMakeReservation = () => {
+    setIsMakeReservationOpen(false);
+  };
 
   return (
     <>
@@ -63,11 +101,16 @@ const Card = ({ table, locationAddress, date }: CardProps) => {
             </p>
             <div className="grid grid-cols-2 gap-2">
               {slots.map((slot) => (
-                <SlotButton key={slot.slot_id} slot={slot} />
+                <SlotButton
+                  key={slot.slot_id}
+                  slot={slot}
+                  onClick={() => handlePreviewSlotClick(slot)}
+                />
               ))}
+
               {hasMore && (
                 <button
-                  onClick={() => setIsSlotsModalOpen(true)}
+                  onClick={handleShowAllClick}
                   className="font-medium text-[14px] leading-[24px] align-middle justify-self-start border border-[var(--color-brand)] rounded-lg p-2 flex gap-2 items-center cursor-pointer hover:bg-green-50"
                 >
                   <img src={plus_icon} alt="Plus icon" className="w-4 h-4" />
@@ -85,7 +128,30 @@ const Card = ({ table, locationAddress, date }: CardProps) => {
           locationAddress={locationAddress}
           tableNumber={table.table_number}
           date={date}
+          onSelectSlot={handleSlotSelectFromModal}
           onClose={() => setIsSlotsModalOpen(false)}
+        />
+      )}
+
+      {isMakeReservationOpen && selectedSlot && (
+        <MakeReservationModal
+          slot={selectedSlot}
+          allSlots={table.available_slots}
+          locationAddress={locationAddress}
+          locationId={locationId}
+          tableNumber={table.table_number}
+          tableCapacity={table.capacity}
+          date={date}
+          initialGuests={initialGuests}
+          onClose={handleCloseMakeReservation}
+          onSelectSlot={setSelectedSlot}
+          onReservationResult={(result) => {
+            if (result.ok) {
+              console.log("Reservation created:", result.data);
+            } else {
+              console.error("Reservation failed:", result.message);
+            }
+          }}
         />
       )}
     </>

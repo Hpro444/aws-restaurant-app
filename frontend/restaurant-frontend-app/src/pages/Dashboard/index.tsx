@@ -9,9 +9,9 @@ import { useEffect, useState } from "react";
 import DownloadButton from "./components/DownloadButton";
 import ReportTable from "./components/Table";
 import {
-  getLocationSelectOptions,
-  type LocationSelectOption,
+  getLocationSelectOptions
 } from "../AvailableTables/availableTables.services";
+import type { LocationSelectOption } from "../../types/location";
 
 const DashboardPage = () => {
   const { user, accessToken } = useAuth();
@@ -29,7 +29,6 @@ const DashboardPage = () => {
         setLocationsError(null);
         const data = await getLocationSelectOptions(accessToken || undefined);
         setLocationOptions(data);
-        console.log(data);
       } catch (err) {
         setLocationsError(
           err instanceof Error ? err.message : "Failed to fetch locations",

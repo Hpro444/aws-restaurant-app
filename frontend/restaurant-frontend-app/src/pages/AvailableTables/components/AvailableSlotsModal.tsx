@@ -8,6 +8,7 @@ type AvailableSlotsModalProps = {
   locationAddress: string;
   tableNumber: number;
   date: string;
+  onSelectSlot: (slot: AvailableSlot) => void;
   onClose: () => void;
 };
 
@@ -16,6 +17,7 @@ const AvailableSlotsModal = ({
   locationAddress,
   tableNumber,
   date,
+  onSelectSlot,
   onClose,
 }: AvailableSlotsModalProps) => {
   return (
@@ -48,6 +50,7 @@ const AvailableSlotsModal = ({
           {slots.map((slot) => (
             <button
               key={slot.slot_id}
+              onClick={() => onSelectSlot(slot)}
               className="font-medium text-[14px] leading-[24px] border border-[var(--color-brand)] rounded-lg p-2 flex gap-2 items-center cursor-pointer hover:bg-green-50"
             >
               <img src={clock_icon} alt="Clock icon" className="w-4 h-4" />
