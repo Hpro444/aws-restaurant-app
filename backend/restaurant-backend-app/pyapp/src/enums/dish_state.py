@@ -7,4 +7,4 @@ class DishState(str, Enum):
     """Availability states assignable to a dish."""
 
     AVAILABLE = "Available"
-    ON_STOP = "On stop"
+    ON_STOP = "On Stop"

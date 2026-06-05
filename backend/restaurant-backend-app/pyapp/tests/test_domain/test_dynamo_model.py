@@ -133,7 +133,7 @@ class TestReservationSerialization(unittest.TestCase):
 
     def test_enum_serialized_as_value_string(self) -> None:
         """Enum must be stored as its string value."""
-        self.assertEqual(self.item["status"], {"S": "RESERVED"})
+        self.assertEqual(self.item["status"], {"S": "Reserved"})
 
     def test_round_trip_preserves_none_uuid(self) -> None:
         """customer_id=None must round-trip back to None."""

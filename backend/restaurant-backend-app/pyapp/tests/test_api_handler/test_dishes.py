@@ -88,7 +88,7 @@ class TestGetDishes(ApiHandlerLambdaTestCase):
         self.HANDLER._dishes_service.get_all_dishes = MagicMock(return_value=[_PIZZA])
 
         result = self.HANDLER.lambda_handler(
-            make_get_event(_PATH, {"dishType": "APPETIZER"}), {}
+            make_get_event(_PATH, {"dishType": "Appetizer"}), {}
         )
 
         self.assertEqual(status(result), 200)
