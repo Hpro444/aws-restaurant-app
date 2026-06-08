@@ -3,7 +3,8 @@
 from unittest.mock import MagicMock
 from uuid import UUID
 
-from dto.dishes import DishResponse
+from dto.dishes import DishPreviewResponse
+from enums.dish_state import DishState
 from pyapp.tests.test_api_handler import (
     ApiHandlerLambdaTestCase,
     body,
@@ -23,23 +24,23 @@ class TestPopularDishes(ApiHandlerLambdaTestCase):
     def test_success_returns_200_with_popular_dishes(self) -> None:
         """A valid GET should return an array with only the expected dish fields."""
         dishes = [
-            DishResponse(
+            DishPreviewResponse(
                 id=_PIZZA_ID,
                 name="Margarita Pizza",
                 description="Classic pizza with tomato sauce.",
                 image_url="https://example.com/pizza.jpg",
                 price=12.5,
                 weight_gram=480,
-                state="Available",
+                state=DishState.AVAILABLE,
             ),
-            DishResponse(
+            DishPreviewResponse(
                 id=_SALAD_ID,
                 name="Greek Salad",
                 description="Fresh salad with feta cheese.",
                 image_url="https://example.com/salad.jpg",
                 price=8.0,
                 weight_gram=260,
-                state="Available",
+                state=DishState.AVAILABLE,
             ),
         ]
         self.HANDLER._dishes_service.get_popular_dishes = MagicMock(return_value=dishes)

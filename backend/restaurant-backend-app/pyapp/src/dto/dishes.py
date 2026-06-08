@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Optional
 from uuid import UUID
 
+from enums.dish_state import DishState
 from enums.dish_type import DishType
 from pydantic import BaseModel, ConfigDict
 
@@ -42,8 +43,8 @@ class GetDishesRequest(BaseModel):
     dietary_filter: Optional[DishDietaryFilter] = None
 
 
-class DishResponse(BaseModel):
-    """A single dish returned by any dish endpoint."""
+class DishPreviewResponse(BaseModel):
+    """A single dish preview returned by list-style dish endpoints."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -53,4 +54,24 @@ class DishResponse(BaseModel):
     image_url: str
     price: float
     weight_gram: int
-    state: str
+    state: DishState
+
+
+class DishExtendedResponse(BaseModel):
+    """A full dish object returned by GET /dishes/{id}."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: UUID
+    name: str
+    description: str
+    image_url: str
+    dish_type: DishType
+    price: float
+    state: DishState
+    calories: str
+    carbohydrates: str
+    fats: str
+    proteins: str
+    vitamins: str
+    weight_gram: int

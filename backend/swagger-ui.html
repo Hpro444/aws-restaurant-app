@@ -539,7 +539,7 @@
                     "application/json": {
                       "schema": {
                         "type": "array",
-                        "items": { "$ref": "#/components/schemas/DishResponse" }
+                        "items": { "$ref": "#/components/schemas/DishPreviewResponse" }
                       }
                     }
                   }
@@ -559,11 +559,37 @@
                     "application/json": {
                       "schema": {
                         "type": "array",
-                        "items": { "$ref": "#/components/schemas/DishResponse" }
+                        "items": { "$ref": "#/components/schemas/DishPreviewResponse" }
                       }
                     }
                   }
                 }
+              }
+            }
+          },
+          "/dishes/{id}": {
+            "get": {
+              "tags": ["Dishes"],
+              "summary": "Get dish details by ID",
+              "parameters": [
+                {
+                  "name": "id",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string", "format": "uuid" }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Dish details",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/DishExtendedResponse" }
+                    }
+                  }
+                },
+                "404": { "$ref": "#/components/responses/NotFoundError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
               }
             }
           },
@@ -586,7 +612,7 @@
                     "application/json": {
                       "schema": {
                         "type": "array",
-                        "items": { "$ref": "#/components/schemas/DishResponse" }
+                        "items": { "$ref": "#/components/schemas/DishPreviewResponse" }
                       }
                     }
                   }
@@ -1084,7 +1110,7 @@
               },
               "anyOf": [{ "required": ["guestsNumber"] }, { "required": ["status"] }]
             },
-            "DishResponse": {
+            "DishPreviewResponse": {
               "type": "object",
               "required": ["id", "name", "description", "image_url", "price", "weight_gram", "state"],
               "properties": {
@@ -1098,6 +1124,45 @@
                   "type": "string",
                   "enum": ["Available", "On stop"]
                 }
+              }
+            },
+            "DishExtendedResponse": {
+              "type": "object",
+              "required": [
+                "id",
+                "name",
+                "description",
+                "image_url",
+                "dish_type",
+                "price",
+                "state",
+                "calories",
+                "carbohydrates",
+                "fats",
+                "proteins",
+                "vitamins",
+                "weight_gram"
+              ],
+              "properties": {
+                "id": { "type": "string", "format": "uuid" },
+                "name": { "type": "string" },
+                "description": { "type": "string" },
+                "image_url": { "type": "string" },
+                "dish_type": {
+                  "type": "string",
+                  "enum": ["APPETIZER", "DESSERT", "MAIN_COURSE"]
+                },
+                "price": { "type": "number", "format": "float" },
+                "state": {
+                  "type": "string",
+                  "enum": ["Available", "On stop"]
+                },
+                "calories": { "type": "string" },
+                "carbohydrates": { "type": "string" },
+                "fats": { "type": "string" },
+                "proteins": { "type": "string" },
+                "vitamins": { "type": "string" },
+                "weight_gram": { "type": "integer" }
               }
             },
             "LeaveFeedbackRequest": {

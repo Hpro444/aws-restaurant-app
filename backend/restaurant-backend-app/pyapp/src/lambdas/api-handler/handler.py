@@ -154,6 +154,7 @@ class ApiHandler(AbstractLambda):
 
         router.add("GET", "/dishes", self._get_dishes)
         router.add("GET", "/dishes/popular", self._get_popular_dishes)
+        router.add("GET", "/dishes/{id}", self._get_dish_by_id)
 
         router.add("GET", "/customers", self._get_customers)
 
@@ -449,6 +450,17 @@ class ApiHandler(AbstractLambda):
             HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
             ValidationErrorResponse(
                 errors=[FieldError(field="id", message="Location not found")]
+            ).model_dump(),
+        )
+
+    # TODO: da li je neophodno za svaki posebno da postoji _raise_x_not_found metoda? mozda treba da se centralizuje
+    @staticmethod
+    def _raise_dish_not_found() -> None:
+        """Raise standardized 404 error for missing or invalid dish id."""
+        raise_error_response(
+            HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
+            ValidationErrorResponse(
+                errors=[FieldError(field="id", message="Dish not found")]
             ).model_dump(),
         )
 
@@ -911,7 +923,7 @@ class ApiHandler(AbstractLambda):
 
         Returns:
             A Lambda proxy response dict with statusCode 200 and a JSON array
-            of DishResponse objects, or an empty array when none match.
+            of DishPreviewResponse objects, or an empty array when none match.
 
         """
         params = self._parse_query_params(event)
@@ -936,12 +948,33 @@ class ApiHandler(AbstractLambda):
 
         Returns:
             A Lambda proxy response dict with statusCode 200 and a JSON array
-            of DishResponse objects, or an empty array if no popular dishes exist.
+            of DishPreviewResponse objects, or an empty array if no popular dishes exist.
 
         """
         dishes = self._dishes_service.get_popular_dishes()
         return build_response(
             [dish.model_dump(mode="json") for dish in dishes],
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    def _get_dish_by_id(self, event: dict) -> LambdaResponse:
+        """Handle GET /dishes/{id}.
+
+        Returns a single extended dish object for the requested id.
+        Returns 422 when the id is missing/invalid and 404 when dish is not found.
+
+        """
+        dish_id = self._require_uuid(
+            self._extract_path_param(event, "id", fallback_position=1),
+            field="id",
+        )
+
+        dish = self._dishes_service.get_dish_by_id(dish_id)
+        if dish is None:
+            self._raise_dish_not_found()
+
+        return build_response(
+            dish.model_dump(mode="json"),
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 
