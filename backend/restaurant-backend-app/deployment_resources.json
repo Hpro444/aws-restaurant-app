@@ -59,6 +59,7 @@
   "restaurant-api": {
     "resource_type": "api_gateway",
     "deploy_stage": "api",
+    "policy_statement_singleton": true,
     "dependencies": [],
     "resources": {
       "/auth/sign-up": {
