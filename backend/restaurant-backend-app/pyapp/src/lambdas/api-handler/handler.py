@@ -24,6 +24,7 @@ from dto.refresh import RefreshRequest, RefreshResponse
 from dto.reservation_management import UpdateReservationRequest
 from dto.sign_in import SignInRequest, SignInResponse
 from dto.sign_up import SignUpRequest, SignUpResponse
+from dto.tables import TableDTO
 from dto.user_profile import ProfileResponse, UpdateProfileRequest
 from dto.waiter_reservations import GetWaiterReservationsRequest
 from enums import HttpStatusCode, UserRole
@@ -141,6 +142,7 @@ class ApiHandler(AbstractLambda):
             self._get_speciality_dishes_by_location,
         )
         router.add("GET", "/locations/{id}/feedbacks", self._get_feedbacks_by_location)
+        router.add("GET", "/locations/{id}/tables", self._get_tables_by_location_id)
         router.add(
             "GET",
             "/feedbacks/context/{reservation_id}",
@@ -1198,6 +1200,34 @@ class ApiHandler(AbstractLambda):
 
         return build_response(
             feedback_page.model_dump(by_alias=True, mode="json"),
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    def _get_tables_by_location_id(self, event: dict) -> LambdaResponse:
+        """Return all tables for a location; restricted to waiters.
+
+        Args:
+            event: The Lambda event dict from API Gateway.
+
+        Returns:
+            A 200 response with a list of TableDTO objects.
+
+        """
+        _, role = self._get_actor_context(event)
+        if role != UserRole.WAITER:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
+                "Only waiters can access tables list.",
+            )
+
+        location_id = self._require_uuid(
+            self._extract_path_param(event, "id", fallback_position=1),
+            field="id",
+        )
+
+        tables = self._table_availability_service.get_tables_by_location_id(location_id)
+        return build_response(
+            [TableDTO(table_number=t.table_number).model_dump() for t in tables],
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 
