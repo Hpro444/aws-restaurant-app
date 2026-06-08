@@ -8,6 +8,7 @@ import ReservationsPage from "./pages/Reservations";
 import HomePage from "./pages/Home";
 import MenuPage from "./pages/Menu";
 import DashboardPage from "./pages/Dashboard";
+import WaiterReservations from "./pages/WaiterReservations";
 
 const RequireAuth = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
@@ -75,6 +76,14 @@ function App() {
           }
         />
         <Route path="/menu" element={<MenuPage />} />
+        <Route
+          path="/waiter-reservations"
+          element={
+            <RequireAuth>
+              <WaiterReservations />
+            </RequireAuth>
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
