@@ -15,6 +15,7 @@ import NoResults from "./components/NoResults";
 import type { ReservationResponse } from "../../types/location";
 import EditReservationModal from "./components/EditReservationModal";
 import { useLocation, useNavigate } from "react-router-dom";
+import FeedbackModal from "./components/Feedback";
 
 type ReservationsLocationState = {
   openEditReservationId?: string;
@@ -39,6 +40,7 @@ const ReservationsPage = () => {
     useState<ReservationResponse | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isEditSubmitting, setIsEditSubmitting] = useState(false);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(true);
 
   const routedEditReservation =
     reservationAction === "edit" && openEditReservationId
@@ -177,7 +179,8 @@ const ReservationsPage = () => {
     }
   };
 
-  const handleLeaveFeedback = (reservationId: string) => {
+  const handleLeaveFeedback = async (reservationId: string) => {
+    setIsFeedbackModalOpen(true);
     console.log("Leave feedback for reservation:", reservationId);
   };
 
@@ -284,6 +287,13 @@ const ReservationsPage = () => {
           onSubmit={handleSubmitEdit}
         />
       ) : null}
+
+      {isFeedbackModalOpen && (
+        <FeedbackModal
+          visible={isFeedbackModalOpen}
+          onHide={() => setIsFeedbackModalOpen(false)}
+        />
+      )}
     </>
   );
 };
