@@ -70,14 +70,16 @@ def _seed_past_reservations(
             waiter_day_slot[key] = slot
 
     past_reservations: list[Reservation] = []
-    for i, ((slot_date, waiter_id), slot) in enumerate(sorted(waiter_day_slot.items())):
+    for i, ((slot_date, _waiter_id), slot) in enumerate(
+        sorted(waiter_day_slot.items())
+    ):
         customer = customer_list[i % len(customer_list)]
         created_at = datetime.combine(slot_date, time(12, 0), tzinfo=timezone.utc)
         past_reservations.append(
             Reservation(
                 id=seed_id("reservation", f"{slot.id}:past"),
                 customer_id=customer.id,
-                waiter_id=waiter_id,
+                waiter_id=slot.waiter_id,
                 created_at=created_at,
                 slot_ids=[slot.id],
                 status=ReservationStatus.FINISHED,
@@ -125,8 +127,14 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
     # Airport first shift: max / sofia.  Second shift: liam / mia.
     # Old Town first shift: nina / noah.  Second shift: ava / luka.
     s_lea = pick("lea@example.com")  # Downtown 1st shift → RESERVED
+    s_lea2 = pick(
+        "lea@example.com", 1
+    )  # Downtown 1st shift (2nd slot) → RESERVED (visitor)
     s_olivia = pick("olivia@example.com")  # Downtown 2nd shift → IN_PROGRESS
     s_charlie = pick("charlie@example.com")  # Downtown 1st shift (t4-6) → CANCELLED
+    s_ethan = pick(
+        "ethan@example.com"
+    )  # Downtown 2nd shift (t4-6) → RESERVED (visitor)
     s_max = pick("max@example.com")  # Airport 1st shift → FINISHED
     s_liam = pick("liam@example.com")  # Airport 2nd shift → FINISHED
     s_mia = pick("mia@example.com")  # Airport 2nd shift (t4-6) → RESERVED
@@ -136,8 +144,10 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
 
     today_slots = [
         s_lea,
+        s_lea2,
         s_olivia,
         s_charlie,
+        s_ethan,
         s_max,
         s_liam,
         s_mia,
@@ -151,8 +161,10 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             for name, s in zip(
                 [
                     "lea",
+                    "lea2",
                     "olivia",
                     "charlie",
+                    "ethan",
                     "max",
                     "liam",
                     "mia",
@@ -170,6 +182,17 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
 
     today_str = today.isoformat()
     reservations: list[Reservation] = [
+        Reservation(
+            id=seed_id("reservation", f"{s_lea2.id}:visitor"),
+            customer_id=None,
+            client_name="Sofia Greco",
+            waiter_id=s_lea2.waiter_id,
+            created_at=created_at,
+            slot_ids=[s_lea2.id],
+            status=ReservationStatus.RESERVED,
+            number_of_guests=3,
+            date=today_str,
+        ),
         Reservation(
             id=seed_id("reservation", f"{s_lea.id}:reserved"),
             customer_id=customers["alice@example.com"].id,
@@ -198,6 +221,17 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             slot_ids=[s_charlie.id],
             status=ReservationStatus.CANCELLED,
             number_of_guests=3,
+            date=today_str,
+        ),
+        Reservation(
+            id=seed_id("reservation", f"{s_ethan.id}:visitor"),
+            customer_id=None,
+            client_name="Marco Rossi",
+            waiter_id=s_ethan.waiter_id,
+            created_at=created_at,
+            slot_ids=[s_ethan.id],
+            status=ReservationStatus.RESERVED,
+            number_of_guests=2,
             date=today_str,
         ),
         Reservation(
@@ -272,7 +306,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             batch.put_item(Item=to_item(reservation))
 
     # Flip today's active slots to RESERVED so availability queries are correct.
-    active_slots = [s_lea, s_olivia, s_mia, s_ava]
+    active_slots = [s_lea, s_lea2, s_olivia, s_ethan, s_mia, s_ava]
     with slots_table.batch_writer() as batch:
         for slot in active_slots:
             slot.status = SlotStatus.RESERVED
