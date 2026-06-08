@@ -8,7 +8,12 @@ from commons.app_config import AppConfig
 from commons.exceptions import ApplicationException
 from commons.log_helper import logger
 from domain.dish import Dish
-from dto.dishes import DishExtendedResponse, DishPreviewResponse, DishSort
+from dto.dishes import (
+    DishDietaryFilter,
+    DishExtendedResponse,
+    DishPreviewResponse,
+    DishSort,
+)
 from enums.dish_type import DishType
 from enums.http_status_code import HttpStatusCode
 from repositories.dish_repository import DishRepository
@@ -142,6 +147,7 @@ class DishesService:
         self,
         dish_type: DishType | None = None,
         sort: DishSort | None = None,
+        dietary_filter: DishDietaryFilter | None = None,
     ) -> list[DishPreviewResponse]:
         """Retrieve dishes filtered by type and sorted by the requested criterion.
 
@@ -152,6 +158,8 @@ class DishesService:
             dish_type: When provided, only dishes matching this category are returned.
             sort: Ordering applied after filtering. Supports price and popularity
                 in ascending or descending direction.
+            dietary_filter: When provided, only dishes matching this dietary filter
+                are returned.
 
         Returns:
             List of DishPreviewResponse objects, or empty list when no dishes match.
@@ -161,6 +169,7 @@ class DishesService:
             "Retrieving dishes",
             dish_type=dish_type and dish_type.value,
             sort=sort and sort.value,
+            dietary_filter=dietary_filter and dietary_filter.value,
         )
 
         dishes = self._dish_repo.scan()
@@ -175,6 +184,14 @@ class DishesService:
                 dishes = sorted(dishes, key=lambda d: d.price, reverse=reverse)
             elif field == "popularity":
                 dishes = sorted(dishes, key=lambda d: d.popular, reverse=reverse)
+
+        if dietary_filter is not None:
+            filter_token = dietary_filter.value.replace("_", " ")
+            dishes = [
+                dish
+                for dish in dishes
+                if filter_token in dish.description.upper().replace("_", " ")
+            ]
 
         response = [self._to_preview_response(dish) for dish in dishes]
 
