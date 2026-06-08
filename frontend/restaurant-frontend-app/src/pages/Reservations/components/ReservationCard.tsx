@@ -20,6 +20,7 @@ const ReservationCard = ({
   reservation,
   onEdit,
   onCancel,
+  onFeedback,
 }: ReservationCardProps) => {
   const {
     reservation_id,
@@ -62,6 +63,14 @@ const ReservationCard = ({
         </div>
       </div>
       <div className="flex justify-end gap-4">
+        {onFeedback && (
+          <button
+            className="cursor-pointer rounded-lg border border-[#00AD0C] py-2 px-9 bg-white text-[#00AD0C]"
+            onClick={() => onFeedback?.(reservation_id)}
+          >
+            Leave Feedback
+          </button>
+        )}
         {can_cancel && (
           <button
             className="border-[#232323] border-b cursor-pointer"
