@@ -39,6 +39,18 @@ class TableAvailabilityService:
         self._slot_repo = slot_repository or SlotRepository(cfg)
         self._location_repo = location_repository or LocationRepository(cfg)
 
+    def get_tables_by_location_id(self, location_id: UUID) -> list[Table]:
+        """Return all tables belonging to the given location.
+
+        Args:
+            location_id: UUID of the location to query.
+
+        Returns:
+            List of Table domain objects at that location.
+
+        """
+        return self._table_repo.find_by_location_id(location_id)
+
     def get_available_tables(
         self,
         location_id: UUID | str,
