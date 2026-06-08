@@ -338,7 +338,7 @@ class TestTableAvailabilityService(unittest.TestCase):
         self.assertEqual(response.tables[0].table_id, str(_TABLE_2_ID))
 
         self.service._slot_repo.find_by_table_ids_and_date.assert_called_once_with(
-            {_TABLE_2_ID}, "2026-05-20"
+            {_TABLE_2_ID}, date(2026, 5, 20)
         )
 
     def test_waiter_available_tables_filters_by_time_window(self) -> None:

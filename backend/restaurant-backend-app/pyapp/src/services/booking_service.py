@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID, uuid4
 
 from commons.app_config import AppConfig
@@ -134,7 +134,7 @@ class BookingService:
             )
 
         slots_for_day = self._slot_repo.find_by_table_id_and_date(
-            table.id, request.date
+            table.id, date.fromisoformat(request.date)
         )
         if not slots_for_day:
             raise ApplicationException(
