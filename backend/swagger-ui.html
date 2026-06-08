@@ -499,7 +499,7 @@
                   "required": false,
                   "schema": {
                     "type": "string",
-                    "enum": ["APPETIZER", "DESSERT", "MAIN_COURSE"]
+                    "enum": ["APPETIZER", "DESSERT", "MAIN_COURSE", "DRINK"]
                   }
                 },
                 {
@@ -515,6 +515,21 @@
                       "price,desc"
                     ]
                   }
+                },
+                {
+                  "name": "dietary_filter",
+                  "in": "query",
+                  "required": false,
+                  "schema": {
+                    "type": "string",
+                    "enum": [
+                      "VEGETARIAN",
+                      "VEGAN",
+                      "GLUTEN_FREE",
+                      "DAIRY_FREE"
+                    ]
+                  },
+                  "description": "Optional dietary filter matched against dish description tags."
                 }
               ],
               "responses": {
