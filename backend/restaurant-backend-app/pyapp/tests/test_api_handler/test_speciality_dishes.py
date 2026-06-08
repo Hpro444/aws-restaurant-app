@@ -3,9 +3,9 @@
 from unittest.mock import MagicMock
 from uuid import UUID
 
+from commons.exceptions import ApplicationException
 from dto.dishes import DishPreviewResponse
 from enums.dish_state import DishState
-from commons.exceptions import ApplicationException
 from pyapp.tests.test_api_handler import ApiHandlerLambdaTestCase, body, status
 
 _LOCATION_ID = "f6d6b8df-a7d5-4f06-8dd0-739d2f4f8df3"
