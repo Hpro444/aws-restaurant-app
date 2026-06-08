@@ -177,6 +177,9 @@ class BookingService:
             ReservationWaiterView(
                 id=reservation.id,
                 customer_id=customer_uuid,
+                created_by=self._resolve_created_by(
+                    customer_uuid, assigned_waiter_id, resolved_client_name
+                ),
                 waiter_id=assigned_waiter_id,
                 location_id=table.location_id,
                 location_address=location.address,
@@ -289,6 +292,25 @@ class BookingService:
 
         full_name = f"{customer.fname} {customer.lname}".strip()
         return full_name or None
+
+    def _resolve_created_by(
+        self,
+        customer_id: UUID | None,
+        waiter_id: UUID | None,
+        resolved_client_name: str | None,
+    ) -> str | None:
+        """Return the created_by label: 'Customer <name>' or 'Waiter <name> (Visitor)'."""
+        if customer_id is not None:
+            return (
+                f"Customer {resolved_client_name}".strip()
+                if resolved_client_name
+                else None
+            )
+        if waiter_id is not None:
+            waiter = self._waiter_repo.get(waiter_id)
+            if waiter:
+                return f"Waiter {waiter.fname} {waiter.lname} (Visitor)"
+        return None
 
     def _find_table(self, location_id: UUID, table_number: int) -> Table:
         """Return the Table at ``location_id`` with matching ``table_number``.

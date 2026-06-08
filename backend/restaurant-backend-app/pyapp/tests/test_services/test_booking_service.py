@@ -91,6 +91,17 @@ class DummyWaiterRepo:
             )
         ]
 
+    def get(self, waiter_id):
+        """Return a deterministic waiter for any id."""
+        return Waiter(
+            id=waiter_id,
+            fname="W",
+            lname="One",
+            email="w1@example.com",
+            image_url="",
+            location_id=self._location_id,
+        )
+
 
 class DummyCustomerRepo:
     """Mock customer repository for resolving client_name."""

@@ -22,6 +22,7 @@ class ReservationWaiterView(DynamoModel):
 
     id: UUID
     customer_id: UUID | None
+    created_by: str | None = None
     waiter_id: UUID | None
     location_id: UUID
     location_address: str | None

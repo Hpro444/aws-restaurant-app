@@ -19,10 +19,11 @@ from dto.reservation_management import (
     UpdateReservationRequest,
 )
 from dto.waiter_reservations import (
+    ReservationWaiterViewDTO,
     WaiterReservationListResponse,
-    WaiterReservationView,
 )
 from enums import HttpStatusCode, ReservationStatus, SlotStatus, UserRole
+from repositories.customer_repository import CustomerRepository
 from repositories.location_repository import LocationRepository
 from repositories.reservation_repository import ReservationRepository
 from repositories.reservation_waiter_view_repository import (
@@ -49,6 +50,7 @@ class ReservationManagementService:
         location_repository: LocationRepository | None = None,
         waiter_repository: WaiterRepository | None = None,
         waiter_view_repository: ReservationWaiterViewRepository | None = None,
+        customer_repository: CustomerRepository | None = None,
         sqs_service: SqsService | None = None,
     ) -> None:
         """Create repository dependencies, creating defaults when omitted.
@@ -61,6 +63,7 @@ class ReservationManagementService:
             location_repository: Optional LocationRepository instance.
             waiter_repository: Optional WaiterRepository instance.
             waiter_view_repository: Optional ReservationWaiterViewRepository instance.
+            customer_repository: Optional CustomerRepository instance.
             sqs_service: Optional SqsService for publishing reservation events.
 
         """
@@ -74,6 +77,7 @@ class ReservationManagementService:
         self._waiter_view_repo = (
             waiter_view_repository or ReservationWaiterViewRepository(cfg)
         )
+        self._customer_repo = customer_repository or CustomerRepository(cfg)
         self._sqs = sqs_service
 
     def list_for_dashboard(
@@ -134,9 +138,10 @@ class ReservationManagementService:
         )
 
         views = [
-            WaiterReservationView(
+            ReservationWaiterViewDTO(
                 reservation_id=str(row.id),
                 customer_id=str(row.customer_id) if row.customer_id else None,
+                created_by=row.created_by,
                 location_address=row.location_address,
                 table_number=row.table_number,
                 date=row.date,
@@ -382,6 +387,18 @@ class ReservationManagementService:
             return
         self._waiter_view_repo.update(self._to_projection(reservation, view))
 
+    def _resolve_created_by(self, reservation: Reservation) -> str | None:
+        """Return the display label: 'Customer <name>' for customer bookings, 'Waiter <name> (Visitor)' for visitor bookings."""
+        if reservation.customer_id is not None:
+            customer = self._customer_repo.get(reservation.customer_id)
+            if customer:
+                return f"Customer {customer.fname} {customer.lname}".strip()
+        if reservation.waiter_id is not None:
+            waiter = self._waiter_repo.get(reservation.waiter_id)
+            if waiter:
+                return f"Waiter {waiter.fname} {waiter.lname} (Visitor)"
+        return None
+
     def _to_projection(
         self, reservation: Reservation, view: ReservationView
     ) -> ReservationWaiterView:
@@ -389,6 +406,7 @@ class ReservationManagementService:
         return ReservationWaiterView(
             id=reservation.id,
             customer_id=reservation.customer_id,
+            created_by=self._resolve_created_by(reservation),
             waiter_id=reservation.waiter_id,
             location_id=view.location_id,
             location_address=view.location_address,

@@ -27,6 +27,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
     slots_by_id = {slot.id: slot for slot in context.get("slots", [])}
     tables_by_id = {table.id: table for table in context.get("tables", [])}
     locations = context.get("locations", {})
+    customers_by_id = {c.id: c for c in context.get("customers", {}).values()}
+    waiters_by_id = {w.id: w for w in context.get("waiters", {}).values()}
 
     if not reservations:
         print("  ! Skipping reservation waiter-view seed: no reservations in context")
@@ -53,10 +55,28 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         start_time = min(slot.start_time for slot in reservation_slots)
         end_time = max(slot.end_time for slot in reservation_slots)
 
+        customer = (
+            customers_by_id.get(reservation.customer_id)
+            if reservation.customer_id
+            else None
+        )
+        if customer:
+            created_by = f"Customer {customer.fname} {customer.lname}".strip()
+        else:
+            waiter = (
+                waiters_by_id.get(reservation.waiter_id)
+                if reservation.waiter_id
+                else None
+            )
+            created_by = (
+                f"Waiter {waiter.fname} {waiter.lname} (Visitor)" if waiter else None
+            )
+
         rows.append(
             ReservationWaiterView(
                 id=reservation.id,
                 customer_id=reservation.customer_id,
+                created_by=created_by,
                 waiter_id=reservation.waiter_id,
                 location_id=table.location_id,
                 location_address=location.address if location else None,

@@ -5,8 +5,8 @@ from uuid import uuid4
 
 from commons.exceptions import ApplicationException
 from dto.waiter_reservations import (
+    ReservationWaiterViewDTO,
     WaiterReservationListResponse,
-    WaiterReservationView,
 )
 from enums import UserRole
 from pyapp.tests.test_api_handler import (
@@ -29,11 +29,12 @@ def _event(params: dict | None, headers: dict | None = _VALID_HEADERS) -> dict:
     return event
 
 
-def _view() -> WaiterReservationView:
+def _view() -> ReservationWaiterViewDTO:
     """Build a representative waiter table-view reservation."""
-    return WaiterReservationView(
+    return ReservationWaiterViewDTO(
         reservation_id=_RESERVATION_ID,
         customer_id=str(uuid4()),
+        created_by="Customer John Doe",
         location_address="1 Freedom Square, Tbilisi",
         table_number=5,
         date="2026-05-16",
@@ -123,6 +124,14 @@ class TestGetWaiterReservations(ApiHandlerLambdaTestCase):
     def test_malformed_time_returns_422(self) -> None:
         """A malformed time_from value fails the format validator with 422."""
         params = {"date": "2026-05-16", "time_from": "12", "table_name": "5"}
+        result = self.HANDLER.lambda_handler(_event(params), {})
+
+        self.assertEqual(status(result), 422)
+        self.HANDLER._reservation_management_service.list_for_waiter_table.assert_not_called()
+
+    def test_malformed_date_returns_422(self) -> None:
+        """A date string that is not a valid calendar date fails validation with 422."""
+        params = {"date": "not-a-date", "time_from": "12:00", "table_name": "5"}
         result = self.HANDLER.lambda_handler(_event(params), {})
 
         self.assertEqual(status(result), 422)

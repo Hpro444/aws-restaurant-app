@@ -956,7 +956,7 @@ class ApiHandler(AbstractLambda):
         )
         response = self._reservation_management_service.list_for_waiter_table(
             waiter_id=user_id,
-            date=request.date,
+            date=request.date.isoformat(),
             time_from=request.time_from,
             table_name=request.table_name,
         )
