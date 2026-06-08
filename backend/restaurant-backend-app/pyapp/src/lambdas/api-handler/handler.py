@@ -19,7 +19,6 @@ from dto.feedbacks import (
 )
 from dto.locations import LocationAddressResponse, LocationResponse
 from dto.logout import LogoutRequest, LogoutResponse
-from dto.orders import CreateOrderRequest
 from dto.refresh import RefreshRequest, RefreshResponse
 from dto.reservation_management import UpdateReservationRequest
 from dto.sign_in import SignInRequest, SignInResponse
@@ -39,7 +38,6 @@ from services.customers_service import CustomersService
 from services.dishes_service import DishesService
 from services.feedback_service import FeedbackService
 from services.locations_service import LocationsService
-from services.order_service import OrderService
 from services.registration_service import RegistrationService
 from services.reservation_management_service import ReservationManagementService
 from services.sqs_service import SqsService
@@ -85,7 +83,6 @@ class ApiHandler(AbstractLambda):
         self._customers_service = CustomersService(
             customer_repository=self._customer_repository,
         )
-        self._order_service = OrderService()
 
     def validate_request(self, event: dict) -> dict:
         """Return empty dict; all validation is handled in route methods via Pydantic.
@@ -162,8 +159,6 @@ class ApiHandler(AbstractLambda):
         router.add("GET", "/customers", self._get_customers)
 
         router.add("GET", "/reservations/waiter", self._get_waiter_reservations)
-
-        router.add("POST", "/orders", self._create_order)
 
         return router
 
@@ -1172,35 +1167,6 @@ class ApiHandler(AbstractLambda):
 
         return build_response(
             LeaveFeedbackResponse(message="Feedback has been created.").model_dump(),
-            code=HttpStatusCode.RESPONSE_CREATED_CODE,
-        )
-
-    def _create_order(self, event: dict) -> LambdaResponse:
-        """Handle POST /orders — create an order for a reservation.
-
-        Only callers with ``UserRole.WAITER`` may access this endpoint. The
-        waiter must be the one assigned to the target reservation; any mismatch
-        returns 403. Each ``dishId`` in the item list must resolve to an
-        existing dish, otherwise 404 is returned.
-
-        Returns:
-            A Lambda proxy response with statusCode 201 and a JSON object
-            containing ``orderId`` and ``reservationId``.
-
-        """
-        waiter_id, role = self._get_actor_context(event)
-        if role != UserRole.WAITER:
-            raise_error_response(
-                HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
-                "Only waiters can create orders.",
-            )
-
-        request = self._validate(CreateOrderRequest, self._parse_body(event))
-        response = self._order_service.create_order(
-            waiter_id=UUID(waiter_id), request=request
-        )
-        return build_response(
-            response.model_dump(by_alias=True),
             code=HttpStatusCode.RESPONSE_CREATED_CODE,
         )
 
