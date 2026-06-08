@@ -7,7 +7,8 @@ from uuid import UUID
 from commons.app_config import AppConfig
 from commons.exceptions import ApplicationException
 from commons.log_helper import logger
-from dto.dishes import DishDietaryFilter, DishResponse, DishSort
+from domain.dish import Dish
+from dto.dishes import DishExtendedResponse, DishPreviewResponse, DishSort
 from enums.dish_type import DishType
 from enums.http_status_code import HttpStatusCode
 from repositories.dish_repository import DishRepository
@@ -39,7 +40,39 @@ class DishesService:
         self._dish_repo = dish_repository or DishRepository(cfg)
         self._location_repo = location_repository or LocationRepository(cfg)
 
-    def get_popular_dishes(self) -> list[DishResponse]:
+    @staticmethod
+    def _to_preview_response(dish: Dish) -> DishPreviewResponse:
+        """Map a Dish domain object to preview response DTO."""
+        return DishPreviewResponse(
+            id=dish.id,
+            name=dish.name,
+            description=dish.description,
+            image_url=dish.image_url,
+            price=dish.price,
+            weight_gram=dish.weight_gram,
+            state=dish.state,
+        )
+
+    @staticmethod
+    def _to_extended_response(dish: Dish) -> DishExtendedResponse:
+        """Map a Dish domain object to extended response DTO."""
+        return DishExtendedResponse(
+            id=dish.id,
+            name=dish.name,
+            description=dish.description,
+            image_url=dish.image_url,
+            dish_type=dish.dish_type,
+            price=dish.price,
+            state=dish.state,
+            calories=dish.calories,
+            carbohydrates=dish.carbohydrates,
+            fats=dish.fats,
+            proteins=dish.proteins,
+            vitamins=dish.vitamins,
+            weight_gram=dish.weight_gram,
+        )
+
+    def get_popular_dishes(self) -> list[DishPreviewResponse]:
         """Retrieve all popular dishes across all locations.
 
         Queries the ``popular_index`` GSI to efficiently find all dishes
@@ -49,7 +82,7 @@ class DishesService:
         Results include all locations; no filtering by location_id.
 
         Returns:
-            List of popular DishResponse objects, or empty list if none exist.
+            List of popular DishPreviewResponse objects, or empty list if none exist.
 
         """
         logger.info("Retrieving popular dishes")
@@ -58,25 +91,14 @@ class DishesService:
         popular_dishes = self._dish_repo.find_by_popular()
 
         # Transform domain objects to response DTOs
-        response = [
-            DishResponse(
-                id=dish.id,
-                name=dish.name,
-                description=dish.description,
-                image_url=dish.image_url,
-                price=dish.price,
-                weight_gram=dish.weight_gram,
-                state=dish.state,
-            )
-            for dish in popular_dishes
-        ]
+        response = [self._to_preview_response(dish) for dish in popular_dishes]
 
         logger.info("Popular dishes retrieved", count=len(response))
         return response
 
     def get_speciality_dishes_by_location(
         self, location_id: UUID
-    ) -> list[DishResponse]:
+    ) -> list[DishPreviewResponse]:
         """Retrieve all speciality dishes for a specific location.
 
         Queries the ``location_id_index`` GSI to find all dishes at the location,
@@ -87,7 +109,7 @@ class DishesService:
             location_id: UUID of the restaurant location.
 
         Returns:
-            List of speciality DishResponse objects for the location,
+            List of speciality DishPreviewResponse objects for the location,
             or empty list if none exist.
 
         """
@@ -107,18 +129,7 @@ class DishesService:
         )
 
         # Transform domain objects to response DTOs
-        response = [
-            DishResponse(
-                id=dish.id,
-                name=dish.name,
-                description=dish.description,
-                image_url=dish.image_url,
-                price=dish.price,
-                weight_gram=dish.weight_gram,
-                state=dish.state,
-            )
-            for dish in specialty_dishes
-        ]
+        response = [self._to_preview_response(dish) for dish in specialty_dishes]
 
         logger.info(
             "Specialty dishes retrieved",
@@ -131,8 +142,7 @@ class DishesService:
         self,
         dish_type: DishType | None = None,
         sort: DishSort | None = None,
-        dietary_filter: DishDietaryFilter | None = None,
-    ) -> list[DishResponse]:
+    ) -> list[DishPreviewResponse]:
         """Retrieve dishes filtered by type and sorted by the requested criterion.
 
         Performs a full table scan then applies in-memory filtering and sorting,
@@ -142,17 +152,15 @@ class DishesService:
             dish_type: When provided, only dishes matching this category are returned.
             sort: Ordering applied after filtering. Supports price and popularity
                 in ascending or descending direction.
-            dietary_filter: When provided, only dishes matching this dietary filter are returned.
 
         Returns:
-            List of DishResponse objects, or empty list when no dishes match.
+            List of DishPreviewResponse objects, or empty list when no dishes match.
 
         """
         logger.info(
             "Retrieving dishes",
             dish_type=dish_type and dish_type.value,
             sort=sort and sort.value,
-            dietary_filter=dietary_filter and dietary_filter.value,
         )
 
         dishes = self._dish_repo.scan()
@@ -168,26 +176,24 @@ class DishesService:
             elif field == "popularity":
                 dishes = sorted(dishes, key=lambda d: d.popular, reverse=reverse)
 
-        if dietary_filter is not None:
-            filter_token = dietary_filter.value.replace("_", " ")
-            dishes = [
-                dish
-                for dish in dishes
-                if filter_token in dish.description.upper().replace("_", " ")
-            ]
-
-        response = [
-            DishResponse(
-                id=dish.id,
-                name=dish.name,
-                description=dish.description,
-                image_url=dish.image_url,
-                price=dish.price,
-                weight_gram=dish.weight_gram,
-                state=dish.state,
-            )
-            for dish in dishes
-        ]
+        response = [self._to_preview_response(dish) for dish in dishes]
 
         logger.info("Dishes retrieved", count=len(response))
         return response
+
+    def get_dish_by_id(self, dish_id: UUID) -> DishExtendedResponse | None:
+        """Retrieve a single dish by id.
+
+        Args:
+            dish_id: UUID of the dish.
+
+        Returns:
+            DishExtendedResponse when found, otherwise None.
+
+        """
+        logger.info("Retrieving dish by id", dish_id=str(dish_id))
+        dish = self._dish_repo.get(dish_id)
+        if dish is None:
+            logger.info("Dish not found", dish_id=str(dish_id))
+            return None
+        return self._to_extended_response(dish)

@@ -3,7 +3,8 @@
 from unittest.mock import MagicMock
 from uuid import UUID
 
-from dto.dishes import DishResponse
+from dto.dishes import DishPreviewResponse
+from enums.dish_state import DishState
 from pyapp.tests.test_api_handler import (
     ApiHandlerLambdaTestCase,
     body,
@@ -16,23 +17,23 @@ _PATH = "/dishes"
 _PIZZA_ID = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 _SALAD_ID = UUID("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")
 
-_PIZZA = DishResponse(
+_PIZZA = DishPreviewResponse(
     id=_PIZZA_ID,
     name="Margherita Pizza",
     description="Classic pizza with tomato sauce, fresh mozzarella, and basil.",
     image_url="https://example.com/images/margherita.jpg",
     price=12.99,
     weight_gram=450,
-    state="Available",
+    state=DishState.AVAILABLE,
 )
-_SALAD = DishResponse(
+_SALAD = DishPreviewResponse(
     id=_SALAD_ID,
     name="Caesar Salad",
     description="Crispy romaine lettuce with Caesar dressing, croutons, and parmesan.",
     image_url="https://example.com/images/caesar.jpg",
     price=8.50,
     weight_gram=280,
-    state="On stop",
+    state=DishState.ON_STOP,
 )
 
 _PIZZA_BODY = {
@@ -51,7 +52,7 @@ _SALAD_BODY = {
     "image_url": "https://example.com/images/caesar.jpg",
     "price": 8.50,
     "weight_gram": 280,
-    "state": "On stop",
+    "state": "On Stop",
 }
 
 

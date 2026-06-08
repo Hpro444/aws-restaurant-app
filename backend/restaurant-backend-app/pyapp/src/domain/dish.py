@@ -20,6 +20,11 @@ class Dish(DynamoModel):
     image_url: str
     price: float
     weight_gram: int
+    calories: str = ""
+    carbohydrates: str = ""
+    fats: str = ""
+    proteins: str = ""
+    vitamins: str = ""
     specialty: bool = False
     popular: bool = False
     state: DishState = DishState.AVAILABLE
