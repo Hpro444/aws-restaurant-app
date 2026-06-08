@@ -18,7 +18,7 @@ export const NAV_ITEMS_BY_ROLE: Record<HeaderViewerRole, HeaderNavItem[]> = {
     { label: "Reservations", href: "/reservations" },
   ],
   waiter: [
-    { label: "Reservations", href: "/reservations" },
+    { label: "Reservations", href: "/waiter-reservations" },
     { label: "Menu", href: "/menu" },
   ],
   admin: [

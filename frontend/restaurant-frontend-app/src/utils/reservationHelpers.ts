@@ -13,13 +13,6 @@ export const getStatusColor = (status: string): string => {
   }
 };
 
-export const canLeaveFeedback = (
-  status: string,
-  feedbackId: string,
-): boolean => {
-  return status.toLowerCase() === "finished" && !feedbackId;
-};
-
 export const formatSlotTime = (value: string): string => {
   const trimmed = value.trim();
   if (!trimmed) return value;
@@ -57,11 +50,26 @@ export const formatDate = (dateString: string): string => {
   try {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
-      month: "numeric",
+      month: "short",
       day: "numeric",
       year: "numeric",
     });
   } catch {
     return dateString;
   }
+};
+
+export const formatTime = (utcTimeStr: string): string => {
+  const date = new Date(utcTimeStr);
+
+  if (Number.isNaN(date.getTime())) {
+    return utcTimeStr;
+  }
+
+  return new Intl.DateTimeFormat("sr-RS", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Europe/Belgrade",
+  }).format(date);
 };
