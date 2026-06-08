@@ -7,7 +7,6 @@ from uuid import UUID
 
 from enums.feedback_type import FeedbackType
 from pydantic import (
-    AliasChoices,
     BaseModel,
     ConfigDict,
     Field,
@@ -27,8 +26,6 @@ class LeaveFeedbackRequest(BaseModel):
 
     reservation_id: UUID = Field(
         ...,
-        alias="reservationId",
-        validation_alias=AliasChoices("reservation_id", "reservationId"),
     )
     type: FeedbackType
     rating: int = Field(..., ge=1, le=5)
