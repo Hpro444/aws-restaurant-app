@@ -71,6 +71,17 @@ class LeaveFeedbackResponse(BaseModel):
     message: str
 
 
+class FeedbackContextResponse(BaseModel):
+    """Modal context payload for feedback creation UI."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    reservation_id: str
+    waiter_id: str | None = None
+    waiter_name: str | None = None
+    waiter_image_url: str | None = None
+
+
 class GetFeedbacksRequest(BaseModel):
     """Validated query params for GET /locations/{id}/feedbacks."""
 

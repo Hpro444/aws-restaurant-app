@@ -29,6 +29,7 @@ class TestFeedbackService(TestCase):
         self.reservation_repo = MagicMock()
         self.slot_repo = MagicMock()
         self.table_repo = MagicMock()
+        self.waiter_repo = MagicMock()
 
         self.service = FeedbackService(
             feedback_cuisine_repo=self.feedback_cuisine_repo,
@@ -37,6 +38,7 @@ class TestFeedbackService(TestCase):
             reservation_repo=self.reservation_repo,
             slot_repo=self.slot_repo,
             table_repo=self.table_repo,
+            waiter_repo=self.waiter_repo,
         )
 
         self.customer_id = uuid4()
@@ -239,3 +241,77 @@ class TestFeedbackService(TestCase):
 
         self.assertEqual(exc.exception.code, 422)
         self.feedback_cuisine_repo.create.assert_not_called()
+
+    def test_get_feedback_context_returns_waiter_profile(self) -> None:
+        """Context should include waiter data when reservation has an assigned waiter."""
+        self.reservation_repo.get.return_value = self.reservation
+        self.waiter_repo.get.return_value = SimpleNamespace(
+            id=self.waiter_id,
+            fname="Mario",
+            lname="Jast",
+            image_url="https://example.com/waiter.png",
+        )
+
+        response = self.service.get_feedback_context(
+            reservation_id=self.reservation_id,
+            customer_id=self.customer_id,
+        )
+
+        self.assertEqual(response.reservation_id, str(self.reservation_id))
+        self.assertEqual(response.waiter_id, str(self.waiter_id))
+        self.assertEqual(response.waiter_name, "Mario Jast")
+        self.assertEqual(response.waiter_image_url, "https://example.com/waiter.png")
+
+    def test_get_feedback_context_returns_empty_waiter_when_not_assigned(self) -> None:
+        """Context should not fail when reservation has no assigned waiter."""
+        self.reservation_repo.get.return_value = Reservation(
+            id=self.reservation_id,
+            customer_id=self.customer_id,
+            waiter_id=None,
+            created_at=datetime.now(UTC),
+            slot_ids=[uuid4()],
+            status=ReservationStatus.RESERVED,
+            number_of_guests=2,
+        )
+
+        response = self.service.get_feedback_context(
+            reservation_id=self.reservation_id,
+            customer_id=self.customer_id,
+        )
+
+        self.assertEqual(response.reservation_id, str(self.reservation_id))
+        self.assertIsNone(response.waiter_id)
+        self.assertIsNone(response.waiter_name)
+        self.assertIsNone(response.waiter_image_url)
+
+    def test_get_feedback_context_raises_404_when_reservation_missing(self) -> None:
+        """Unknown reservation should return not found."""
+        self.reservation_repo.get.return_value = None
+
+        with self.assertRaises(ApplicationException) as exc:
+            self.service.get_feedback_context(
+                reservation_id=self.reservation_id,
+                customer_id=self.customer_id,
+            )
+
+        self.assertEqual(exc.exception.code, 404)
+
+    def test_get_feedback_context_raises_403_for_foreign_reservation(self) -> None:
+        """Customer can read context only for their own reservation."""
+        self.reservation_repo.get.return_value = Reservation(
+            id=self.reservation_id,
+            customer_id=uuid4(),
+            waiter_id=self.waiter_id,
+            created_at=datetime.now(UTC),
+            slot_ids=[uuid4()],
+            status=ReservationStatus.FINISHED,
+            number_of_guests=2,
+        )
+
+        with self.assertRaises(ApplicationException) as exc:
+            self.service.get_feedback_context(
+                reservation_id=self.reservation_id,
+                customer_id=self.customer_id,
+            )
+
+        self.assertEqual(exc.exception.code, 403)
