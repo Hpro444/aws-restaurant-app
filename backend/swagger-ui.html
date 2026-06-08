@@ -1087,13 +1087,11 @@
             },
             "LeaveFeedbackRequest": {
               "type": "object",
-              "required": ["reservationId", "type", "rating"],
+              "required": ["reservation_id", "type", "rating"],
               "properties": {
-                "reservationId": { "type": "string", "format": "uuid" },
                 "reservation_id": {
                   "type": "string",
-                  "format": "uuid",
-                  "description": "Legacy alias accepted by backend."
+                  "format": "uuid"
                 },
                 "type": {
                   "type": "string",

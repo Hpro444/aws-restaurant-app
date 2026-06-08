@@ -86,6 +86,23 @@ class TestCreateFeedback(ApiHandlerLambdaTestCase):
         self.assertEqual(status(result), 422)
         self.HANDLER._feedback_service.leave_feedback.assert_not_called()
 
+    def test_legacy_reservation_id_alias_returns_422(self) -> None:
+        """CamelCase reservationId is no longer accepted; only reservation_id is valid."""
+        bad_body = {
+            "reservationId": _VALID_BODY["reservation_id"],
+            "type": _VALID_BODY["type"],
+            "rating": _VALID_BODY["rating"],
+            "comment": _VALID_BODY["comment"],
+        }
+
+        result = self.HANDLER.lambda_handler(
+            make_event(_PATH, "POST", body=bad_body, headers=_VALID_HEADERS),
+            {},
+        )
+
+        self.assertEqual(status(result), 422)
+        self.HANDLER._feedback_service.leave_feedback.assert_not_called()
+
     def test_invalid_type_returns_422(self) -> None:
         """Feedback type must be one of allowed enum values."""
         bad_body = {**_VALID_BODY, "type": "bad-type"}
