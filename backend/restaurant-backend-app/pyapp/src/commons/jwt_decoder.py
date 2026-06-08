@@ -1,7 +1,7 @@
 """JWT decoding utilities for extracting payload claims from access tokens."""
 
 import jwt
-from enums.http_status_code import HttpStatusCode
+from enums import HttpStatusCode
 
 from commons.exceptions import ApplicationException
 

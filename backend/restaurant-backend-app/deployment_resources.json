@@ -8,6 +8,9 @@
             "logs:CreateLogStream",
             "logs:PutLogEvents",
             "sqs:SendMessage",
+            "sqs:ReceiveMessage",
+            "sqs:DeleteMessage",
+            "sqs:GetQueueAttributes",
             "dynamodb:GetItem",
             "dynamodb:Query",
             "dynamodb:Scan",
@@ -42,18 +45,7 @@
     "resource_type": "iam_policy",
     "tags": {}
   },
-  "reservation-events-dlq": {
-    "resource_type": "sqs_queue",
-    "fifo_queue": false,
-    "content_based_deduplication": false,
-    "delay_seconds": 0,
-    "maximum_message_size": 262144,
-    "message_retention_period": 1209600,
-    "receive_message_wait_time_seconds": 0,
-    "visibility_timeout": 30,
-    "tags": {}
-  },
-  "reservation-events-queue": {
+  "event_queue": {
     "resource_type": "sqs_queue",
     "fifo_queue": false,
     "content_based_deduplication": false,
@@ -61,11 +53,7 @@
     "maximum_message_size": 262144,
     "message_retention_period": 345600,
     "receive_message_wait_time_seconds": 0,
-    "visibility_timeout": 30,
-    "redrive_policy": {
-      "deadLetterTargetArn": "${reservation-events-dlq}",
-      "maxReceiveCount": 3
-    },
+    "visibility_timeout": 600,
     "tags": {}
   },
   "restaurant-api": {
@@ -281,6 +269,32 @@
           "enable_proxy": true
         },
         "GET": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
+        }
+      },
+      "/bookings/waiter/{id}": {
+        "OPTIONS": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
+        },
+        "PUT": {
           "authorization_type": "NONE",
           "integration_type": "lambda",
           "lambda_name": "api-handler",
@@ -758,6 +772,32 @@
           "default_error_pattern": true,
           "enable_proxy": true
         }
+      },
+      "/orders": {
+        "OPTIONS": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
+        },
+        "POST": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
+        }
       }
     },
     "tags": {}
@@ -898,6 +938,14 @@
         "index_sort_key_name": "date",
         "index_sort_key_type": "S",
         "projection_type": "ALL"
+      },
+      {
+        "name": "waiter_id_date_index",
+        "index_key_name": "waiter_id",
+        "index_key_type": "S",
+        "index_sort_key_name": "date",
+        "index_sort_key_type": "S",
+        "projection_type": "ALL"
       }
     ],
     "autoscaling": [],
@@ -924,6 +972,8 @@
         "name": "waiter_id_index",
         "index_key_name": "waiter_id",
         "index_key_type": "S",
+        "index_sort_key_name": "date",
+        "index_sort_key_type": "S",
         "projection_type": "ALL"
       }
     ],
@@ -957,6 +1007,14 @@
         "index_key_name": "location_id",
         "index_key_type": "S",
         "projection_type": "ALL"
+      },
+      {
+        "name": "location_id_date_index",
+        "index_key_name": "location_id",
+        "index_key_type": "S",
+        "index_sort_key_name": "date",
+        "index_sort_key_type": "S",
+        "projection_type": "ALL"
       }
     ],
     "autoscaling": [],
@@ -971,6 +1029,8 @@
         "name": "waiter_id_index",
         "index_key_name": "waiter_id",
         "index_key_type": "S",
+        "index_sort_key_name": "date",
+        "index_sort_key_type": "S",
         "projection_type": "ALL"
       }
     ],
@@ -998,6 +1058,55 @@
     "hash_key_name": "email",
     "hash_key_type": "S",
     "global_indexes": [],
+    "autoscaling": [],
+    "tags": {}
+  },
+  "${orders_table}": {
+    "resource_type": "dynamodb_table",
+    "hash_key_name": "id",
+    "hash_key_type": "S",
+    "global_indexes": [
+      {
+        "name": "reservation_id_index",
+        "index_key_name": "reservation_id",
+        "index_key_type": "S",
+        "projection_type": "ALL"
+      }
+    ],
+    "autoscaling": [],
+    "tags": {}
+  },
+  "${location_report_table}": {
+    "resource_type": "dynamodb_table",
+    "hash_key_name": "id",
+    "hash_key_type": "S",
+    "global_indexes": [
+      {
+        "name": "location_period_index",
+        "index_key_name": "location_id",
+        "index_key_type": "S",
+        "index_sort_key_name": "report_period_start",
+        "index_sort_key_type": "S",
+        "projection_type": "ALL"
+      }
+    ],
+    "autoscaling": [],
+    "tags": {}
+  },
+  "${waiter_report_table}": {
+    "resource_type": "dynamodb_table",
+    "hash_key_name": "id",
+    "hash_key_type": "S",
+    "global_indexes": [
+      {
+        "name": "waiter_period_index",
+        "index_key_name": "waiter_id",
+        "index_key_type": "S",
+        "index_sort_key_name": "report_period_start",
+        "index_sort_key_type": "S",
+        "projection_type": "ALL"
+      }
+    ],
     "autoscaling": [],
     "tags": {}
   }

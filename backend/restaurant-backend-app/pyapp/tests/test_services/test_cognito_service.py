@@ -8,7 +8,7 @@ from pyapp.tests import ImportFromSourceContext
 
 with ImportFromSourceContext():
     from commons.exceptions import ApplicationException
-    from enums.user_role import UserRole
+    from enums import UserRole
     from services.cognito_service import CognitoService
 
 _SUB = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"

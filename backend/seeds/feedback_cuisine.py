@@ -80,3 +80,4 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             batch.put_item(Item=entry.model_dump(mode="json"))
 
     print(f"  ✓ Seeded {len(entries)} cuisine feedback entries (max 1 per reservation)")
+    context["feedback_cuisine"] = entries

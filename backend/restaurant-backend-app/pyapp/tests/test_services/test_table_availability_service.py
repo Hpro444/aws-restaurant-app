@@ -12,7 +12,7 @@ from pyapp.tests import ImportFromSourceContext
 with ImportFromSourceContext():
     from domain.slot import Slot  # type: ignore[import-untyped]
     from domain.table import Table  # type: ignore[import-untyped]
-    from enums.slot_status import SlotStatus  # type: ignore[import-untyped]
+    from enums import SlotStatus  # type: ignore[import-untyped]
     from services.table_availability_service import (  # type: ignore[import-untyped]
         TableAvailabilityService,
     )

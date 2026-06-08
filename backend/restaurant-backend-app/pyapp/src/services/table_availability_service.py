@@ -17,7 +17,7 @@ from dto.available_tables import (
     SlotResponse,
     TableAvailabilityResponse,
 )
-from enums.slot_status import SlotStatus
+from enums import SlotStatus
 from repositories.location_repository import LocationRepository
 from repositories.slot_repository import SlotRepository
 from repositories.table_repository import TableRepository

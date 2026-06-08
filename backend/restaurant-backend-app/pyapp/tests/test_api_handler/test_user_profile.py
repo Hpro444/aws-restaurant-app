@@ -6,7 +6,7 @@ from uuid import uuid4
 from commons.exceptions import ApplicationException
 from domain.admin import Admin
 from domain.user import Customer, Waiter
-from enums.user_role import UserRole
+from enums import UserRole
 from pyapp.tests.test_api_handler import (
     ApiHandlerLambdaTestCase,
     body,

@@ -10,7 +10,7 @@ from pyapp.tests import ImportFromSourceContext
 
 with ImportFromSourceContext():
     from domain.slot import Slot  # type: ignore[import-untyped]
-    from enums.slot_status import SlotStatus  # type: ignore[import-untyped]
+    from enums import SlotStatus  # type: ignore[import-untyped]
     from repositories.slot_repository import (
         SlotRepository,  # type: ignore[import-untyped]
     )

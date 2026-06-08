@@ -9,7 +9,7 @@ from commons.log_helper import logger
 from domain.admin import Admin
 from domain.user import Customer, Waiter
 from dto.sign_up import SignUpRequest
-from enums.user_role import UserRole
+from enums import UserRole
 from pydantic import SecretStr
 from repositories.admin_emails_repository import AdminEmailsRepository
 from repositories.admin_repository import AdminRepository

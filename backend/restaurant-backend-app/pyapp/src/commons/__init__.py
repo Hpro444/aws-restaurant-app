@@ -3,7 +3,7 @@
 import json
 from typing import Any, NoReturn
 
-from enums.http_status_code import HttpStatusCode
+from enums import HttpStatusCode
 
 from commons.exceptions import ApplicationException
 from commons.response import LambdaResponse

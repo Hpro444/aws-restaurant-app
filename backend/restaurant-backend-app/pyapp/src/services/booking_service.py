@@ -15,10 +15,8 @@ from domain.slot import Slot
 from domain.table import Table
 from dto.create_booking import CreateBookingRequest, CreateBookingResponse
 from dto.reservation_event import ReservationEventMessage, ReservationEventType
-from dto.reservation_management import AllowedActions, ReservationView
-from enums.http_status_code import HttpStatusCode
-from enums.reservation_status import ReservationStatus
-from enums.slot_status import SlotStatus
+from dto.reservation_management import AllowedActions
+from enums import HttpStatusCode, ReservationStatus, SlotStatus
 from repositories.customer_repository import CustomerRepository
 from repositories.location_repository import LocationRepository
 from repositories.reservation_repository import ReservationRepository
@@ -105,10 +103,10 @@ class BookingService:
             request: Validated booking request DTO.
             customer_id: UUID (or its string form) of the booking customer,
                 or ``None`` when a waiter creates a visitor reservation.
-            client_name: Optional name for customer or visitor.
-            waiter_id: Optional UUID of waiter creating the reservation.
-                This value identifies the actor only; assignment is resolved from
-                the preassigned waiter on ``slot[0]``.
+            client_name: Optional display name for the reservation.
+            waiter_id: Optional UUID of the waiter creating the reservation.
+                This value identifies the actor only; assignment is resolved
+                from the preassigned waiter on ``slot[0]``.
 
         Returns:
             :class:`CreateBookingResponse` for the persisted reservation.
@@ -153,7 +151,6 @@ class BookingService:
         self._ensure_start_time_in_future(chain)
         self._ensure_all_free(chain)
         self._claim_slots(chain)
-
         assigned_waiter_id = self._resolve_waiter_for_chain(chain, table.location_id)
 
         reservation = Reservation(
@@ -165,6 +162,7 @@ class BookingService:
             slot_ids=[s.id for s in chain],
             status=ReservationStatus.RESERVED,
             number_of_guests=request.guests_number,
+            date=chain[0].start_time.astimezone(UTC).date().isoformat(),
         )
         try:
             self._reservation_repo.create(reservation)
@@ -203,27 +201,26 @@ class BookingService:
 
         if self._sqs is not None:
             try:
-                event_view = ReservationView(
-                    reservation_id=str(reservation.id),
-                    status=reservation.status,
-                    customer_id=str(customer_uuid) if customer_uuid else None,
-                    waiter_id=str(assigned_waiter_id) if assigned_waiter_id else None,
-                    location_id=str(request.location_id),
-                    location_address=location.address,
-                    table_number=request.table_number,
-                    date=request.date,
-                    time_from=chain[0].start_time.strftime("%H:%M"),
-                    time_to=chain[-1].end_time.strftime("%H:%M"),
-                    guests_number=request.guests_number,
-                    allowed_actions=AllowedActions(can_edit=True, can_cancel=True),
-                    cutoff_reason=None,
-                )
                 self._sqs.publish(
-                    self._settings.reservation_events_queue_url,
+                    self._settings.event_queue_url,
                     ReservationEventMessage(
                         event_type=ReservationEventType.CREATED,
-                        reservation=event_view,
                         timestamp=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                        reservation_id=str(reservation.id),
+                        status=reservation.status,
+                        customer_id=str(customer_uuid) if customer_uuid else None,
+                        waiter_id=str(assigned_waiter_id)
+                        if assigned_waiter_id
+                        else None,
+                        location_id=str(request.location_id),
+                        location_address=location.address,
+                        table_number=request.table_number,
+                        date=request.date,
+                        time_from=chain[0].start_time.strftime("%H:%M"),
+                        time_to=chain[-1].end_time.strftime("%H:%M"),
+                        guests_number=request.guests_number,
+                        allowed_actions=AllowedActions(can_edit=True, can_cancel=True),
+                        cutoff_reason=None,
                     ),
                 )
             except Exception:
@@ -283,10 +280,12 @@ class BookingService:
 
         customer = self._customer_repo.get(customer_id)
         if customer is None:
-            raise ApplicationException(
-                HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
-                "Customer not found",
-            )
+            # An authenticated customer self-booking must not be rejected when no
+            # profile row exists: client_name is optional and the reservation
+            # still records customer_id. (Waiter bookings for an existing customer
+            # are validated upstream in the handler, so this fallback does not
+            # weaken that path.)
+            return None
 
         full_name = f"{customer.fname} {customer.lname}".strip()
         return full_name or None
@@ -361,10 +360,7 @@ class BookingService:
         # The endpoints must be in the chain — if they are not (e.g.
         # mismatched ordering), surface a 422.
         if start_slot not in chain or end_slot not in chain:
-            raise ApplicationException(
-                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                "Invalid time range for the selected slots",
-            )
+            self._raise_invalid_time_range()
 
         self._validate_slot_chain_duration(chain)
         return chain
@@ -383,36 +379,26 @@ class BookingService:
 
         """
         if not chain:
-            raise ApplicationException(
-                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                "Invalid time range for the selected slots",
-            )
+            self._raise_invalid_time_range()
 
         slot_length = timedelta(minutes=90)
         pause_length = timedelta(minutes=15)
 
-        for slot in chain:
-            if slot.end_time - slot.start_time != slot_length:
-                raise ApplicationException(
-                    HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                    "Invalid time range for the selected slots",
-                )
+        if any(slot.end_time - slot.start_time != slot_length for slot in chain):
+            self._raise_invalid_time_range()
 
-        for previous, current in zip(chain, chain[1:]):
-            if current.start_time - previous.end_time != pause_length:
-                raise ApplicationException(
-                    HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                    "Invalid time range for the selected slots",
-                )
+        if any(
+            current.start_time - previous.end_time != pause_length
+            for previous, current in zip(chain, chain[1:])
+        ):
+            self._raise_invalid_time_range()
 
-        n_slots = len(chain)
-        expected_total = slot_length * n_slots + pause_length * (n_slots - 1)
-        actual_total = chain[-1].end_time - chain[0].start_time
-        if actual_total != expected_total:
-            raise ApplicationException(
-                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                "Invalid time range for the selected slots",
-            )
+    def _raise_invalid_time_range(self) -> None:
+        """Raise a standard 422 error for invalid selected slot range."""
+        raise ApplicationException(
+            HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+            self._INVALID_RANGE_MESSAGE,
+        )
 
     @staticmethod
     def _check_within_operating_hours(chain: list[Slot], location) -> None:
@@ -452,22 +438,6 @@ class BookingService:
     def _parse_utc_datetime(raw_value: str) -> datetime:
         """Parse UTC datetime string for slot matching."""
         return datetime.fromisoformat(raw_value.replace("Z", "+00:00")).astimezone(UTC)
-
-    @staticmethod
-    def _ensure_start_time_in_future(chain: list[Slot]) -> None:
-        """Raise 422 when the reservation starts in the past or at the current time."""
-        first_slot_start = chain[0].start_time
-        now_utc = datetime.now(UTC)
-        if first_slot_start <= now_utc:
-            raise ApplicationException(
-                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                [
-                    {
-                        "field": "timeFrom",
-                        "message": "Cannot book a slot that starts in the past",
-                    }
-                ],
-            )
 
     @staticmethod
     def _ensure_all_free(chain: list[Slot]) -> None:

@@ -78,3 +78,39 @@ class ReservationRepository(DynamoRepository[Reservation]):
             attr_name="waiter_id",
             log_context="waiter",
         )
+
+    def find_by_waiter_id_and_period(
+        self,
+        waiter_id: UUID,
+        period_start: str,
+        period_end: str,
+    ) -> list[Reservation]:
+        """Return reservations for a waiter within a date range via GSI BETWEEN query.
+
+        Args:
+            waiter_id: UUID of the waiter.
+            period_start: Inclusive start date as ``"YYYY-MM-DD"``.
+            period_end: Inclusive end date as ``"YYYY-MM-DD"``.
+
+        """
+        reservations = self._paginated_query(
+            "waiter_id_index period query",
+            self._client.query,
+            TableName=self._resolve_table_name(),
+            IndexName=self._WAITER_INDEX,
+            KeyConditionExpression="waiter_id = :wid AND #dt BETWEEN :start AND :end",
+            ExpressionAttributeNames={"#dt": "date"},
+            ExpressionAttributeValues={
+                ":wid": {"S": str(waiter_id)},
+                ":start": {"S": period_start},
+                ":end": {"S": period_end},
+            },
+        )
+        logger.info(
+            "Reservations filtered by waiter and period",
+            waiter_id=str(waiter_id),
+            period_start=period_start,
+            period_end=period_end,
+            count=len(reservations),
+        )
+        return reservations

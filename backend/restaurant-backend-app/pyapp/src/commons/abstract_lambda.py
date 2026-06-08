@@ -4,7 +4,7 @@ import json
 from abc import ABC, abstractmethod
 from typing import Any
 
-from enums.http_status_code import HttpStatusCode
+from enums import HttpStatusCode
 
 from commons import ApplicationException, build_response
 from commons.app_config import AppConfig

@@ -6,7 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from commons.dynamo_model import DynamoModel
-from enums.reservation_status import ReservationStatus
+from enums import ReservationStatus
 
 
 class ReservationWaiterView(DynamoModel):

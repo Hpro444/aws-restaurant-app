@@ -17,9 +17,7 @@ with ImportFromSourceContext():
     from domain.user import Waiter
     from dto.reservation_event import ReservationEventMessage, ReservationEventType
     from dto.reservation_management import UpdateReservationRequest
-    from enums.reservation_status import ReservationStatus
-    from enums.slot_status import SlotStatus
-    from enums.user_role import UserRole
+    from enums import ReservationStatus, SlotStatus, UserRole
     from services.reservation_management_service import ReservationManagementService
 
 
@@ -681,7 +679,7 @@ class TestReservationManagementServiceSqsPublishing(unittest.TestCase):
         )
 
         message = mock_sqs.publish.call_args.args[1]
-        self.assertEqual(message.event_type, ReservationEventType.COMPLETED)
+        self.assertEqual(message.event_type, ReservationEventType.FINISHED)
 
     def test_cancel_publishes_cancelled_event(self):
         """cancel_reservation publishes CANCELLED event."""

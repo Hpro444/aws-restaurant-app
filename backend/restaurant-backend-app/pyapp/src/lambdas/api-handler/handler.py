@@ -19,14 +19,14 @@ from dto.feedbacks import (
 )
 from dto.locations import LocationAddressResponse, LocationResponse
 from dto.logout import LogoutRequest, LogoutResponse
+from dto.orders import CreateOrderRequest
 from dto.refresh import RefreshRequest, RefreshResponse
 from dto.reservation_management import UpdateReservationRequest
 from dto.sign_in import SignInRequest, SignInResponse
 from dto.sign_up import SignUpRequest, SignUpResponse
 from dto.user_profile import ProfileResponse, UpdateProfileRequest
 from dto.waiter_reservations import GetWaiterReservationsRequest
-from enums.http_status_code import HttpStatusCode
-from enums.user_role import UserRole
+from enums import HttpStatusCode, UserRole
 from pydantic import ValidationError
 from repositories.admin_emails_repository import AdminEmailsRepository
 from repositories.admin_repository import AdminRepository
@@ -38,6 +38,7 @@ from services.customers_service import CustomersService
 from services.dishes_service import DishesService
 from services.feedback_service import FeedbackService
 from services.locations_service import LocationsService
+from services.order_service import OrderService
 from services.registration_service import RegistrationService
 from services.reservation_management_service import ReservationManagementService
 from services.sqs_service import SqsService
@@ -79,10 +80,11 @@ class ApiHandler(AbstractLambda):
             sqs_service=self._sqs_service,
         )
         self._dishes_service = DishesService()
-        self._feedback_service = FeedbackService()
+        self._feedback_service = FeedbackService(sqs_service=self._sqs_service)
         self._customers_service = CustomersService(
             customer_repository=self._customer_repository,
         )
+        self._order_service = OrderService()
 
     def validate_request(self, event: dict) -> dict:
         """Return empty dict; all validation is handled in route methods via Pydantic.
@@ -148,6 +150,9 @@ class ApiHandler(AbstractLambda):
         router.add("GET", "/bookings/client/{reservation_id}", self._get_booking)
         router.add("PUT", "/bookings/client/{reservation_id}", self._update_booking)
         router.add(
+            "PUT", "/bookings/waiter/{reservation_id}", self._update_waiter_booking
+        )
+        router.add(
             "DELETE",
             "/bookings/client/{reservation_id}/cancel",
             self._cancel_booking,
@@ -160,6 +165,8 @@ class ApiHandler(AbstractLambda):
         router.add("GET", "/customers", self._get_customers)
 
         router.add("GET", "/reservations/waiter", self._get_waiter_reservations)
+
+        router.add("POST", "/orders", self._create_order)
 
         return router
 
@@ -870,6 +877,34 @@ class ApiHandler(AbstractLambda):
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 
+    def _update_waiter_booking(self, event: dict) -> LambdaResponse:
+        """Handle PUT /bookings/waiter/{reservationId} — waiter-only status update."""
+        user_id, role = self._get_actor_context(event)
+        if role != UserRole.WAITER:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
+                "Only waiters can access this endpoint",
+            )
+        reservation_id = str(
+            self._require_uuid(
+                self._extract_path_param(event, "reservation_id", fallback_position=2),
+                field="reservationId",
+            )
+        )
+        request: UpdateReservationRequest = self._validate(
+            UpdateReservationRequest, self._parse_body(event)
+        )
+        response = self._reservation_management_service.update_reservation(
+            reservation_id=reservation_id,
+            request=request,
+            actor_id=user_id,
+            role=role,
+        )
+        return build_response(
+            response.model_dump(by_alias=True, mode="json"),
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
     def _cancel_booking(self, event: dict) -> LambdaResponse:
         """Handle PUT /bookings/client/{reservationId}/cancel."""
         user_id, role = self._get_actor_context(event)
@@ -1178,6 +1213,35 @@ class ApiHandler(AbstractLambda):
 
         return build_response(
             LeaveFeedbackResponse(message="Feedback has been created.").model_dump(),
+            code=HttpStatusCode.RESPONSE_CREATED_CODE,
+        )
+
+    def _create_order(self, event: dict) -> LambdaResponse:
+        """Handle POST /orders — create an order for a reservation.
+
+        Only callers with ``UserRole.WAITER`` may access this endpoint. The
+        waiter must be the one assigned to the target reservation; any mismatch
+        returns 403. Each ``dishId`` in the item list must resolve to an
+        existing dish, otherwise 404 is returned.
+
+        Returns:
+            A Lambda proxy response with statusCode 201 and a JSON object
+            containing ``orderId`` and ``reservationId``.
+
+        """
+        waiter_id, role = self._get_actor_context(event)
+        if role != UserRole.WAITER:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
+                "Only waiters can create orders.",
+            )
+
+        request = self._validate(CreateOrderRequest, self._parse_body(event))
+        response = self._order_service.create_order(
+            waiter_id=UUID(waiter_id), request=request
+        )
+        return build_response(
+            response.model_dump(by_alias=True),
             code=HttpStatusCode.RESPONSE_CREATED_CODE,
         )
 

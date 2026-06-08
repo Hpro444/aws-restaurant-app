@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from uuid import UUID
 
 from commons.app_config import AppConfig
@@ -31,6 +32,36 @@ class FeedbackServiceRepository(DynamoRepository[FeedbackService]):
         cfg = settings or AppConfig()
         super().__init__(cfg.feedback_service_table, FeedbackService, cfg)
         self._waiter_repository = waiter_repository or WaiterRepository(cfg)
+
+    def find_by_waiter_id_and_period(
+        self,
+        waiter_id: UUID,
+        period_start: date,
+        period_end: date,
+    ) -> list[FeedbackService]:
+        """Return service feedback for a waiter within a date range via GSI BETWEEN query.
+
+        Args:
+            waiter_id: UUID of the waiter.
+            period_start: Inclusive start date (UTC).
+            period_end: Inclusive end date (UTC).
+
+        """
+        start_str = f"{period_start.isoformat()}T00:00:00+00:00"
+        end_str = f"{period_end.isoformat()}T23:59:59.999999+00:00"
+        return self._paginated_query(
+            "waiter_id_index period query",
+            self._client.query,
+            TableName=self._resolve_table_name(),
+            IndexName=self._WAITER_ID_INDEX,
+            KeyConditionExpression="waiter_id = :wid AND #dt BETWEEN :start AND :end",
+            ExpressionAttributeNames={"#dt": "date"},
+            ExpressionAttributeValues={
+                ":wid": {"S": str(waiter_id)},
+                ":start": {"S": start_str},
+                ":end": {"S": end_str},
+            },
+        )
 
     def find_by_location_id(self, location_id: UUID) -> list[FeedbackService]:
         """Query service feedback by location via waiter lookup."""

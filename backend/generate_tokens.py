@@ -164,13 +164,36 @@ def generate_all(context: dict | None = None) -> None:
 
     creds = context.get("aws_credentials") or _load_syndicate_credentials()
     region = context.get("aws_region", AWS_REGION)
-    prefix = context.get("resources_prefix", "")
-    suffix = context.get("resources_suffix", "")
+
+    # prefix/suffix select the exact pool (e.g. tm3-restaurant-userpool-dev1).
+    # When called without a seed context, derive them from syndicate.yml — an
+    # empty prefix/suffix yields the bare "restaurant-userpool", which matches
+    # every env's pool by substring and would resolve to the wrong one.
+    syndicate_content = (
+        _SYNDICATE_CONFIG.read_text(encoding="utf-8")
+        if _SYNDICATE_CONFIG.exists()
+        else ""
+    )
+    prefix = (
+        context.get("resources_prefix")
+        or _extract_config_value(syndicate_content, "resources_prefix")
+        or ""
+    )
+    suffix = (
+        context.get("resources_suffix")
+        or _extract_config_value(syndicate_content, "resources_suffix")
+        or ""
+    )
 
     cognito_client = boto3.client("cognito-idp", region_name=region, **creds)
     pool_name = f"{prefix}{_POOL_NAME_BASE}{suffix}"
-    pool_id = _resolve_pool_id(cognito_client, pool_name)
-    client_id = _resolve_client_id(cognito_client, pool_id)
+    try:
+        pool_id = _resolve_pool_id(cognito_client, pool_name)
+        client_id = _resolve_client_id(cognito_client, pool_id)
+    except (RuntimeError, ClientError) as exc:
+        raise RuntimeError(
+            f"Cannot generate tokens for syndicate pool '{pool_name}': {exc}"
+        ) from exc
 
     tokens: dict = {}
     ok = 0
@@ -238,8 +261,8 @@ def main() -> int:
     try:
         pool_id = _resolve_pool_id(cognito_client, pool_name)
         client_id = _resolve_client_id(cognito_client, pool_id)
-    except RuntimeError as exc:
-        print(f"✗ {exc}")
+    except (RuntimeError, ClientError) as exc:
+        print(f"✗ Cannot generate tokens for syndicate pool '{pool_name}': {exc}")
         return 1
 
     all_seeded = {email: group for email, _, _, group in _USERS}

@@ -24,15 +24,18 @@ class AppConfig(BaseSettings):
     shifts_table: str = "shifts"
     slots_table: str = "slots"
     reservations_table: str = "reservations"
+    orders_table: str = "orders"
     reservation_waiter_view_table: str = "reservation_waiter_view"
     feedback_cuisine_table: str = "feedback-cuisine"
     feedback_service_table: str = "feedback-service"
     waiter_emails_table: str = "waiter-emails"
     admins_table: str = "admins"
     admin_emails_table: str = "admin-emails"
+    waiter_report_table: str = "waiter-report"
+    location_report_table: str = "location-report"
 
     # SQS
-    reservation_events_queue_url: str = ""
+    event_queue_url: str = ""
 
     # CORS
     cors_origins: list[str] = [

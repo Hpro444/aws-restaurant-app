@@ -6,8 +6,7 @@ from enum import Enum
 from typing import Optional
 from uuid import UUID
 
-from enums.dish_state import DishState
-from enums.dish_type import DishType
+from enums import DishState, DishType
 from pydantic import BaseModel, ConfigDict
 
 

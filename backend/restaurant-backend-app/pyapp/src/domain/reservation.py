@@ -5,7 +5,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from commons.dynamo_model import DynamoModel
-from enums.reservation_status import ReservationStatus
+from enums import ReservationStatus
 from pydantic import AwareDatetime
 
 
@@ -33,3 +33,4 @@ class Reservation(DynamoModel):
     slot_ids: list[UUID]
     status: ReservationStatus
     number_of_guests: int
+    date: str | None = None

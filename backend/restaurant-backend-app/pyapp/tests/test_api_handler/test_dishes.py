@@ -84,7 +84,7 @@ class TestGetDishes(ApiHandlerLambdaTestCase):
 
     def test_dishType_param_is_forwarded_to_service(self) -> None:
         """A valid dishType query param is parsed and passed to the service."""
-        from enums.dish_type import DishType
+        from enums import DishType
 
         self.HANDLER._dishes_service.get_all_dishes = MagicMock(return_value=[_PIZZA])
 

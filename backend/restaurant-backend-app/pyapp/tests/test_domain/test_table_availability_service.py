@@ -10,7 +10,7 @@ from pyapp.tests import ImportFromSourceContext
 with ImportFromSourceContext():
     from domain.slot import Slot
     from domain.table import Table
-    from enums.slot_status import SlotStatus
+    from enums import SlotStatus
     from services.table_availability_service import TableAvailabilityService
 
 _LOCATION_ID = uuid.UUID("11111111-1111-1111-1111-111111111111")
