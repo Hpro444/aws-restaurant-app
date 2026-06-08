@@ -76,7 +76,9 @@ class TableAvailabilityService:
             return AvailableTablesResponse(tables=[])
 
         table_ids = {t.id for t in suitable_tables}
-        slots = self._slot_repo.find_by_table_ids_and_date(table_ids, booking_date)
+        slots = self._slot_repo.find_by_table_ids_and_date(
+            table_ids, date_type.fromisoformat(booking_date)
+        )
 
         if not slots:
             logger.info("No slots found", date=booking_date)
@@ -203,7 +205,9 @@ class TableAvailabilityService:
             return AvailableTablesResponse(tables=[])
 
         table_ids = {t.id for t in suitable_tables}
-        slots = self._slot_repo.find_by_table_ids_and_date(table_ids, date_iso)
+        slots = self._slot_repo.find_by_table_ids_and_date(
+            table_ids, date_type.fromisoformat(date_iso)
+        )
         if not slots:
             logger.info("No slots found", date=date_iso)
             return AvailableTablesResponse(tables=[])
@@ -293,7 +297,9 @@ class TableAvailabilityService:
             return []
 
         table_ids = {table.id for table in tables}
-        slots = self._slot_repo.find_by_table_ids_and_date(table_ids, date_iso)
+        slots = self._slot_repo.find_by_table_ids_and_date(
+            table_ids, date_type.fromisoformat(date_iso)
+        )
         free_slots = [slot for slot in slots if slot.status == SlotStatus.FREE]
 
         now_utc = datetime.now(timezone.utc)

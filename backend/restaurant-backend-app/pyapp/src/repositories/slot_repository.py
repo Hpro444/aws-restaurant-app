@@ -30,24 +30,25 @@ class SlotRepository(DynamoRepository[Slot]):
         cfg = settings or AppConfig()
         super().__init__(cfg.slots_table, Slot, cfg)
 
-    def find_by_table_id_and_date(self, table_id: UUID, date_iso: str) -> list[Slot]:
+    def find_by_table_id_and_date(self, table_id: UUID, query_date: date) -> list[Slot]:
         """Query slots for a specific table on a specific date using a GSI.
 
         Uses the ``table_id_date_index`` GSI where:
         - Partition key = ``table_id``
         - Sort key = ``date`` (AwareDatetime stored as ISO string)
 
-        The sort key condition uses ``begins_with`` so that
-        "2025-08-02" matches "2025-08-02T00:00:00+00:00".
+        The sort key condition uses ``begins_with`` so that the
+        ``"2025-08-02"`` prefix matches ``"2025-08-02T00:00:00+00:00"``.
 
         Args:
             table_id: UUID of the table.
-            date_iso: Date as "YYYY-MM-DD" string.
+            query_date: Day to query for.
 
         Returns:
             List of Slot domain objects for that table on that date.
 
         """
+        date_prefix = query_date.isoformat()
         table_name = self._resolve_table_name()
         items = self._paginated_query(
             "table_id_date_index query",
@@ -62,20 +63,20 @@ class SlotRepository(DynamoRepository[Slot]):
             },
             ExpressionAttributeValues={
                 ":tid": {"S": str(table_id)},
-                ":date_prefix": {"S": date_iso},
+                ":date_prefix": {"S": date_prefix},
             },
         )
 
         logger.info(
             "Slots queried by table and date",
             table_id=str(table_id),
-            date=date_iso,
+            date=date_prefix,
             count=len(items),
         )
         return items
 
     def find_by_table_ids_and_date(
-        self, table_ids: set[UUID], date_iso: str
+        self, table_ids: set[UUID], query_date: date
     ) -> list[Slot]:
         """Query slots for multiple tables on a specific date.
 
@@ -84,7 +85,7 @@ class SlotRepository(DynamoRepository[Slot]):
 
         Args:
             table_ids: Set of table UUIDs.
-            date_iso: Date as "YYYY-MM-DD" string.
+            query_date: Day to query for.
 
         Returns:
             Combined list of Slot domain objects across all tables.
@@ -92,12 +93,12 @@ class SlotRepository(DynamoRepository[Slot]):
         """
         all_slots: list[Slot] = []
         for tid in table_ids:
-            all_slots.extend(self.find_by_table_id_and_date(tid, date_iso))
+            all_slots.extend(self.find_by_table_id_and_date(tid, query_date))
 
         logger.info(
             "Slots queried for all tables",
             table_count=len(table_ids),
-            date=date_iso,
+            date=query_date.isoformat(),
             total_slots=len(all_slots),
         )
         return all_slots

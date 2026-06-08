@@ -2,7 +2,7 @@
 
 import unittest
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from unittest.mock import MagicMock, patch
 
 from botocore.exceptions import ClientError
@@ -19,7 +19,8 @@ _TABLE_1_ID = uuid.UUID("11111111-1111-1111-1111-111111111111")
 _TABLE_2_ID = uuid.UUID("22222222-2222-2222-2222-222222222222")
 _SLOT_1_ID = uuid.UUID("33333333-3333-3333-3333-333333333333")
 _SLOT_2_ID = uuid.UUID("44444444-4444-4444-4444-444444444444")
-_DATE_ISO = "2026-05-16"
+_DATE = date(2026, 5, 16)
+_DATE_ISO = _DATE.isoformat()
 
 
 def _aware(h: int, m: int) -> datetime:
@@ -73,7 +74,7 @@ class TestFindByTableIdAndDate(_RepoTestCase):
             "Items": [_SLOT_1.to_dynamodb_item(), _SLOT_2.to_dynamodb_item()]
         }
 
-        result = self.repo.find_by_table_id_and_date(_TABLE_1_ID, _DATE_ISO)
+        result = self.repo.find_by_table_id_and_date(_TABLE_1_ID, _DATE)
 
         self.assertEqual(len(result), 2)
         self.assertEqual(result[0].id, _SLOT_1_ID)
@@ -88,7 +89,7 @@ class TestFindByTableIdAndDate(_RepoTestCase):
             {"Items": [_SLOT_2.to_dynamodb_item()]},
         ]
 
-        result = self.repo.find_by_table_id_and_date(_TABLE_1_ID, _DATE_ISO)
+        result = self.repo.find_by_table_id_and_date(_TABLE_1_ID, _DATE)
 
         self.assertEqual(len(result), 2)
         self.assertEqual(self.mock_client.query.call_count, 2)
@@ -97,15 +98,13 @@ class TestFindByTableIdAndDate(_RepoTestCase):
         """A DynamoDB ClientError must return an empty list without raising."""
         self.mock_client.query.side_effect = _GENERIC_CLIENT_ERROR
 
-        self.assertEqual(
-            self.repo.find_by_table_id_and_date(_TABLE_1_ID, _DATE_ISO), []
-        )
+        self.assertEqual(self.repo.find_by_table_id_and_date(_TABLE_1_ID, _DATE), [])
 
     def test_uses_table_date_index_and_begins_with_expression(self) -> None:
         """Query must target table_id-date-index with begins_with on date."""
         self.mock_client.query.return_value = {"Items": []}
 
-        self.repo.find_by_table_id_and_date(_TABLE_1_ID, _DATE_ISO)
+        self.repo.find_by_table_id_and_date(_TABLE_1_ID, _DATE)
 
         kwargs = self.mock_client.query.call_args.kwargs
         self.assertEqual(kwargs["IndexName"], "table_id_date_index")
@@ -132,9 +131,7 @@ class TestFindByTableIdsAndDate(_RepoTestCase):
             side_effect=[[_SLOT_1, _SLOT_2], [slot_for_table_2]]
         )
 
-        result = self.repo.find_by_table_ids_and_date(
-            {_TABLE_1_ID, _TABLE_2_ID}, _DATE_ISO
-        )
+        result = self.repo.find_by_table_ids_and_date({_TABLE_1_ID, _TABLE_2_ID}, _DATE)
 
         self.assertEqual(len(result), 3)
         self.assertEqual(self.repo.find_by_table_id_and_date.call_count, 2)
