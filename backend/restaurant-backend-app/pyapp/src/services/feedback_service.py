@@ -14,6 +14,7 @@ from domain.feedback import FeedbackService as ServiceFeedback
 from domain.reservation import Reservation
 from dto.feedback_event import FeedbackEventMessage, FeedbackEventType
 from dto.feedbacks import (
+    FeedbackContextResponse,
     FeedbackPageableResponse,
     FeedbackResponse,
     LeaveFeedbackRequest,
@@ -64,6 +65,48 @@ class FeedbackService:
         self._location_repo = location_repo or LocationRepository()
         self._waiter_repo = waiter_repo or WaiterRepository()
         self._sqs = sqs_service
+        self._waiter_repo = waiter_repo or WaiterRepository()
+
+    def get_feedback_context(
+        self,
+        reservation_id: UUID | str,
+        customer_id: UUID | str,
+    ) -> FeedbackContextResponse:
+        """Return minimal waiter context needed by feedback modal for one reservation."""
+        reservation_uuid = coerce_uuid(reservation_id)
+        customer_uuid = coerce_uuid(customer_id)
+        reservation = self._reservation_repo.get(reservation_uuid)
+
+        if reservation is None:
+            raise ApplicationException(
+                HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                "Reservation not found",
+            )
+
+        if reservation.customer_id != customer_uuid:
+            raise ApplicationException(
+                HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
+                "Customers can access feedback context only for their own reservations.",
+            )
+
+        waiter_id = reservation.waiter_id
+        if waiter_id is None:
+            return FeedbackContextResponse(reservation_id=str(reservation.id))
+
+        waiter = self._waiter_repo.get(waiter_id)
+        if waiter is None:
+            return FeedbackContextResponse(
+                reservation_id=str(reservation.id),
+                waiter_id=str(waiter_id),
+            )
+
+        waiter_name = f"{waiter.fname} {waiter.lname}".strip()
+        return FeedbackContextResponse(
+            reservation_id=str(reservation.id),
+            waiter_id=str(waiter.id),
+            waiter_name=waiter_name or None,
+            waiter_image_url=waiter.image_url,
+        )
 
     def leave_feedback(
         self,

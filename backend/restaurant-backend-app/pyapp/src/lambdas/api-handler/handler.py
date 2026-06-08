@@ -141,6 +141,11 @@ class ApiHandler(AbstractLambda):
             self._get_speciality_dishes_by_location,
         )
         router.add("GET", "/locations/{id}/feedbacks", self._get_feedbacks_by_location)
+        router.add(
+            "GET",
+            "/feedbacks/context/{reservation_id}",
+            self._get_feedback_context,
+        )
         router.add("POST", "/feedbacks", self._leave_feedback)
 
         router.add("GET", "/bookings/tables", self._get_available_tables)
@@ -1214,6 +1219,32 @@ class ApiHandler(AbstractLambda):
         return build_response(
             LeaveFeedbackResponse(message="Feedback has been created.").model_dump(),
             code=HttpStatusCode.RESPONSE_CREATED_CODE,
+        )
+
+    def _get_feedback_context(self, event: dict) -> LambdaResponse:
+        """Handle GET /feedbacks/context/{reservation_id} for feedback modal data."""
+        user_id, role = self._get_actor_context(event)
+        if role != UserRole.CUSTOMER:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
+                "Only customers can access feedback context.",
+            )
+
+        reservation_id = str(
+            self._require_uuid(
+                self._extract_path_param(event, "reservation_id", fallback_position=3),
+                field="reservation_id",
+            )
+        )
+
+        response = self._feedback_service.get_feedback_context(
+            reservation_id=reservation_id,
+            customer_id=user_id,
+        )
+
+        return build_response(
+            response.model_dump(mode="json"),
+            code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 
     def _create_order(self, event: dict) -> LambdaResponse:

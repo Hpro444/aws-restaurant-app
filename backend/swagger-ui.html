@@ -701,6 +701,35 @@
               }
             }
           },
+          "/feedbacks/context/{reservation_id}": {
+            "get": {
+              "tags": ["Feedback"],
+              "summary": "Get feedback modal context (customer only)",
+              "security": [{ "bearerAuth": [] }],
+              "parameters": [
+                {
+                  "name": "reservation_id",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string", "format": "uuid" }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Feedback modal context",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/FeedbackContextResponse" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "404": { "$ref": "#/components/responses/NotFoundError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
           "/customers": {
             "get": {
               "tags": ["Customers"],
@@ -1187,6 +1216,16 @@
               "required": ["message"],
               "properties": {
                 "message": { "type": "string" }
+              }
+            },
+            "FeedbackContextResponse": {
+              "type": "object",
+              "required": ["reservation_id"],
+              "properties": {
+                "reservation_id": { "type": "string", "format": "uuid" },
+                "waiter_id": { "type": "string", "format": "uuid", "nullable": true },
+                "waiter_name": { "type": "string", "nullable": true },
+                "waiter_image_url": { "type": "string", "nullable": true }
               }
             },
             "FeedbackResponse": {
