@@ -215,7 +215,7 @@ class TestBookingService(unittest.TestCase):
             req, None, client_name="Petar Petrovic", waiter_id=waiter_id
         )
 
-        self.assertEqual(resp.status, "RESERVED")
+        self.assertEqual(resp.status, "Reserved")
         self.assertIsNone(self.service._reservation_repo.last_created.customer_id)
         self.assertEqual(
             self.service._reservation_repo.last_created.client_name, "Petar Petrovic"

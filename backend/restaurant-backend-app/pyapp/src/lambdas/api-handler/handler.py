@@ -906,8 +906,8 @@ class ApiHandler(AbstractLambda):
         """Handle GET /dishes — retrieve dishes optionally filtered and sorted.
 
         Public endpoint; no authentication required.
-        Accepts optional query parameters ``dishType`` and ``sort``.
-        Returns 422 when an unrecognised value is supplied for either param.
+        Accepts optional query parameters ``dishType``, ``sort`` and ``filter``.
+        Returns 422 when an unrecognised value is supplied for any of the params.
 
         Returns:
             A Lambda proxy response dict with statusCode 200 and a JSON array
@@ -919,6 +919,7 @@ class ApiHandler(AbstractLambda):
         dishes = self._dishes_service.get_all_dishes(
             dish_type=request.dishType,
             sort=request.sort,
+            dietary_filter=request.dietary_filter,
         )
         return build_response(
             [dish.model_dump(mode="json") for dish in dishes],

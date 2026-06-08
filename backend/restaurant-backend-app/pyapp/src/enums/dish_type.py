@@ -6,7 +6,7 @@ from enum import Enum
 class DishType(str, Enum):
     """Category types assignable to a dish."""
 
-    APPETIZER = "Appetizer"
-    DESSERT = "Dessert"
-    MAIN_COURSE = "Main Course"
-    DRINK = "Drink"
+    APPETIZER = "APPETIZER"
+    DESSERT = "DESSERT"
+    MAIN_COURSE = "MAIN_COURSE"
+    DRINK = "DRINK"

@@ -19,17 +19,27 @@ class DishSort(str, Enum):
     PRICE_DESC = "price,desc"
 
 
+class DishDietaryFilter(str, Enum):
+    """Valid dietary filter options for the GET /dishes endpoint."""
+
+    VEGETARIAN = "VEGETARIAN"
+    VEGAN = "VEGAN"
+    GLUTEN_FREE = "GLUTEN_FREE"
+    DAIRY_FREE = "DAIRY_FREE"
+
+
 class GetDishesRequest(BaseModel):
     """Validated query parameters for GET /dishes.
 
     Both parameters are optional. Validation fails with 422 when
-    an unrecognised ``dishType`` or ``sort`` value is provided.
+    an unrecognised ``dishType``, ``sort`` or ``filter_dietary`` value is provided.
     """
 
     model_config = ConfigDict(extra="ignore")
 
     dishType: Optional[DishType] = None
     sort: Optional[DishSort] = None
+    dietary_filter: Optional[DishDietaryFilter] = None
 
 
 class DishResponse(BaseModel):
