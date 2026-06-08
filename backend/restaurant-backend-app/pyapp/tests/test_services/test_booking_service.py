@@ -12,7 +12,7 @@ from domain.table import Table
 from domain.user import Customer, Waiter
 from dto.create_booking import CreateBookingRequest
 from dto.reservation_event import ReservationEventMessage, ReservationEventType
-from enums.slot_status import SlotStatus
+from enums import SlotStatus
 from services.booking_service import BookingService
 
 
@@ -363,8 +363,7 @@ class TestBookingService(unittest.TestCase):
         """Test that edit/cancel are disabled 30 minutes before reservation start time."""
         import services.reservation_management_service as mgmt_mod
         from dto.reservation_management import UpdateReservationRequest
-        from enums.reservation_status import ReservationStatus
-        from enums.user_role import UserRole
+        from enums import ReservationStatus, UserRole
         from services.reservation_management_service import ReservationManagementService
 
         slot = make_slot(12)
@@ -529,7 +528,7 @@ class TestBookingServiceSqsPublishing(unittest.TestCase):
         resp = service.create_booking(req, uuid4())
 
         message = mock_sqs.publish.call_args.args[1]
-        self.assertEqual(message.reservation.reservation_id, resp.reservation_id)
+        self.assertEqual(message.reservation_id, resp.reservation_id)
 
     def test_sqs_not_called_when_booking_fails(self):
         """SqsService.publish is not called when the reservation repo raises."""

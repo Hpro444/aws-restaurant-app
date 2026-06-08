@@ -15,8 +15,8 @@ SLOT_BREAK_MINUTES = 15
 # Thread pool
 THREAD_WORKERS = 7
 
-# DynamoDB retry config — adaptive mode self-limits request rate under throttling
-DYNAMO_RETRY_CONFIG = Config(retries={"mode": "adaptive", "max_attempts": 20})
+# DynamoDB retry config — standard mode with limited attempts so throttling fails fast
+DYNAMO_RETRY_CONFIG = Config(retries={"mode": "standard", "max_attempts": 5})
 
 # UUID namespace for deterministic seed IDs
 SEED_NAMESPACE = UUID("a1b2c3d4-e5f6-7890-abcd-ef1234567890")

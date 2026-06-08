@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from enums.reservation_status import ReservationStatus
+from enums import ReservationStatus
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 

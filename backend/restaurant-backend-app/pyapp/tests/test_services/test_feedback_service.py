@@ -14,8 +14,7 @@ with ImportFromSourceContext():
     from domain.slot import Slot
     from domain.table import Table
     from dto.feedbacks import LeaveFeedbackRequest
-    from enums.feedback_type import FeedbackType
-    from enums.reservation_status import ReservationStatus
+    from enums import FeedbackType, ReservationStatus
     from services.feedback_service import FeedbackService
 
 

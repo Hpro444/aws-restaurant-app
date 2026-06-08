@@ -12,7 +12,7 @@ from commons.app_config import AppConfig
 from commons.dynamo_model import DynamoModel
 from commons.exceptions import ApplicationException
 from commons.log_helper import logger
-from enums.http_status_code import HttpStatusCode
+from enums import HttpStatusCode
 
 T = TypeVar("T", bound=DynamoModel)
 

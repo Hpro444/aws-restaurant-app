@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from enums.http_status_code import HttpStatusCode
+from enums import HttpStatusCode
 
 from commons.exceptions import ApplicationException
 

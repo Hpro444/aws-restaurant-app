@@ -9,7 +9,7 @@ from collections.abc import Callable
 
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver, Response
 from aws_lambda_powertools.event_handler.exceptions import NotFoundError
-from enums.http_status_code import HttpStatusCode
+from enums import HttpStatusCode
 
 from commons.response import LambdaResponse
 

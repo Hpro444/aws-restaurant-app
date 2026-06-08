@@ -10,7 +10,7 @@ with ImportFromSourceContext():
     from domain.dish import Dish
     from domain.login_attempts import LoginAttempts
     from domain.reservation import Reservation
-    from enums.reservation_status import ReservationStatus
+    from enums import ReservationStatus
 
 _DISH_ID = uuid.UUID("12345678-1234-5678-1234-567812345678")
 _LOCATION_ID = uuid.UUID("87654321-4321-8765-4321-876543218765")

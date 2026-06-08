@@ -9,9 +9,7 @@ with ImportFromSourceContext():
     from domain.reservation_waiter_view import (  # type: ignore[import-untyped]
         ReservationWaiterView,
     )
-    from enums.reservation_status import (  # type: ignore[import-untyped]
-        ReservationStatus,
-    )
+    from enums import ReservationStatus  # type: ignore[import-untyped]
 
 _RES_ID = uuid.UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 _CUST_ID = uuid.UUID("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")

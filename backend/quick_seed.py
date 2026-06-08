@@ -234,7 +234,14 @@ def _write_ids_json(context: dict, output_path: Path) -> None:
             ],
             key=lambda s: s.start_time,
         )
-        slots_sample[f"{loc_name}_table_1"] = [str(s.id) for s in today_slots[:3]]
+        slots_sample[f"{loc_name}_table_1"] = [
+            {
+                "id": str(s.id),
+                "timeFrom": s.start_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "timeTo": s.end_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            }
+            for s in today_slots[:3]
+        ]
 
     shifts_by_location: dict[str, dict[str, str]] = {
         "downtown": {},
@@ -252,19 +259,27 @@ def _write_ids_json(context: dict, output_path: Path) -> None:
             shift.id
         )
 
-    reservations_by_status: dict[str, str] = {}
+    customer_email_by_id = {
+        str(c.id): email for email, c in context.get("customers", {}).items()
+    }
+    reservations_by_customer: dict[str, dict] = {}
     for res in context.get("reservations", []):
         status = (
             res.status.value.lower()
             if hasattr(res.status, "value")
             else str(res.status).lower()
         )
-        reservations_by_status[status] = str(res.id)
+        email = customer_email_by_id.get(str(res.customer_id), str(res.customer_id))
+        reservations_by_customer[email] = {
+            "id": str(res.id),
+            "status": status,
+            "waiter_id": str(res.waiter_id) if res.waiter_id else None,
+        }
 
     data = {
         "seeded_at": datetime.now(timezone.utc).isoformat(),
         "slots_date_range": {
-            "from": today_str,
+            "from": context.get("slot_seed_start_date", today_str),
             "to": (
                 datetime.now(timezone.utc)
                 + timedelta(days=context.get("slot_seed_days_ahead", 7))
@@ -286,7 +301,7 @@ def _write_ids_json(context: dict, output_path: Path) -> None:
         "dishes": dishes_by_location,
         "slots": {"date": today_str, "sample": slots_sample},
         "shifts": shifts_by_location,
-        "reservations": reservations_by_status,
+        "reservations": reservations_by_customer,
     }
 
     output_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
@@ -433,7 +448,13 @@ def main():
         f"   - Customer (Carol)  carol@example.com:  {cognito_subs.get('carol@example.com', str(seed_id('customer', 'carol')))}"
     )
     print("\n🔑 Demo credentials (all seeded users): Password123@")
-    print(f"   - Slots seeded for date range: {today_date} → {last_seeded_date}")
+    first_seeded_date = context.get("slot_seed_start_date", today_date)
+    print(f"   - Slots seeded for date range: {first_seeded_date} → {last_seeded_date}")
+    days_past = context.get("slot_seed_days_past", 0)
+    if days_past:
+        print(
+            f"   - Past data covers: {first_seeded_date} → {today_date} ({days_past} days for delta testing)"
+        )
     print()
     print("🧪 Ready-to-use API test URLs (replace BASE_URL with your API Gateway URL):")
     print(

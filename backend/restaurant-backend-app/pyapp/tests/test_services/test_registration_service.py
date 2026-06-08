@@ -13,7 +13,7 @@ with ImportFromSourceContext():
     from domain.user import Customer, Waiter
     from domain.waiter_emails import WaiterEmail
     from dto.sign_up import SignUpRequest
-    from enums.user_role import UserRole
+    from enums import UserRole
     from services.registration_service import RegistrationService
 
 _USER_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"

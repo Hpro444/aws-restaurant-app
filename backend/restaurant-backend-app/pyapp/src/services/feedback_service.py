@@ -5,27 +5,31 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import NAMESPACE_URL, UUID, uuid5
 
+from commons.app_config import AppConfig
 from commons.exceptions import ApplicationException
 from commons.log_helper import logger
 from commons.uuid_utils import coerce_uuid
 from domain.feedback import Feedback, FeedbackCuisine
 from domain.feedback import FeedbackService as ServiceFeedback
 from domain.reservation import Reservation
+from dto.feedback_event import FeedbackEventMessage, FeedbackEventType
 from dto.feedbacks import (
     FeedbackPageableResponse,
     FeedbackResponse,
     LeaveFeedbackRequest,
     PageFeedbackResponse,
 )
-from enums.feedback_type import FeedbackType
-from enums.http_status_code import HttpStatusCode
-from enums.reservation_status import ReservationStatus
+from enums import FeedbackType, HttpStatusCode, ReservationStatus
 from repositories.customer_repository import CustomerRepository
 from repositories.feedback_cuisine_repository import FeedbackCuisineRepository
 from repositories.feedback_service_repository import FeedbackServiceRepository
+from repositories.location_repository import LocationRepository
 from repositories.reservation_repository import ReservationRepository
 from repositories.slot_repository import SlotRepository
 from repositories.table_repository import TableRepository
+from repositories.waiter_repository import WaiterRepository
+
+from services.sqs_service import SqsService
 
 
 class FeedbackService:
@@ -39,8 +43,14 @@ class FeedbackService:
         reservation_repo: ReservationRepository | None = None,
         slot_repo: SlotRepository | None = None,
         table_repo: TableRepository | None = None,
+        location_repo: LocationRepository | None = None,
+        waiter_repo: WaiterRepository | None = None,
+        sqs_service: SqsService | None = None,
+        settings: AppConfig | None = None,
     ) -> None:
         """Initialize repositories, creating defaults when omitted."""
+        cfg = settings or AppConfig()
+        self._settings = cfg
         self._feedback_cuisine_repo = (
             feedback_cuisine_repo or FeedbackCuisineRepository()
         )
@@ -51,6 +61,9 @@ class FeedbackService:
         self._reservation_repo = reservation_repo or ReservationRepository()
         self._slot_repo = slot_repo or SlotRepository()
         self._table_repo = table_repo or TableRepository()
+        self._location_repo = location_repo or LocationRepository()
+        self._waiter_repo = waiter_repo or WaiterRepository()
+        self._sqs = sqs_service
 
     def leave_feedback(
         self,
@@ -80,6 +93,22 @@ class FeedbackService:
             return
 
         self._create_culinary_feedback(request, reservation, customer_uuid)
+
+    @staticmethod
+    def _feedback_date_for(reservation: Reservation) -> datetime:
+        """Return the datetime feedback should be attributed to.
+
+        Feedback is attributed to the week the meal took place (the reservation's
+        dining date), consistent with how orders and revenue are aggregated into
+        the weekly reports, rather than the moment the review happened to be
+        submitted. This keeps a single reservation's orders, revenue, and feedback
+        in the same weekly report even when the review is left on a later day.
+
+        Falls back to the current time when the reservation carries no date.
+        """
+        if reservation.date:
+            return datetime.fromisoformat(f"{reservation.date}T00:00:00+00:00")
+        return datetime.now(UTC)
 
     @staticmethod
     def _validate_feedback_eligibility(
@@ -204,6 +233,8 @@ class FeedbackService:
         user_name, user_image_url = self._get_customer_profile(customer_id)
 
         feedback_id = uuid5(NAMESPACE_URL, f"service:{request.reservation_id}")
+        now = datetime.now(UTC)
+        feedback_date = self._feedback_date_for(reservation)
         try:
             self._feedback_service_repo.create(
                 ServiceFeedback(
@@ -214,7 +245,7 @@ class FeedbackService:
                     user_image_url=user_image_url,
                     feedback=request.comment or "",
                     rate=request.rating,
-                    date=datetime.now(UTC),
+                    date=feedback_date,
                     waiter_id=waiter_id,
                 )
             )
@@ -225,6 +256,32 @@ class FeedbackService:
                     "Service feedback for this reservation has already been submitted.",
                 ) from exc
             raise
+
+        if self._sqs is not None:
+            try:
+                self._sqs.publish(
+                    self._settings.event_queue_url,
+                    FeedbackEventMessage(
+                        event_type=FeedbackEventType.CREATED,
+                        feedback_id=str(feedback_id),
+                        reservation_id=str(reservation.id) if reservation.id else None,
+                        customer_id=str(customer_id),
+                        feedback=request.comment or "",
+                        rate=request.rating,
+                        date=feedback_date.isoformat().replace("+00:00", "Z"),
+                        user_name=user_name,
+                        user_image_url=user_image_url,
+                        feedback_type=FeedbackType.SERVICE.value,
+                        location_id=None,
+                        location_address=None,
+                        waiter_id=str(waiter_id),
+                        timestamp=now.isoformat().replace("+00:00", "Z"),
+                    ),
+                )
+            except Exception:
+                logger.error(
+                    "SQS publish failed in _create_service_feedback", exc_info=True
+                )
 
     def _create_culinary_feedback(
         self,
@@ -237,6 +294,8 @@ class FeedbackService:
         user_name, user_image_url = self._get_customer_profile(customer_id)
 
         feedback_id = uuid5(NAMESPACE_URL, f"culinary:{request.reservation_id}")
+        now = datetime.now(UTC)
+        feedback_date = self._feedback_date_for(reservation)
         try:
             self._feedback_cuisine_repo.create(
                 FeedbackCuisine(
@@ -247,7 +306,7 @@ class FeedbackService:
                     user_image_url=user_image_url,
                     feedback=request.comment or "",
                     rate=request.rating,
-                    date=datetime.now(UTC),
+                    date=feedback_date,
                     location_id=location_id,
                 )
             )
@@ -258,6 +317,33 @@ class FeedbackService:
                     "Culinary feedback for this reservation has already been submitted.",
                 ) from exc
             raise
+
+        if self._sqs is not None:
+            try:
+                location = self._location_repo.get(location_id)
+                self._sqs.publish(
+                    self._settings.event_queue_url,
+                    FeedbackEventMessage(
+                        event_type=FeedbackEventType.CREATED,
+                        feedback_id=str(feedback_id),
+                        reservation_id=str(reservation.id) if reservation.id else None,
+                        customer_id=str(customer_id),
+                        feedback=request.comment or "",
+                        rate=request.rating,
+                        date=feedback_date.isoformat().replace("+00:00", "Z"),
+                        user_name=user_name,
+                        user_image_url=user_image_url,
+                        feedback_type=FeedbackType.CULINARY.value,
+                        location_id=str(location_id),
+                        location_address=location.address if location else None,
+                        waiter_id=None,
+                        timestamp=now.isoformat().replace("+00:00", "Z"),
+                    ),
+                )
+            except Exception:
+                logger.error(
+                    "SQS publish failed in _create_culinary_feedback", exc_info=True
+                )
 
     def _resolve_location_id_for_reservation(self, reservation: Reservation) -> UUID:
         """Resolve reservation location using the first slot's table."""

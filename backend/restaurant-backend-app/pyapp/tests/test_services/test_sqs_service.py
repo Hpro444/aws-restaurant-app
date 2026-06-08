@@ -8,8 +8,8 @@ from pyapp.tests import ImportFromSourceContext
 
 with ImportFromSourceContext():
     from dto.reservation_event import ReservationEventMessage, ReservationEventType
-    from dto.reservation_management import AllowedActions, ReservationView
-    from enums.reservation_status import ReservationStatus
+    from dto.reservation_management import AllowedActions
+    from enums import ReservationStatus
     from services.sqs_service import SqsService
 
 
@@ -20,13 +20,15 @@ def _make_settings(queue_url: str = QUEUE_URL) -> MagicMock:
     """Return a mock AppConfig with the given queue URL."""
     settings = MagicMock()
     settings.aws_region = "eu-west-3"
-    settings.reservation_events_queue_url = queue_url
+    settings.event_queue_url = queue_url
     return settings
 
 
-def _make_view() -> ReservationView:
-    """Return a minimal valid ReservationView for use in tests."""
-    return ReservationView(
+def _make_message(event_type=ReservationEventType.CREATED) -> ReservationEventMessage:
+    """Return a flat ReservationEventMessage with test data."""
+    return ReservationEventMessage(
+        event_type=event_type,
+        timestamp="2026-06-01T12:00:00Z",
         reservation_id="res-123",
         status=ReservationStatus.RESERVED,
         customer_id="cust-456",
@@ -40,15 +42,6 @@ def _make_view() -> ReservationView:
         guests_number=2,
         allowed_actions=AllowedActions(can_edit=True, can_cancel=True),
         cutoff_reason=None,
-    )
-
-
-def _make_message(event_type=ReservationEventType.CREATED) -> ReservationEventMessage:
-    """Return a ReservationEventMessage wrapping a test view."""
-    return ReservationEventMessage(
-        event_type=event_type,
-        reservation=_make_view(),
-        timestamp="2026-06-01T12:00:00Z",
     )
 
 
@@ -86,20 +79,20 @@ class TestSqsServicePublish(unittest.TestCase):
     def test_message_body_uses_camel_case_event_type_alias(self):
         """MessageBody uses the camelCase alias 'eventType', not 'event_type'."""
         service, mock_client = self._make_service()
-        service.publish(QUEUE_URL, _make_message(ReservationEventType.COMPLETED))
+        service.publish(QUEUE_URL, _make_message(ReservationEventType.FINISHED))
         body = json.loads(mock_client.send_message.call_args.kwargs["MessageBody"])
         self.assertIn("eventType", body)
-        self.assertEqual(body["eventType"], "COMPLETED")
+        self.assertEqual(body["eventType"], "FINISHED")
         self.assertNotIn("event_type", body)
 
-    def test_message_body_contains_reservation_with_aliases(self):
-        """Nested reservation uses camelCase aliases (e.g. reservationId)."""
+    def test_message_body_contains_reservation_id_flat(self):
+        """ReservationId is a top-level key in the flat message (no nested sub-object)."""
         service, mock_client = self._make_service()
         service.publish(QUEUE_URL, _make_message())
         body = json.loads(mock_client.send_message.call_args.kwargs["MessageBody"])
-        reservation = body.get("reservation", {})
-        self.assertIn("reservationId", reservation)
-        self.assertEqual(reservation["reservationId"], "res-123")
+        self.assertIn("reservationId", body)
+        self.assertEqual(body["reservationId"], "res-123")
+        self.assertNotIn("reservation", body)
 
     def test_message_body_contains_timestamp(self):
         """MessageBody has a non-empty 'timestamp' field."""

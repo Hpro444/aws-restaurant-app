@@ -22,10 +22,7 @@ from dto.waiter_reservations import (
     WaiterReservationListResponse,
     WaiterReservationView,
 )
-from enums.http_status_code import HttpStatusCode
-from enums.reservation_status import ReservationStatus
-from enums.slot_status import SlotStatus
-from enums.user_role import UserRole
+from enums import HttpStatusCode, ReservationStatus, SlotStatus, UserRole
 from repositories.location_repository import LocationRepository
 from repositories.reservation_repository import ReservationRepository
 from repositories.reservation_waiter_view_repository import (
@@ -210,17 +207,13 @@ class ReservationManagementService:
         if self._sqs is not None:
             try:
                 event_type = (
-                    ReservationEventType.COMPLETED
+                    ReservationEventType.FINISHED
                     if view.status == ReservationStatus.FINISHED
                     else ReservationEventType.UPDATED
                 )
                 self._sqs.publish(
-                    self._settings.reservation_events_queue_url,
-                    ReservationEventMessage(
-                        event_type=event_type,
-                        reservation=view,
-                        timestamp=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-                    ),
+                    self._settings.event_queue_url,
+                    self._build_event_message(event_type, view),
                 )
             except Exception:
                 logger.error("SQS publish failed in update_reservation", exc_info=True)
@@ -259,12 +252,8 @@ class ReservationManagementService:
         if self._sqs is not None:
             try:
                 self._sqs.publish(
-                    self._settings.reservation_events_queue_url,
-                    ReservationEventMessage(
-                        event_type=ReservationEventType.CANCELLED,
-                        reservation=view,
-                        timestamp=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-                    ),
+                    self._settings.event_queue_url,
+                    self._build_event_message(ReservationEventType.CANCELLED, view),
                 )
             except Exception:
                 logger.error("SQS publish failed in cancel_reservation", exc_info=True)
@@ -353,6 +342,30 @@ class ReservationManagementService:
                 can_cancel=can_cancel,
             ),
             cutoff_reason=cutoff_reason,
+        )
+
+    def _build_event_message(
+        self,
+        event_type: ReservationEventType,
+        view: ReservationView,
+    ) -> ReservationEventMessage:
+        """Build a flat ReservationEventMessage from a reservation view."""
+        return ReservationEventMessage(
+            event_type=event_type,
+            timestamp=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            reservation_id=view.reservation_id,
+            status=view.status,
+            customer_id=view.customer_id,
+            waiter_id=view.waiter_id,
+            location_id=view.location_id,
+            location_address=view.location_address,
+            table_number=view.table_number,
+            date=view.date,
+            time_from=view.time_from,
+            time_to=view.time_to,
+            guests_number=view.guests_number,
+            allowed_actions=view.allowed_actions,
+            cutoff_reason=view.cutoff_reason,
         )
 
     def _sync_projection(self, reservation: Reservation, view: ReservationView) -> None:

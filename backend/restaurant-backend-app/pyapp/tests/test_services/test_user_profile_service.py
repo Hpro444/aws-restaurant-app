@@ -12,8 +12,7 @@ with ImportFromSourceContext():
     from domain.location import Location
     from domain.user import Customer, Waiter
     from dto.user_profile import UpdateProfileRequest
-    from enums.http_status_code import HttpStatusCode
-    from enums.user_role import UserRole
+    from enums import HttpStatusCode, UserRole
     from services.user_profile_service import UserProfileService
 
 

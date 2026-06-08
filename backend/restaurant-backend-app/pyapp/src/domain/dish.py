@@ -6,8 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from commons.dynamo_model import DynamoModel
-from enums.dish_state import DishState
-from enums.dish_type import DishType
+from enums import DishState, DishType
 
 
 class Dish(DynamoModel):

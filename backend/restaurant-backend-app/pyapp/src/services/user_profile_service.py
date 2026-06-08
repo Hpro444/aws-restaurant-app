@@ -8,8 +8,7 @@ from domain.admin import Admin
 from domain.user import Customer, Waiter
 from dto.locations import LocationAddressResponse
 from dto.user_profile import UpdateProfileRequest
-from enums.http_status_code import HttpStatusCode
-from enums.user_role import UserRole
+from enums import HttpStatusCode, UserRole
 from repositories.admin_repository import AdminRepository
 from repositories.customer_repository import CustomerRepository
 from repositories.location_repository import LocationRepository

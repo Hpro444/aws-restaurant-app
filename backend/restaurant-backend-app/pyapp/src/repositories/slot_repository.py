@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import date
 from uuid import UUID
 
 from botocore.exceptions import ClientError
 from commons.app_config import AppConfig
 from commons.log_helper import logger
 from domain.slot import Slot
-from enums.slot_status import SlotStatus
+from enums import SlotStatus
 
 from repositories.base_repository import DynamoRepository
 
@@ -17,6 +18,7 @@ class SlotRepository(DynamoRepository[Slot]):
     """CRUD repository for Slot entities with table+date queries."""
 
     _TABLE_DATE_INDEX = "table_id_date_index"
+    _WAITER_DATE_INDEX = "waiter_id_date_index"
 
     def __init__(self, settings: AppConfig | None = None) -> None:
         """Initialise with the slots table alias from AppConfig.
@@ -99,6 +101,55 @@ class SlotRepository(DynamoRepository[Slot]):
             total_slots=len(all_slots),
         )
         return all_slots
+
+    def find_by_waiter_id_and_period(
+        self,
+        waiter_id: UUID,
+        period_start: date,
+        period_end: date,
+    ) -> list[Slot]:
+        """Query slots assigned to a waiter within a date range using a GSI.
+
+        Uses the ``waiter_id_date_index`` GSI where:
+        - Partition key = ``waiter_id``
+        - Sort key = ``date`` (AwareDatetime stored as ISO string)
+
+        Both ``period_start`` and ``period_end`` represent midnight UTC dates,
+        so the BETWEEN bounds are fully inclusive.
+
+        Args:
+            waiter_id: UUID of the waiter.
+            period_start: First day of the period (inclusive).
+            period_end: Last day of the period (inclusive).
+
+        Returns:
+            List of Slot domain objects assigned to the waiter in the period.
+
+        """
+        table_name = self._resolve_table_name()
+        start_str = f"{period_start.isoformat()}T00:00:00+00:00"
+        end_str = f"{period_end.isoformat()}T00:00:00+00:00"
+        items = self._paginated_query(
+            "waiter_id_date_index query",
+            self._client.query,
+            TableName=table_name,
+            IndexName=self._WAITER_DATE_INDEX,
+            KeyConditionExpression="waiter_id = :wid AND #d BETWEEN :start AND :end",
+            ExpressionAttributeNames={"#d": "date"},
+            ExpressionAttributeValues={
+                ":wid": {"S": str(waiter_id)},
+                ":start": {"S": start_str},
+                ":end": {"S": end_str},
+            },
+        )
+        logger.info(
+            "Slots queried by waiter and period",
+            waiter_id=str(waiter_id),
+            period_start=str(period_start),
+            period_end=str(period_end),
+            count=len(items),
+        )
+        return items
 
     def find_by_ids(self, slot_ids: list[UUID]) -> list[Slot]:
         """Return existing slots for the provided IDs in input order.

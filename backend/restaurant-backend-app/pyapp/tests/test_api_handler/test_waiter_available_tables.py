@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from unittest.mock import MagicMock
 from uuid import UUID
 
-from enums.user_role import UserRole
+from enums import UserRole
 from pyapp.tests.test_api_handler import (
     ApiHandlerLambdaTestCase,
     body,

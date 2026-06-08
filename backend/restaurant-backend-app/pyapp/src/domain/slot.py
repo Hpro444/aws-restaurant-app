@@ -5,7 +5,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from commons.dynamo_model import DynamoModel
-from enums.slot_status import SlotStatus
+from enums import SlotStatus
 from pydantic import AwareDatetime
 
 
