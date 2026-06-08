@@ -9,6 +9,7 @@ from pyapp.tests import ImportFromSourceContext
 with ImportFromSourceContext():
     from commons.exceptions import ApplicationException
     from domain.admin import Admin
+    from domain.location import Location
     from domain.user import Customer, Waiter
     from dto.user_profile import UpdateProfileRequest
     from enums.http_status_code import HttpStatusCode
@@ -25,11 +26,13 @@ class TestUserProfileService(TestCase):
         self.mock_customer_repo = MagicMock()
         self.mock_waiter_repo = MagicMock()
         self.mock_admin_repo = MagicMock()
+        self.mock_location_repo = MagicMock()
         self.service = UserProfileService(
             cognito_service=self.mock_cognito,
             customer_repository=self.mock_customer_repo,
             waiter_repository=self.mock_waiter_repo,
             admin_repository=self.mock_admin_repo,
+            location_repository=self.mock_location_repo,
         )
         self.customer = Customer(
             id=uuid4(),
@@ -136,11 +139,13 @@ class TestUpdateUserProfile(TestCase):
         self.mock_customer_repo = MagicMock()
         self.mock_waiter_repo = MagicMock()
         self.mock_admin_repo = MagicMock()
+        self.mock_location_repo = MagicMock()
         self.service = UserProfileService(
             cognito_service=self.mock_cognito,
             customer_repository=self.mock_customer_repo,
             waiter_repository=self.mock_waiter_repo,
             admin_repository=self.mock_admin_repo,
+            location_repository=self.mock_location_repo,
         )
         self.location_id = uuid4()
         self.customer = Customer(
@@ -226,3 +231,97 @@ class TestUpdateUserProfile(TestCase):
         with self.assertRaises(ApplicationException) as ctx:
             self.service.update_user_profile("valid-token", _UPDATE_REQUEST)
         self.assertEqual(ctx.exception.code, HttpStatusCode.RESPONSE_FORBIDDEN_CODE)
+
+
+class TestGetWaiterLocation(TestCase):
+    """Unit tests for UserProfileService.get_waiter_location."""
+
+    def setUp(self):
+        """Create service with mocked dependencies and waiter/location fixtures."""
+        self.mock_cognito = MagicMock()
+        self.mock_customer_repo = MagicMock()
+        self.mock_waiter_repo = MagicMock()
+        self.mock_admin_repo = MagicMock()
+        self.mock_location_repo = MagicMock()
+        self.service = UserProfileService(
+            cognito_service=self.mock_cognito,
+            customer_repository=self.mock_customer_repo,
+            waiter_repository=self.mock_waiter_repo,
+            admin_repository=self.mock_admin_repo,
+            location_repository=self.mock_location_repo,
+        )
+
+        self.waiter = Waiter(
+            id=uuid4(),
+            fname="Alex",
+            lname="Caper",
+            email="alex@example.com",
+            image_url="",
+            location_id=uuid4(),
+        )
+        self.location = Location(
+            id=self.waiter.location_id,
+            name="Rustaveli",
+            address="48 Rustaveli Avenue",
+            description="Center location",
+            image_url="https://example.com/location.jpg",
+            open_time="10:00",
+            close_time="23:00",
+        )
+
+    def test_get_waiter_location_success(self):
+        """Return waiter-assigned location id and address when role is waiter."""
+        self.mock_cognito.get_identity_from_access_token.return_value = (
+            str(self.waiter.id),
+            UserRole.WAITER,
+        )
+        self.mock_waiter_repo.get.return_value = self.waiter
+        self.mock_location_repo.get.return_value = self.location
+
+        result = self.service.get_waiter_location("valid-token")
+
+        self.assertEqual(result.location_id, str(self.waiter.location_id))
+        self.assertEqual(result.location_address, "48 Rustaveli Avenue")
+
+    def test_get_waiter_location_non_waiter_raises_403(self):
+        """Raise 403 when the authenticated role is not waiter."""
+        self.mock_cognito.get_identity_from_access_token.return_value = (
+            str(uuid4()),
+            UserRole.CUSTOMER,
+        )
+
+        with self.assertRaises(ApplicationException) as ctx:
+            self.service.get_waiter_location("valid-token")
+
+        self.assertEqual(ctx.exception.code, HttpStatusCode.RESPONSE_FORBIDDEN_CODE)
+
+    def test_get_waiter_location_profile_not_found_raises_404(self):
+        """Raise 404 when waiter profile row is missing."""
+        self.mock_cognito.get_identity_from_access_token.return_value = (
+            str(self.waiter.id),
+            UserRole.WAITER,
+        )
+        self.mock_waiter_repo.get.return_value = None
+
+        with self.assertRaises(ApplicationException) as ctx:
+            self.service.get_waiter_location("valid-token")
+
+        self.assertEqual(
+            ctx.exception.code, HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE
+        )
+
+    def test_get_waiter_location_missing_location_raises_404(self):
+        """Raise 404 when waiter has location_id but location row does not exist."""
+        self.mock_cognito.get_identity_from_access_token.return_value = (
+            str(self.waiter.id),
+            UserRole.WAITER,
+        )
+        self.mock_waiter_repo.get.return_value = self.waiter
+        self.mock_location_repo.get.return_value = None
+
+        with self.assertRaises(ApplicationException) as ctx:
+            self.service.get_waiter_location("valid-token")
+
+        self.assertEqual(
+            ctx.exception.code, HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE
+        )

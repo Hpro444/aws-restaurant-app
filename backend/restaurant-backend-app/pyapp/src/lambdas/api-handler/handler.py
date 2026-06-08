@@ -124,6 +124,7 @@ class ApiHandler(AbstractLambda):
 
         router.add("GET", "/users/profile", self._get_user_profile)
         router.add("PUT", "/users/profile", self._update_user_profile)
+        router.add("GET", "/users/waiter/location", self._get_waiter_location)
 
         router.add("GET", "/locations/select-options", self._get_location_addresses)
         router.add(
@@ -369,6 +370,16 @@ class ApiHandler(AbstractLambda):
                 email=user.email,
                 role=role,
             ).model_dump(),
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    def _get_waiter_location(self, event: dict) -> LambdaResponse:
+        """Return current waiter's assigned location id and address."""
+        access_token = self._extract_access_token(event)
+        response = self._user_profile_service.get_waiter_location(access_token)
+
+        return build_response(
+            response.model_dump(),
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 

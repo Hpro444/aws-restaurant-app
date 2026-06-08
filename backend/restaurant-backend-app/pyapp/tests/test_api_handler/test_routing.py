@@ -11,6 +11,7 @@ _SIGN_UP_PATH = "/auth/sign-up"
 _SIGN_IN_PATH = "/auth/sign-in"
 _REFRESH_PATH = "/auth/refresh"
 _LOGOUT_PATH = "/auth/logout"
+_USERS_WAITER_LOCATION_PATH = "/users/waiter/location"
 _BOOKINGS_TABLES_PATH = "/bookings/tables"
 _BOOKINGS_WAITER_TABLES_PATH = "/bookings/waiter/tables"
 _DISHES_POPULAR_PATH = "/dishes/popular"
@@ -127,6 +128,17 @@ class TestRouting(ApiHandlerLambdaTestCase):
         self.assertEqual(
             status(
                 self.HANDLER.lambda_handler(make_event(_LOGOUT_PATH, "GET", {}), {})
+            ),
+            404,
+        )
+
+    def test_wrong_method_on_users_waiter_location_returns_404(self) -> None:
+        """A POST to the users/waiter/location path should return 404."""
+        self.assertEqual(
+            status(
+                self.HANDLER.lambda_handler(
+                    make_event(_USERS_WAITER_LOCATION_PATH, "POST", {}), {}
+                )
             ),
             404,
         )
