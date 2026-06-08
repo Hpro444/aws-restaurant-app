@@ -62,10 +62,6 @@
     "message_retention_period": 345600,
     "receive_message_wait_time_seconds": 0,
     "visibility_timeout": 30,
-    "redrive_policy": {
-      "deadLetterTargetArn": "${reservation-events-dlq}",
-      "maxReceiveCount": 3
-    },
     "tags": {}
   },
   "restaurant-api": {
@@ -732,6 +728,32 @@
           "default_error_pattern": true,
           "enable_proxy": true
         }
+      },
+      "/orders": {
+        "OPTIONS": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
+        },
+        "POST": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
+        }
       }
     },
     "tags": {}
@@ -972,6 +994,21 @@
     "hash_key_name": "email",
     "hash_key_type": "S",
     "global_indexes": [],
+    "autoscaling": [],
+    "tags": {}
+  },
+  "${orders_table}": {
+    "resource_type": "dynamodb_table",
+    "hash_key_name": "id",
+    "hash_key_type": "S",
+    "global_indexes": [
+      {
+        "name": "reservation_id_index",
+        "index_key_name": "reservation_id",
+        "index_key_type": "S",
+        "projection_type": "ALL"
+      }
+    ],
     "autoscaling": [],
     "tags": {}
   }
