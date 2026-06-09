@@ -30,7 +30,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             fname="Lea",
             lname="Martinez",
             email="lea@example.com",
-            image_url=f"{_S3}/user_avatar_1.png",
+            image_url=f"{_S3}/user_avatar_1.jpg",
             location_id=locations[downtown_id].id,
         ),
         Waiter(
@@ -38,7 +38,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             fname="Charlie",
             lname="Petrov",
             email="charlie@example.com",
-            image_url=f"{_S3}/user_avatar_4.png",
+            image_url=f"{_S3}/user_avatar_4.jpg",
             location_id=locations[downtown_id].id,
         ),
         Waiter(
@@ -46,7 +46,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             fname="Olivia",
             lname="Mchedlishvili",
             email="olivia@example.com",
-            image_url=f"{_S3}/user_avatar_5.png",
+            image_url=f"{_S3}/user_avatar_5.jpg",
             location_id=locations[downtown_id].id,
         ),
         Waiter(
@@ -54,7 +54,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             fname="Ethan",
             lname="Kapanadze",
             email="ethan@example.com",
-            image_url=f"{_S3}/user_avatar_6.png",
+            image_url=f"{_S3}/user_avatar_6.jpg",
             location_id=locations[downtown_id].id,
         ),
         Waiter(
@@ -62,7 +62,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             fname="Max",
             lname="Fischer",
             email="max@example.com",
-            image_url=f"{_S3}/user_avatar_2.png",
+            image_url=f"{_S3}/user_avatar_2.jpg",
             location_id=locations[airport_id].id,
         ),
         Waiter(
@@ -70,7 +70,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             fname="Sofia",
             lname="Abashidze",
             email="sofia@example.com",
-            image_url=f"{_S3}/user_avatar_7.png",
+            image_url=f"{_S3}/user_avatar_7.jpg",
             location_id=locations[airport_id].id,
         ),
         Waiter(
@@ -78,7 +78,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             fname="Liam",
             lname="Gelashvili",
             email="liam@example.com",
-            image_url=f"{_S3}/user_avatar_8.png",
+            image_url=f"{_S3}/user_avatar_8.jpg",
             location_id=locations[airport_id].id,
         ),
         Waiter(
@@ -86,7 +86,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             fname="Mia",
             lname="Gogoladze",
             email="mia@example.com",
-            image_url=f"{_S3}/user_avatar_9.png",
+            image_url=f"{_S3}/user_avatar_9.jpg",
             location_id=locations[airport_id].id,
         ),
         Waiter(
@@ -94,7 +94,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             fname="Nina",
             lname="Beridze",
             email="nina@example.com",
-            image_url=f"{_S3}/user_avatar_3.png",
+            image_url=f"{_S3}/user_avatar_3.jpg",
             location_id=locations[old_town_id].id,
         ),
         Waiter(
@@ -102,7 +102,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             fname="Noah",
             lname="Chelidze",
             email="noah@example.com",
-            image_url=f"{_S3}/user_avatar_10.png",
+            image_url=f"{_S3}/user_avatar_10.jpg",
             location_id=locations[old_town_id].id,
         ),
         Waiter(
@@ -110,7 +110,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             fname="Ava",
             lname="Dolidze",
             email="ava@example.com",
-            image_url=f"{_S3}/user_avatar_11.png",
+            image_url=f"{_S3}/user_avatar_11.jpg",
             location_id=locations[old_town_id].id,
         ),
         Waiter(
@@ -118,7 +118,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             fname="Luka",
             lname="Maisuradze",
             email="luka@example.com",
-            image_url=f"{_S3}/user_avatar_12.png",
+            image_url=f"{_S3}/user_avatar_12.jpg",
             location_id=locations[old_town_id].id,
         ),
     ]
