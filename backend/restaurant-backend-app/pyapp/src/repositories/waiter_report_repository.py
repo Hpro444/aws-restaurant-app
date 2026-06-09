@@ -22,6 +22,7 @@ class WaiterReportRepository(DynamoRepository[WaiterReport]):
 
     _WAITER_PERIOD_INDEX = "waiter_period_index"
     _REPORT_PERIOD_START_INDEX = "report_period_start_index"
+    _REPORT_PERIOD_START_INDEX = "report_period_start_index"
 
     def __init__(self, settings: AppConfig | None = None) -> None:
         """Initialise with the waiter-report table alias from AppConfig.
