@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Header from "../../components/header";
 import FoundResults from "./components/FoundResults";
 import NoResults from "./components/NoResults";
@@ -9,11 +9,14 @@ import {
   getLocationSelectOptions,
   toApiFromTime,
 } from "./availableTables.services";
-import type {
-  Filters,
-  LocationSelectOption,
-  TableResult,
-} from "../../types/location";
+import type { LocationSelectOption, TableResult } from "../../types/location";
+
+type Filters = {
+  locationId: string;
+  date: string;
+  fromTime: string;
+  guests: number;
+};
 
 const AvailableTablesPage = () => {
   const { accessToken } = useAuth();
@@ -44,20 +47,12 @@ const AvailableTablesPage = () => {
         );
       }
     };
-
     loadLocations();
   }, [accessToken]);
 
   const updateFilter = (update: Partial<Filters>) => {
     setFilters((prev) => ({ ...prev, ...update }));
   };
-
-  const selectedLocationAddress = useMemo(
-    () =>
-      locationOptions.find((l) => l.location_id === filters.locationId)
-        ?.location_address ?? "",
-    [locationOptions, filters.locationId],
-  );
 
   const handleSearch = async () => {
     if (!filters.locationId || !filters.date || !accessToken) return;
@@ -107,10 +102,8 @@ const AvailableTablesPage = () => {
           (tables.length > 0 ? (
             <FoundResults
               tables={tables}
-              locationAddress={selectedLocationAddress}
-              locationId={filters.locationId}
               date={filters.date}
-              initialGuests={filters.guests}
+              locationId={filters.locationId}
             />
           ) : (
             <NoResults />
