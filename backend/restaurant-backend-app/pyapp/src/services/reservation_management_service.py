@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from uuid import UUID
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from commons.app_config import AppConfig
 from commons.exceptions import ApplicationException
@@ -24,6 +24,8 @@ from dto.waiter_reservations import (
 )
 from enums import HttpStatusCode, ReservationStatus, SlotStatus, UserRole
 from repositories.customer_repository import CustomerRepository
+from repositories.feedback_cuisine_repository import FeedbackCuisineRepository
+from repositories.feedback_service_repository import FeedbackServiceRepository
 from repositories.location_repository import LocationRepository
 from repositories.reservation_repository import ReservationRepository
 from repositories.reservation_waiter_view_repository import (
@@ -51,6 +53,8 @@ class ReservationManagementService:
         waiter_repository: WaiterRepository | None = None,
         waiter_view_repository: ReservationWaiterViewRepository | None = None,
         customer_repository: CustomerRepository | None = None,
+        feedback_service_repository: FeedbackServiceRepository | None = None,
+        feedback_cuisine_repository: FeedbackCuisineRepository | None = None,
         sqs_service: SqsService | None = None,
     ) -> None:
         """Create repository dependencies, creating defaults when omitted.
@@ -64,6 +68,8 @@ class ReservationManagementService:
             waiter_repository: Optional WaiterRepository instance.
             waiter_view_repository: Optional ReservationWaiterViewRepository instance.
             customer_repository: Optional CustomerRepository instance.
+            feedback_service_repository: Optional FeedbackServiceRepository instance.
+            feedback_cuisine_repository: Optional FeedbackCuisineRepository instance.
             sqs_service: Optional SqsService for publishing reservation events.
 
         """
@@ -78,6 +84,12 @@ class ReservationManagementService:
             waiter_view_repository or ReservationWaiterViewRepository(cfg)
         )
         self._customer_repo = customer_repository or CustomerRepository(cfg)
+        self._feedback_service_repo = (
+            feedback_service_repository or FeedbackServiceRepository(cfg)
+        )
+        self._feedback_cuisine_repo = (
+            feedback_cuisine_repository or FeedbackCuisineRepository(cfg)
+        )
         self._sqs = sqs_service
 
     def list_for_dashboard(
@@ -323,12 +335,16 @@ class ReservationManagementService:
         end_time = max(slot.end_time for slot in slots)
         table = self._table_repo.get(slots[0].table_id)
         location = self._location_repo.get(table.location_id) if table else None
+        feedback_exists = self._has_feedback_for_reservation(reservation.id)
 
-        can_edit, can_cancel, cutoff_reason = self._compute_actions(
-            reservation=reservation,
-            actor_id=actor_id,
-            role=role,
-            start_time=start_time,
+        can_edit, can_cancel, can_leave_feedback, can_edit_feedback, cutoff_reason = (
+            self._compute_actions(
+                reservation=reservation,
+                actor_id=actor_id,
+                role=role,
+                start_time=start_time,
+                feedback_exists=feedback_exists,
+            )
         )
 
         return ReservationView(
@@ -348,6 +364,8 @@ class ReservationManagementService:
             allowed_actions=AllowedActions(
                 can_edit=can_edit,
                 can_cancel=can_cancel,
+                can_leave_feedback=can_leave_feedback,
+                can_edit_feedback=can_edit_feedback,
             ),
             cutoff_reason=cutoff_reason,
         )
@@ -393,7 +411,16 @@ class ReservationManagementService:
     def _resolve_created_by(self, reservation: Reservation) -> str | None:
         """Return the display label: 'Customer <name>' for customer bookings, 'Waiter <name> (Visitor)' for visitor bookings."""
         if reservation.customer_id is not None:
-            customer = self._customer_repo.get(reservation.customer_id)
+            try:
+                customer = self._customer_repo.get(reservation.customer_id)
+            except Exception:
+                logger.warning(
+                    "Failed to resolve customer profile for reservation projection",
+                    reservation_id=str(reservation.id),
+                    customer_id=str(reservation.customer_id),
+                    exc_info=True,
+                )
+                customer = None
             if customer:
                 return f"Customer {customer.fname} {customer.lname}".strip()
         if reservation.waiter_id is not None:
@@ -401,6 +428,24 @@ class ReservationManagementService:
             if waiter:
                 return f"Waiter {waiter.fname} {waiter.lname} (Visitor)"
         return None
+
+    def _has_feedback_for_reservation(self, reservation_id: UUID) -> bool:
+        """Return True when either service or cuisine feedback exists for reservation."""
+        service_feedback_id = uuid5(NAMESPACE_URL, f"service:{reservation_id}")
+        cuisine_feedback_id = uuid5(NAMESPACE_URL, f"culinary:{reservation_id}")
+
+        try:
+            return bool(
+                self._feedback_service_repo.get(service_feedback_id)
+                or self._feedback_cuisine_repo.get(cuisine_feedback_id)
+            )
+        except Exception:
+            logger.warning(
+                "Failed to check feedback existence for reservation",
+                reservation_id=str(reservation_id),
+                exc_info=True,
+            )
+            return False
 
     def _to_projection(
         self, reservation: Reservation, view: ReservationView
@@ -428,42 +473,63 @@ class ReservationManagementService:
         actor_id: UUID,
         role: str,
         start_time,
-    ) -> tuple[bool, bool, str | None]:
-        """Return edit/cancel flags and cutoff reason when actions are disabled."""
+        feedback_exists: bool,
+    ) -> tuple[bool, bool, bool, bool, str | None]:
+        """Return action flags and cutoff reason for reservation controls."""
         is_owner = role == UserRole.CUSTOMER and reservation.customer_id == actor_id
         is_assigned_waiter = (
             role == UserRole.WAITER and reservation.waiter_id == actor_id
         )
         is_action_actor = is_owner or is_assigned_waiter
+        can_leave_feedback = (
+            reservation.status
+            in {
+                ReservationStatus.IN_PROGRESS,
+                ReservationStatus.FINISHED,
+            }
+            and not feedback_exists
+        )
+        can_edit_feedback = feedback_exists
 
         if not is_action_actor:
             return (
+                False,
+                False,
                 False,
                 False,
                 "Only customer or assigned waiter can manage this reservation",
             )
 
         if reservation.status != ReservationStatus.RESERVED:
-            return False, False, "Actions are available only for RESERVED reservations"
+            return (
+                False,
+                False,
+                can_leave_feedback,
+                can_edit_feedback,
+                "Actions are available only for RESERVED reservations",
+            )
 
         if role == UserRole.CUSTOMER and self._is_cutoff_reached(start_time):
             return (
                 False,
                 False,
+                can_leave_feedback,
+                can_edit_feedback,
                 f"Edit/cancel are disabled {self._CUTOFF_MINUTES} minutes before start",
             )
 
-        return True, True, None
+        return True, True, can_leave_feedback, can_edit_feedback, None
 
     def _ensure_editable(
         self, reservation: Reservation, actor_id: UUID, role: str, start_time
     ) -> None:
         """Raise 422/403 when edit/cancel preconditions are not met."""
-        can_edit, _, reason = self._compute_actions(
+        can_edit, _, _, _, reason = self._compute_actions(
             reservation=reservation,
             actor_id=actor_id,
             role=role,
             start_time=start_time,
+            feedback_exists=False,
         )
         if not can_edit:
             code = (
