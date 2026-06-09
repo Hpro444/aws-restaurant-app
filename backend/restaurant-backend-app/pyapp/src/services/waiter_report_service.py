@@ -141,7 +141,8 @@ class WaiterReportService:
         all_slots = self._slot_repo.find_by_waiter_id_and_period(
             waiter_id, period_start, period_end
         )
-        working_hours = len(all_slots) * 1.75
+        unique_starts = {s.start_time for s in all_slots}
+        working_hours = len(unique_starts) * 1.75
 
         reservations = self._reservation_repo.find_by_waiter_id_and_period(
             waiter_id,

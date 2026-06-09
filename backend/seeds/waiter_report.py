@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import random
 from datetime import date, datetime, timedelta
 
 from commons.report_utils import pct_delta  # type: ignore[import-not-found]
@@ -58,7 +59,6 @@ def _seed_period_reports(
         The list of WaiterReport objects for the period (not yet persisted).
 
     """
-    # Finished reservation IDs that fall within this period.
     period_finished_ids = {
         r.id
         for r in reservations
@@ -92,7 +92,8 @@ def _seed_period_reports(
         w_slots = slots_by_waiter.get(waiter.id, [])
 
         orders_processed = len(w_orders)
-        working_hours = len(w_slots) * 1.75
+        unique_starts = {slot.start_time for slot in w_slots}
+        working_hours = len(unique_starts) * 1.75
 
         fb_count = len(w_feedbacks)
         fb_sum = float(sum(f.rate for f in w_feedbacks if f.rate is not None))
@@ -125,15 +126,24 @@ def _seed_period_reports(
     return reports
 
 
-def _seed_synthetic_past(
+def _seed_random_week(
     week_offset: int,
     waiters: dict,
     locations: dict,
 ) -> list[WaiterReport]:
-    """Build one synthetic WaiterReport per waiter for a past week.
+    """Build one random WaiterReport per waiter for a past week.
 
-    Numbers are deterministic (based on waiter position + week offset) but
-    varied enough to produce non-trivial delta percentages in the API.
+    Uses a deterministic per-waiter RNG seed so results are reproducible
+    across runs while still looking like real varied data.
+
+    Args:
+        week_offset: How many ISO weeks back from the current Monday.
+        waiters: Email-keyed dict of Waiter domain objects.
+        locations: UUID-keyed dict of Location objects.
+
+    Returns:
+        The list of WaiterReport objects for the period (not yet persisted).
+
     """
     today = date.today()
     curr_monday = today - timedelta(days=today.weekday())
@@ -141,14 +151,16 @@ def _seed_synthetic_past(
     p_end = p_start + timedelta(days=6)
 
     reports: list[WaiterReport] = []
-    for i, waiter in enumerate(waiters.values()):
-        v = (i * 11 + week_offset * 7) % 20
-        orders_processed = 3 + v
-        working_hours = round(14.0 + (i * 3 + week_offset * 5) % 28, 1)
-        fb_count = (i * 3 + week_offset * 4) % 6
-        min_fb = 3 + (i + week_offset) % 3
-        fb_sum = float(fb_count * min_fb)
-        avg_fb = round(fb_sum / fb_count, 2) if fb_count else None
+    for waiter in waiters.values():
+        rng = random.Random(f"{waiter.id}:{week_offset}")
+
+        orders_processed = rng.randint(5, 30)
+        working_hours = round(rng.uniform(10.5, 42.0), 1)
+        fb_count = rng.randint(1, 10)
+        rates = [rng.randint(2, 5) for _ in range(fb_count)]
+        fb_sum = float(sum(rates))
+        avg_fb = round(fb_sum / fb_count, 2)
+        min_fb = min(rates)
 
         location = locations.get(waiter.location_id)
         location_name = location.name if location else ""
@@ -169,7 +181,7 @@ def _seed_synthetic_past(
                 service_feedback_count=fb_count,
                 service_feedback_sum=fb_sum,
                 avg_service_feedback=avg_fb,
-                min_service_feedback=min_fb if fb_count else None,
+                min_service_feedback=min_fb,
             )
         )
 
@@ -203,13 +215,31 @@ def _apply_deltas(reports: list[WaiterReport]) -> None:
         )
 
 
-def seed(dynamodb, tables: dict, context: dict) -> None:
-    """Seed WaiterReport rows for the current ISO week and the previous ISO week.
+def _backfill_oldest_deltas(reports: list[WaiterReport]) -> None:
+    """Set plausible random deltas on the oldest seeded week (week offset 3).
 
-    Two separate report rows per waiter are written — one for each week — so the
-    API can return a delta between them.  Each report aggregates only data whose
-    date falls within the respective week, mirroring what the live data-capture
-    lambda would compute after processing real events.
+    ``_apply_deltas`` leaves these as ``None`` because no week-4 row exists.
+    A deterministic-random value per waiter keeps the UI looking complete.
+
+    Args:
+        reports: Every WaiterReport built for all seeded weeks (any order).
+
+    """
+    oldest_start = min(r.report_period_start for r in reports)
+    for report in reports:
+        if report.report_period_start != oldest_start:
+            continue
+        rng = random.Random(f"{report.waiter_id}:oldest_delta")
+        report.orders_processed_delta_pct = round(rng.uniform(-20.0, 25.0), 2)
+        report.avg_service_feedback_delta_pct = round(rng.uniform(-15.0, 20.0), 2)
+
+
+def seed(dynamodb, tables: dict, context: dict) -> None:
+    """Seed WaiterReport rows for the current ISO week and three past random weeks.
+
+    One real-aggregated row per waiter (current week) and three rows with
+    realistic random data (weeks 1–3 ago) are written, giving the API four
+    rows per waiter with fully-populated delta percentages.
 
     Requires context['waiters'], context['reservations'], context['orders'],
     context['slots'], context['locations'], and context['feedback_service'].
@@ -226,8 +256,6 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
     today = date.today()
     curr_start = _period_start(today)
     curr_end = _period_end(curr_start)
-    prev_start = curr_start - timedelta(weeks=1)
-    prev_end = curr_end - timedelta(weeks=1)
 
     curr_reports = _seed_period_reports(
         curr_start,
@@ -239,23 +267,14 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         locations,
         feedbacks,
     )
-    prev_reports = _seed_period_reports(
-        prev_start,
-        prev_end,
-        waiters,
-        reservations,
-        orders,
-        slots,
-        locations,
-        feedbacks,
-    )
 
-    synthetic: list[WaiterReport] = []
-    for week_offset in range(2, 5):
-        synthetic.extend(_seed_synthetic_past(week_offset, waiters, locations))
+    past_reports: list[WaiterReport] = []
+    for week_offset in range(1, 4):
+        past_reports.extend(_seed_random_week(week_offset, waiters, locations))
 
-    all_reports = curr_reports + prev_reports + synthetic
+    all_reports = curr_reports + past_reports
     _apply_deltas(all_reports)
+    _backfill_oldest_deltas(all_reports)
 
     with report_table.batch_writer() as batch:
         for report in all_reports:
@@ -263,10 +282,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
 
     context["waiter_reports"] = all_reports
 
-    total_synthetic = len(synthetic)
     print(
         f"  ✓ Seeded {len(curr_reports)} waiter reports "
         f"(current week {curr_start} → {curr_end}) + "
-        f"{len(prev_reports)} prev-week reports ({prev_start} → {prev_end}) + "
-        f"{total_synthetic} synthetic past rows (weeks 2-4)"
+        f"{len(past_reports)} random past rows (weeks 1–3)"
     )

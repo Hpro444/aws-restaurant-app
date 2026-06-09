@@ -91,6 +91,75 @@ def _seed_past_reservations(
     return past_reservations
 
 
+def _seed_current_week_finished(
+    slots_list: list, customers: dict, today
+) -> list[Reservation]:
+    """Create 2 FINISHED reservations per waiter per day for Tue–Sun of the current week.
+
+    Skips today to avoid slot conflicts with the showcase reservations. Uses two
+    unique start-time slots per (day, waiter) pair so each waiter accumulates at
+    least 12 FINISHED reservations within the current ISO week — enough for the
+    report seeder to produce meaningful order counts and deltas.
+
+    Args:
+        slots_list: All seeded Slot objects (today + 6 days ahead).
+        customers: Dict keyed by email containing all Customer objects.
+        today: The current UTC date (``datetime.date``).
+
+    Returns:
+        List of FINISHED Reservation objects for days 1–6 of the current week.
+
+    """
+    customer_list = list(customers.values())
+
+    # Group all slots for days 1–6 (Tue–Sun of current week) by (date, waiter_id).
+    waiter_day_slots: dict = {}
+    for slot in slots_list:
+        if slot.waiter_id is None:
+            continue
+        slot_date = slot.date.date()
+        day_offset = (slot_date - today).days
+        if day_offset < 1 or day_offset > 6:
+            continue
+        key = (slot_date, slot.waiter_id)
+        waiter_day_slots.setdefault(key, []).append(slot)
+
+    # Sort each group by start_time so we pick the earliest unique windows.
+    for key in waiter_day_slots:
+        waiter_day_slots[key].sort(key=lambda s: s.start_time)
+
+    reservations: list[Reservation] = []
+    counter = 0
+    for (slot_date, waiter_id), day_slots in sorted(waiter_day_slots.items()):
+        seen_starts: set = set()
+        selected = []
+        for slot in day_slots:
+            if slot.start_time not in seen_starts:
+                seen_starts.add(slot.start_time)
+                selected.append(slot)
+            if len(selected) >= 2:
+                break
+
+        for j, slot in enumerate(selected):
+            customer = customer_list[counter % len(customer_list)]
+            created_at = datetime.combine(slot_date, time(12, 0), tzinfo=timezone.utc)
+            reservations.append(
+                Reservation(
+                    id=seed_id("reservation", f"{slot.id}:finished-cw-{j}"),
+                    customer_id=customer.id,
+                    waiter_id=waiter_id,
+                    created_at=created_at,
+                    slot_ids=[slot.id],
+                    status=ReservationStatus.FINISHED,
+                    number_of_guests=2 + (counter % 5),
+                    date=slot_date.isoformat(),
+                )
+            )
+            counter += 1
+
+    return reservations
+
+
 def seed(dynamodb, tables: dict, context: dict) -> None:
     """Seed today's showcase reservations plus past FINISHED reservations for delta testing.
 
@@ -299,7 +368,11 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
     # ── Past FINISHED reservations (delta testing) ─────────────────────────
     past_reservations = _seed_past_reservations(slots_list, customers, today)
 
-    all_reservations = reservations + past_reservations
+    # ── Current-week FINISHED reservations (report data) ───────────────────
+    # 2 per waiter per day for Tue–Sun → ≥12 FINISHED per waiter this week.
+    current_week_finished = _seed_current_week_finished(slots_list, customers, today)
+
+    all_reservations = reservations + past_reservations + current_week_finished
 
     with reservations_table.batch_writer() as batch:
         for reservation in all_reservations:
@@ -317,7 +390,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
     )
     print(
         f"  ✓ Seeded {len(reservations)} today's reservations + "
-        f"{len(past_reservations)} past FINISHED reservations "
+        f"{len(past_reservations)} past FINISHED + "
+        f"{len(current_week_finished)} current-week FINISHED "
         f"({finished_count} total finished) — "
         f"{len(active_slots)} active slots flipped to RESERVED"
     )
