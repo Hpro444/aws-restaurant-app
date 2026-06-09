@@ -39,14 +39,18 @@ class ReservationWaiterViewRepository(DynamoRepository[ReservationWaiterView]):
         table_name: str,
         waiter_id: UUID,
     ) -> list[ReservationWaiterView]:
-        """Return projected reservations for one location/date/start-time/table assigned to a waiter.
+        """Return projected reservations for one location/date/table still active at or after time_from.
 
         Uses the ``location_date_index`` GSI where:
         - Partition key = ``location_date`` (``location_id#date``)
-        - Sort key = ``time_table`` (``time_from#table_name``)
+        - Sort key = ``time_table`` encodes the reservation **end** time
+          (``time_to#table_name``); the range scan ``time_table >= time_from``
+          therefore returns reservations whose end time is at or after
+          ``time_from`` (i.e. ``time_from <= end_time``), including ones that
+          started earlier but have not yet finished.
 
-        A ``FilterExpression`` on ``waiter_id`` ensures only rows assigned to the
-        requesting waiter are returned.
+        ``table_name`` and ``waiter_id`` are applied as ``FilterExpression`` conditions
+        after the GSI range scan.
 
         Args:
             location_id: UUID of the location the waiter is assigned to.
@@ -64,13 +68,14 @@ class ReservationWaiterViewRepository(DynamoRepository[ReservationWaiterView]):
             self._client.query,
             TableName=self._resolve_table_name(),
             IndexName=self._LOCATION_DATE_INDEX,
-            KeyConditionExpression="location_date = :pk AND time_table = :tt",
-            FilterExpression="#wid = :wid",
-            ExpressionAttributeNames={"#wid": "waiter_id"},
+            KeyConditionExpression="location_date = :pk AND time_table >= :tt",
+            FilterExpression="#wid = :wid AND #tname = :tname",
+            ExpressionAttributeNames={"#wid": "waiter_id", "#tname": "table_name"},
             ExpressionAttributeValues={
                 ":pk": {"S": ReservationWaiterView.location_date(location_id, date)},
-                ":tt": {"S": ReservationWaiterView.time_table(time_from, table_name)},
+                ":tt": {"S": time_from},
                 ":wid": {"S": str(waiter_id)},
+                ":tname": {"S": table_name},
             },
         )
 

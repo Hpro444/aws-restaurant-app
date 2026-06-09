@@ -30,6 +30,8 @@ class TestFeedbackService(TestCase):
         self.slot_repo = MagicMock()
         self.table_repo = MagicMock()
         self.waiter_repo = MagicMock()
+        self.waiter_report_repo = MagicMock()
+        self.waiter_report_repo.find_latest_by_waiter_id.return_value = None
 
         self.service = FeedbackService(
             feedback_cuisine_repo=self.feedback_cuisine_repo,
@@ -39,6 +41,7 @@ class TestFeedbackService(TestCase):
             slot_repo=self.slot_repo,
             table_repo=self.table_repo,
             waiter_repo=self.waiter_repo,
+            waiter_report_repo=self.waiter_report_repo,
         )
 
         self.customer_id = uuid4()
@@ -218,15 +221,15 @@ class TestFeedbackService(TestCase):
 
         self.feedback_service_repo.create.assert_called_once()
 
-    def test_culinary_feedback_rejected_when_not_finished(self) -> None:
-        """Culinary feedback requires FINISHED reservation status."""
+    def test_culinary_feedback_rejected_when_reservation_not_started(self) -> None:
+        """Culinary feedback requires IN_PROGRESS or FINISHED reservation status."""
         self.reservation_repo.get.return_value = Reservation(
             id=self.reservation_id,
             customer_id=self.customer_id,
             waiter_id=self.waiter_id,
             created_at=datetime.now(UTC),
             slot_ids=[uuid4()],
-            status=ReservationStatus.IN_PROGRESS,
+            status=ReservationStatus.RESERVED,
             number_of_guests=2,
         )
         request = LeaveFeedbackRequest(
@@ -241,6 +244,133 @@ class TestFeedbackService(TestCase):
 
         self.assertEqual(exc.exception.code, 422)
         self.feedback_cuisine_repo.create.assert_not_called()
+
+    def test_culinary_feedback_allowed_for_in_progress(self) -> None:
+        """Culinary feedback is valid while reservation is IN_PROGRESS."""
+        location_id = uuid4()
+        table_id = uuid4()
+        self.reservation_repo.get.return_value = Reservation(
+            id=self.reservation_id,
+            customer_id=self.customer_id,
+            waiter_id=self.waiter_id,
+            created_at=datetime.now(UTC),
+            slot_ids=[uuid4()],
+            status=ReservationStatus.IN_PROGRESS,
+            number_of_guests=2,
+        )
+        self.slot_repo.find_by_ids.return_value = [
+            Slot(
+                id=self.reservation_id,
+                table_id=table_id,
+                start_time=datetime.now(UTC),
+                end_time=datetime.now(UTC),
+                date=datetime.now(UTC),
+            )
+        ]
+        self.table_repo.get.return_value = Table(
+            id=table_id,
+            location_id=location_id,
+            table_number=1,
+            capacity=4,
+        )
+        request = LeaveFeedbackRequest(
+            reservation_id=self.reservation_id,
+            type=FeedbackType.CULINARY,
+            rating=4,
+            comment="Looks good so far",
+        )
+
+        self.service.leave_feedback(request=request, customer_id=self.customer_id)
+
+        self.feedback_cuisine_repo.create.assert_called_once()
+
+    def test_update_service_feedback_rejected_when_in_progress(self) -> None:
+        """Editing service feedback requires FINISHED reservation status."""
+        self.reservation_repo.get.return_value = Reservation(
+            id=self.reservation_id,
+            customer_id=self.customer_id,
+            waiter_id=self.waiter_id,
+            created_at=datetime.now(UTC),
+            slot_ids=[uuid4()],
+            status=ReservationStatus.IN_PROGRESS,
+            number_of_guests=2,
+        )
+        request = UpdateFeedbackRequest(
+            reservation_id=self.reservation_id,
+            type=FeedbackType.SERVICE,
+            rating=5,
+            comment="Updated while in progress",
+        )
+
+        with self.assertRaises(ApplicationException) as exc:
+            self.service.update_feedback(request=request, customer_id=self.customer_id)
+
+        self.assertEqual(exc.exception.code, 422)
+        self.feedback_service_repo.update.assert_not_called()
+
+    def test_update_culinary_feedback_rejected_when_in_progress(self) -> None:
+        """Editing culinary feedback requires FINISHED reservation status."""
+        self.reservation_repo.get.return_value = Reservation(
+            id=self.reservation_id,
+            customer_id=self.customer_id,
+            waiter_id=self.waiter_id,
+            created_at=datetime.now(UTC),
+            slot_ids=[uuid4()],
+            status=ReservationStatus.IN_PROGRESS,
+            number_of_guests=2,
+        )
+        request = UpdateFeedbackRequest(
+            reservation_id=self.reservation_id,
+            type=FeedbackType.CULINARY,
+            rating=4,
+            comment="Updated while in progress",
+        )
+
+        with self.assertRaises(ApplicationException) as exc:
+            self.service.update_feedback(request=request, customer_id=self.customer_id)
+
+        self.assertEqual(exc.exception.code, 422)
+        self.feedback_cuisine_repo.update.assert_not_called()
+
+    def test_leave_feedback_transitions_in_progress_reservation_to_finished(
+        self,
+    ) -> None:
+        """Leaving feedback while IN_PROGRESS should flip the reservation to FINISHED."""
+        self.reservation_repo.get.return_value = Reservation(
+            id=self.reservation_id,
+            customer_id=self.customer_id,
+            waiter_id=self.waiter_id,
+            created_at=datetime.now(UTC),
+            slot_ids=[uuid4()],
+            status=ReservationStatus.IN_PROGRESS,
+            number_of_guests=2,
+        )
+        request = LeaveFeedbackRequest(
+            reservation_id=self.reservation_id,
+            type=FeedbackType.SERVICE,
+            rating=5,
+            comment="Great service",
+        )
+
+        self.service.leave_feedback(request=request, customer_id=self.customer_id)
+
+        self.reservation_repo.update.assert_called_once()
+        updated = self.reservation_repo.update.call_args.args[0]
+        self.assertEqual(updated.status, ReservationStatus.FINISHED)
+
+    def test_leave_feedback_does_not_update_already_finished_reservation(self) -> None:
+        """Leaving feedback on a FINISHED reservation should not trigger a redundant update."""
+        self.reservation_repo.get.return_value = self.reservation  # status=FINISHED
+        request = LeaveFeedbackRequest(
+            reservation_id=self.reservation_id,
+            type=FeedbackType.SERVICE,
+            rating=4,
+            comment="Good",
+        )
+
+        self.service.leave_feedback(request=request, customer_id=self.customer_id)
+
+        self.reservation_repo.update.assert_not_called()
 
     def test_get_feedback_context_returns_waiter_profile(self) -> None:
         """Context should include waiter data when reservation has an assigned waiter."""
@@ -261,6 +391,30 @@ class TestFeedbackService(TestCase):
         self.assertEqual(response.waiter_id, str(self.waiter_id))
         self.assertEqual(response.waiter_name, "Mario Jast")
         self.assertEqual(response.waiter_image_url, "https://example.com/waiter.png")
+        self.assertIsNone(response.waiter_avg_rating)
+
+    def test_get_feedback_context_includes_avg_rating_from_latest_report(self) -> None:
+        """Context should include avg rating when a waiter report exists."""
+        self.reservation_repo.get.return_value = self.reservation
+        self.waiter_repo.get.return_value = SimpleNamespace(
+            id=self.waiter_id,
+            fname="Mario",
+            lname="Jast",
+            image_url="https://example.com/waiter.png",
+        )
+        self.waiter_report_repo.find_latest_by_waiter_id.return_value = SimpleNamespace(
+            avg_service_feedback=4.75,
+        )
+
+        response = self.service.get_feedback_context(
+            reservation_id=self.reservation_id,
+            customer_id=self.customer_id,
+        )
+
+        self.assertEqual(response.waiter_avg_rating, 4.75)
+        self.waiter_report_repo.find_latest_by_waiter_id.assert_called_once_with(
+            self.waiter_id
+        )
 
     def test_get_feedback_context_returns_empty_waiter_when_not_assigned(self) -> None:
         """Context should not fail when reservation has no assigned waiter."""

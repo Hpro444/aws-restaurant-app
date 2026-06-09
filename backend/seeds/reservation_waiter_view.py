@@ -97,7 +97,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
                 view.location_id, view.date
             )
             item["time_table"] = ReservationWaiterView.time_table(
-                view.time_from, view.table_name
+                view.time_to, view.table_name
             )
             batch.put_item(Item=item)
 

@@ -86,3 +86,29 @@ class WaiterReportRepository(DynamoRepository[WaiterReport]):
             count=len(results),
         )
         return results
+
+    def find_latest_by_waiter_id(self, waiter_id: UUID) -> WaiterReport | None:
+        """Return the most recent report row for waiter_id or None.
+
+        Args:
+            waiter_id: UUID of the waiter.
+
+        """
+        results = self._paginated_query(
+            "waiter_period_index latest query",
+            self._client.query,
+            TableName=self._resolve_table_name(),
+            IndexName=self._WAITER_PERIOD_INDEX,
+            KeyConditionExpression="waiter_id = :wid",
+            ExpressionAttributeValues={
+                ":wid": {"S": str(waiter_id)},
+            },
+            ScanIndexForward=False,
+            Limit=1,
+        )
+        logger.info(
+            "WaiterReport latest GSI lookup",
+            waiter_id=str(waiter_id),
+            found=bool(results),
+        )
+        return results[0] if results else None

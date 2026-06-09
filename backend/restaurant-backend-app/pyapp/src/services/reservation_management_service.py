@@ -148,6 +148,9 @@ class ReservationManagementService:
                 time_from=row.time_from,
                 time_to=row.time_to,
                 guests_number=row.guests_number,
+                status=row.status.value
+                if hasattr(row.status, "value")
+                else str(row.status),
             )
             for row in rows
         ]

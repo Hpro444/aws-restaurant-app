@@ -29,6 +29,7 @@ from repositories.location_repository import LocationRepository
 from repositories.reservation_repository import ReservationRepository
 from repositories.slot_repository import SlotRepository
 from repositories.table_repository import TableRepository
+from repositories.waiter_report_repository import WaiterReportRepository
 from repositories.waiter_repository import WaiterRepository
 
 from services.sqs_service import SqsService
@@ -47,6 +48,7 @@ class FeedbackService:
         table_repo: TableRepository | None = None,
         location_repo: LocationRepository | None = None,
         waiter_repo: WaiterRepository | None = None,
+        waiter_report_repo: WaiterReportRepository | None = None,
         sqs_service: SqsService | None = None,
         settings: AppConfig | None = None,
     ) -> None:
@@ -65,8 +67,8 @@ class FeedbackService:
         self._table_repo = table_repo or TableRepository()
         self._location_repo = location_repo or LocationRepository()
         self._waiter_repo = waiter_repo or WaiterRepository()
+        self._waiter_report_repo = waiter_report_repo or WaiterReportRepository()
         self._sqs = sqs_service
-        self._waiter_repo = waiter_repo or WaiterRepository()
 
     def get_feedback_context(
         self,
@@ -102,11 +104,14 @@ class FeedbackService:
             )
 
         waiter_name = f"{waiter.fname} {waiter.lname}".strip()
+        latest_report = self._waiter_report_repo.find_latest_by_waiter_id(waiter.id)
+        avg_rating = latest_report.avg_service_feedback if latest_report else None
         return FeedbackContextResponse(
             reservation_id=str(reservation.id),
             waiter_id=str(waiter.id),
             waiter_name=waiter_name or None,
             waiter_image_url=waiter.image_url,
+            waiter_avg_rating=avg_rating,
         )
 
     def leave_feedback(
@@ -130,13 +135,16 @@ class FeedbackService:
                 "Customers can leave feedback only for their own reservations.",
             )
 
-        self._validate_feedback_eligibility(request.type, reservation.status)
+        self._validate_leave_eligibility(reservation.status)
 
         if request.type == FeedbackType.SERVICE:
             self._create_service_feedback(request, reservation, customer_uuid)
-            return
+        else:
+            self._create_culinary_feedback(request, reservation, customer_uuid)
 
-        self._create_culinary_feedback(request, reservation, customer_uuid)
+        if reservation.status != ReservationStatus.FINISHED:
+            reservation.status = ReservationStatus.FINISHED
+            self._reservation_repo.update(reservation)
 
     def update_feedback(
         self,
@@ -159,7 +167,7 @@ class FeedbackService:
                 "Customers can edit feedback only for their own reservations.",
             )
 
-        self._validate_feedback_eligibility(request.type, reservation.status)
+        self._validate_update_eligibility(reservation.status)
 
         if request.type == FeedbackType.SERVICE:
             return self._update_service_feedback(request, customer_uuid)
@@ -183,30 +191,24 @@ class FeedbackService:
         return datetime.now(UTC)
 
     @staticmethod
-    def _validate_feedback_eligibility(
-        feedback_type: FeedbackType,
-        reservation_status: ReservationStatus,
-    ) -> None:
-        """Ensure feedback can be submitted only for allowed reservation statuses."""
-        # Ukoliko je rezervacija IN_PROGRESS, dozvoljeno je ostaviti SERVICE feedback.
-        # Ukoliko je rezervacija FINISHED, dozvoljeno je ostaviti i CULINARY i SERVICE feedback.
-
-        if feedback_type == FeedbackType.SERVICE and reservation_status not in {
+    def _validate_leave_eligibility(reservation_status: ReservationStatus) -> None:
+        """Ensure feedback can be posted only when reservation is IN_PROGRESS or FINISHED."""
+        if reservation_status not in {
             ReservationStatus.IN_PROGRESS,
             ReservationStatus.FINISHED,
         }:
             raise ApplicationException(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                "Service feedback is allowed only when reservation is IN_PROGRESS or FINISHED.",
+                "Feedback can be posted only when reservation is IN_PROGRESS or FINISHED.",
             )
 
-        if (
-            feedback_type == FeedbackType.CULINARY
-            and reservation_status != ReservationStatus.FINISHED
-        ):
+    @staticmethod
+    def _validate_update_eligibility(reservation_status: ReservationStatus) -> None:
+        """Ensure feedback can be edited only when reservation is FINISHED."""
+        if reservation_status != ReservationStatus.FINISHED:
             raise ApplicationException(
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                "Culinary feedback is allowed only when reservation is FINISHED.",
+                "Feedback can be edited only when reservation is FINISHED.",
             )
 
     def get_feedbacks(

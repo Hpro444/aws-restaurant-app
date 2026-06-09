@@ -1,6 +1,6 @@
 """Seed module for reservations."""
 
-from datetime import datetime, time, timezone
+from datetime import UTC, datetime, time
 
 from domain.reservation import Reservation  # type: ignore[import-not-found]
 from enums.reservation_status import ReservationStatus  # type: ignore[import-not-found]
@@ -31,6 +31,15 @@ def _first_day_slot(slots_list: list, waiter_id, target_date, slot_index: int = 
         key=lambda s: s.start_time,
     )
     return matching[slot_index] if len(matching) > slot_index else None
+
+
+def _resolve_status(
+    slot, intended: ReservationStatus, now: datetime
+) -> ReservationStatus:
+    """Return IN_PROGRESS when the slot has already started and status is RESERVED."""
+    if intended == ReservationStatus.RESERVED and slot.start_time <= now:
+        return ReservationStatus.IN_PROGRESS
+    return intended
 
 
 def _seed_past_reservations(
@@ -74,7 +83,7 @@ def _seed_past_reservations(
         sorted(waiter_day_slot.items())
     ):
         customer = customer_list[i % len(customer_list)]
-        created_at = datetime.combine(slot_date, time(12, 0), tzinfo=timezone.utc)
+        created_at = datetime.combine(slot_date, time(12, 0), tzinfo=UTC)
         past_reservations.append(
             Reservation(
                 id=seed_id("reservation", f"{slot.id}:past"),
@@ -142,7 +151,7 @@ def _seed_current_week_finished(
 
         for j, slot in enumerate(selected):
             customer = customer_list[counter % len(customer_list)]
-            created_at = datetime.combine(slot_date, time(12, 0), tzinfo=timezone.utc)
+            created_at = datetime.combine(slot_date, time(12, 0), tzinfo=UTC)
             reservations.append(
                 Reservation(
                     id=seed_id("reservation", f"{slot.id}:finished-cw-{j}"),
@@ -153,6 +162,87 @@ def _seed_current_week_finished(
                     status=ReservationStatus.FINISHED,
                     number_of_guests=2 + (counter % 5),
                     date=slot_date.isoformat(),
+                )
+            )
+            counter += 1
+
+    return reservations
+
+
+def _seed_today_extra_for_lea(
+    slots_list: list,
+    tables_list: list,
+    customers: dict,
+    waiters: dict,
+    today,
+    now: datetime,
+) -> list[Reservation]:
+    """Create several extra reservations for Lea (Downtown, tables 1-3) today.
+
+    The base showcase seed only books Lea's two earliest 09:00 slots, so the
+    waiter table-view (GET /reservations/waiter) is nearly empty whenever a waiter
+    queries a specific table or a ``time_from`` later than 09:00. This fills
+    tables 1-3 with a handful of reservations spread across the day so the demo
+    dashboard is well populated for Lea.
+
+    Slots already used by the base showcase (the 09:00 slots) are skipped to avoid
+    double-booking the same slot. Each reservation carries an explicit ``date`` and
+    a ``created_at`` of ``now`` so it lands in today's projection rows.
+
+    Args:
+        slots_list: All seeded Slot objects.
+        tables_list: All seeded Table objects (for table_number lookup).
+        customers: Dict keyed by email of Customer objects.
+        waiters: Dict keyed by email of Waiter objects.
+        today: The current UTC date (``datetime.date``).
+        now: The current UTC datetime (for RESERVED -> IN_PROGRESS resolution).
+
+    Returns:
+        List of Reservation objects for Lea across tables 1-3 today.
+
+    """
+    lea = waiters.get("lea@example.com")
+    if lea is None:
+        return []
+
+    table_number_by_id = {t.id: t.table_number for t in tables_list}
+    customer_list = list(customers.values())
+    if not customer_list:
+        return []
+
+    # Lea's today slots grouped by table number, each sorted by start_time.
+    slots_by_table: dict = {}
+    for slot in slots_list:
+        if slot.waiter_id != lea.id or slot.date.date() != today:
+            continue
+        table_number = table_number_by_id.get(slot.table_id)
+        if table_number is None:
+            continue
+        slots_by_table.setdefault(table_number, []).append(slot)
+    for table_slots in slots_by_table.values():
+        table_slots.sort(key=lambda s: s.start_time)
+
+    today_str = today.isoformat()
+    reservations: list[Reservation] = []
+    counter = 0
+    # Book a few later slots per table so every table and a range of start times
+    # are covered. Skip index 0 (09:00) on tables 1 and 2 — already booked by the
+    # showcase seed — but keep it on table 3, which the showcase leaves empty.
+    for table_number in (1, 2, 3):
+        table_slots = slots_by_table.get(table_number, [])
+        chosen = table_slots[0:3] if table_number == 3 else table_slots[1:4]
+        for slot in chosen:
+            customer = customer_list[counter % len(customer_list)]
+            reservations.append(
+                Reservation(
+                    id=seed_id("reservation", f"{slot.id}:lea-extra"),
+                    customer_id=customer.id,
+                    waiter_id=lea.id,
+                    created_at=now,
+                    slot_ids=[slot.id],
+                    status=_resolve_status(slot, ReservationStatus.RESERVED, now),
+                    number_of_guests=2 + (counter % 4),
+                    date=today_str,
                 )
             )
             counter += 1
@@ -183,8 +273,9 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
     customers = context["customers"]
     waiters = context["waiters"]
 
-    today = datetime.now(timezone.utc).date()
-    created_at = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
+    today = now.date()
+    created_at = now
 
     def pick(waiter_email: str, idx: int = 0):
         """Return idx-th today slot for the named waiter."""
@@ -258,7 +349,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             waiter_id=s_lea2.waiter_id,
             created_at=created_at,
             slot_ids=[s_lea2.id],
-            status=ReservationStatus.RESERVED,
+            status=_resolve_status(s_lea2, ReservationStatus.RESERVED, now),
             number_of_guests=3,
             date=today_str,
         ),
@@ -268,7 +359,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             waiter_id=s_lea.waiter_id,
             created_at=created_at,
             slot_ids=[s_lea.id],
-            status=ReservationStatus.RESERVED,
+            status=_resolve_status(s_lea, ReservationStatus.RESERVED, now),
             number_of_guests=4,
             date=today_str,
         ),
@@ -299,7 +390,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             waiter_id=s_ethan.waiter_id,
             created_at=created_at,
             slot_ids=[s_ethan.id],
-            status=ReservationStatus.RESERVED,
+            status=_resolve_status(s_ethan, ReservationStatus.RESERVED, now),
             number_of_guests=2,
             date=today_str,
         ),
@@ -329,7 +420,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
             waiter_id=s_mia.waiter_id,
             created_at=created_at,
             slot_ids=[s_mia.id],
-            status=ReservationStatus.RESERVED,
+            status=_resolve_status(s_mia, ReservationStatus.RESERVED, now),
             number_of_guests=6,
             date=today_str,
         ),
@@ -372,14 +463,27 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
     # 2 per waiter per day for Tue–Sun → ≥12 FINISHED per waiter this week.
     current_week_finished = _seed_current_week_finished(slots_list, customers, today)
 
-    all_reservations = reservations + past_reservations + current_week_finished
+    # ── Extra reservations for Lea today (populate the waiter table-view) ──
+    lea_extra = _seed_today_extra_for_lea(
+        slots_list, context["tables"], customers, waiters, today, now
+    )
+
+    all_reservations = (
+        reservations + past_reservations + current_week_finished + lea_extra
+    )
 
     with reservations_table.batch_writer() as batch:
         for reservation in all_reservations:
             batch.put_item(Item=to_item(reservation))
 
     # Flip today's active slots to RESERVED so availability queries are correct.
+    slots_by_id = {slot.id: slot for slot in slots_list}
     active_slots = [s_lea, s_lea2, s_olivia, s_ethan, s_mia, s_ava]
+    active_slots.extend(
+        slots_by_id[res.slot_ids[0]]
+        for res in lea_extra
+        if res.slot_ids[0] in slots_by_id
+    )
     with slots_table.batch_writer() as batch:
         for slot in active_slots:
             slot.status = SlotStatus.RESERVED
@@ -391,7 +495,8 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
     print(
         f"  ✓ Seeded {len(reservations)} today's reservations + "
         f"{len(past_reservations)} past FINISHED + "
-        f"{len(current_week_finished)} current-week FINISHED "
+        f"{len(current_week_finished)} current-week FINISHED + "
+        f"{len(lea_extra)} extra for Lea today "
         f"({finished_count} total finished) — "
         f"{len(active_slots)} active slots flipped to RESERVED"
     )
