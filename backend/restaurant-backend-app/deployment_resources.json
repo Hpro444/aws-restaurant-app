@@ -34,7 +34,9 @@
             "cognito-idp:ListGroups",
             "cognito-idp:InitiateAuth",
             "cognito-idp:ListUserPoolClients",
-            "cognito-idp:RevokeToken"
+            "cognito-idp:RevokeToken",
+            "ses:SendEmail",
+            "ses:SendRawEmail"
           ],
           "Effect": "Allow",
           "Resource": "*"
@@ -1153,6 +1155,12 @@
         "index_sort_key_name": "report_period_start",
         "index_sort_key_type": "S",
         "projection_type": "ALL"
+      },
+      {
+        "name": "report_period_start_index",
+        "index_key_name": "report_period_start",
+        "index_key_type": "S",
+        "projection_type": "ALL"
       }
     ],
     "autoscaling": [],
@@ -1169,6 +1177,12 @@
         "index_key_type": "S",
         "index_sort_key_name": "report_period_start",
         "index_sort_key_type": "S",
+        "projection_type": "ALL"
+      },
+      {
+        "name": "report_period_start_index",
+        "index_key_name": "report_period_start",
+        "index_key_type": "S",
         "projection_type": "ALL"
       }
     ],

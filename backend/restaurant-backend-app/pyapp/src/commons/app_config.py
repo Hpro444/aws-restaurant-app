@@ -34,6 +34,10 @@ class AppConfig(BaseSettings):
     waiter_report_table: str = "waiter-report"
     location_report_table: str = "location-report"
 
+    # Report email delivery
+    report_sender_email: str = ""
+    report_recipient_email: str = ""
+
     # SQS
     event_queue_url: str = ""
 

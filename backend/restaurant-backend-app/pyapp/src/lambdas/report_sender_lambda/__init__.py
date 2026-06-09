@@ -1,0 +1,1 @@
+"""Report sender lambda package."""
