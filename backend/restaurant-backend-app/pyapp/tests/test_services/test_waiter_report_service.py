@@ -80,13 +80,13 @@ def _make_reservation(
     )
 
 
-def _make_slot() -> Slot:
-    """Return a minimal Slot."""
+def _make_slot(hour: int = 10) -> Slot:
+    """Return a minimal Slot starting at the given hour (default 10)."""
     return Slot(
         id=uuid4(),
         table_id=uuid4(),
-        start_time=datetime(2026, 6, 4, 10, 0, tzinfo=UTC),
-        end_time=datetime(2026, 6, 4, 11, 30, tzinfo=UTC),
+        start_time=datetime(2026, 6, 4, hour, 0, tzinfo=UTC),
+        end_time=datetime(2026, 6, 4, hour + 1, 30, tzinfo=UTC),
         date=datetime(2026, 6, 4, tzinfo=UTC),
         status=SlotStatus.RESERVED,
     )
@@ -313,7 +313,7 @@ class TestHandleReservationEvent(TestCase):
         """Working hours include cancelled slots; orders_processed only counts FINISHED."""
         finished = _make_reservation(ReservationStatus.FINISHED)
         cancelled = _make_reservation(ReservationStatus.CANCELLED)
-        slots = [_make_slot(), _make_slot()]
+        slots = [_make_slot(10), _make_slot(12)]
         service = _make_service(reservations=[finished, cancelled], slots=slots)
         service.handle_reservation_event(_make_reservation_event())
         report: WaiterReport = service._waiter_report_repo.update.call_args.args[0]
