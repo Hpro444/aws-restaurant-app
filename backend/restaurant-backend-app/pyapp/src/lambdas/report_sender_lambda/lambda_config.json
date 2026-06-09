@@ -1,0 +1,25 @@
+{
+  "version": "1.0",
+  "name": "report_sender_lambda",
+  "func_name": "handler.lambda_handler",
+  "resource_type": "lambda",
+  "iam_role_name": "report_sender_lambda-role",
+  "runtime": "python3.13",
+  "memory": 128,
+  "timeout": 100,
+  "lambda_path": "lambdas\\report_sender_lambda",
+  "dependencies": [],
+  "event_sources": [],
+  "env_variables": {
+    "WAITER_REPORT_TABLE": "${waiter_report_table}",
+    "LOCATION_REPORT_TABLE": "${location_report_table}",
+    "REPORT_SENDER_EMAIL": "${report_sender_email}",
+    "REPORT_RECIPIENT_EMAIL": "${report_recipient_email}"
+  },
+  "publish_version": true,
+  "alias": "${lambdas_alias_report_sender_lambda}",
+  "url_config": {},
+  "ephemeral_storage": 512,
+  "logs_expiration": "${logs_expiration}",
+  "tags": {}
+}

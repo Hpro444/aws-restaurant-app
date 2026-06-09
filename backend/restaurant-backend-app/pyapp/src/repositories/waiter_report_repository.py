@@ -21,6 +21,7 @@ class WaiterReportRepository(DynamoRepository[WaiterReport]):
     """
 
     _WAITER_PERIOD_INDEX = "waiter_period_index"
+    _REPORT_PERIOD_START_INDEX = "report_period_start_index"
 
     def __init__(self, settings: AppConfig | None = None) -> None:
         """Initialise with the waiter-report table alias from AppConfig.
@@ -63,3 +64,25 @@ class WaiterReportRepository(DynamoRepository[WaiterReport]):
             found=bool(results),
         )
         return results[0] if results else None
+
+    def find_by_period_start(self, period_start: str) -> list[WaiterReport]:
+        """Return all waiter report rows for a given ISO week start date.
+
+        Args:
+            period_start: ISO date string ``"YYYY-MM-DD"`` for the period's Monday.
+
+        """
+        results = self._paginated_query(
+            "report_period_start_index query",
+            self._client.query,
+            TableName=self._resolve_table_name(),
+            IndexName=self._REPORT_PERIOD_START_INDEX,
+            KeyConditionExpression="report_period_start = :ps",
+            ExpressionAttributeValues={":ps": {"S": period_start}},
+        )
+        logger.info(
+            "WaiterReport period lookup",
+            period_start=period_start,
+            count=len(results),
+        )
+        return results
