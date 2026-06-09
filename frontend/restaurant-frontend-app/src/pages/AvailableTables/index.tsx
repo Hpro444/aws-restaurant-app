@@ -7,6 +7,7 @@ import { useAuth } from "../../context/AuthContext";
 import {
   getAvailableTables,
   getLocationSelectOptions,
+  toApiFromTime,
 } from "./availableTables.services";
 import type {
   Filters,
@@ -61,6 +62,8 @@ const AvailableTablesPage = () => {
   const handleSearch = async () => {
     if (!filters.locationId || !filters.date || !accessToken) return;
 
+    const fromTimeIso = toApiFromTime(filters.date, filters.fromTime);
+
     setIsLoading(true);
     setError(null);
     try {
@@ -69,7 +72,7 @@ const AvailableTablesPage = () => {
           location_id: filters.locationId,
           date: filters.date,
           guests_number: filters.guests,
-          ...(filters.fromTime ? { from_time: filters.fromTime } : {}),
+          ...(fromTimeIso ? { from_time: fromTimeIso } : {}),
         },
         accessToken,
       );
