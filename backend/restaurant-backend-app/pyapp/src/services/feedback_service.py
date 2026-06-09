@@ -331,31 +331,25 @@ class FeedbackService:
                 ) from exc
             raise
 
-        if self._sqs is not None:
-            try:
-                self._sqs.publish(
-                    self._settings.event_queue_url,
-                    FeedbackEventMessage(
-                        event_type=FeedbackEventType.CREATED,
-                        feedback_id=str(feedback_id),
-                        reservation_id=str(reservation.id) if reservation.id else None,
-                        customer_id=str(customer_id),
-                        feedback=request.comment or "",
-                        rate=request.rating,
-                        date=feedback_date.isoformat().replace("+00:00", "Z"),
-                        user_name=user_name,
-                        user_image_url=user_image_url,
-                        feedback_type=FeedbackType.SERVICE.value,
-                        location_id=None,
-                        location_address=None,
-                        waiter_id=str(waiter_id),
-                        timestamp=now.isoformat().replace("+00:00", "Z"),
-                    ),
-                )
-            except Exception:
-                logger.error(
-                    "SQS publish failed in _create_service_feedback", exc_info=True
-                )
+        self._publish_feedback_event(
+            FeedbackEventMessage(
+                event_type=FeedbackEventType.CREATED,
+                feedback_id=str(feedback_id),
+                reservation_id=str(reservation.id) if reservation.id else None,
+                customer_id=str(customer_id),
+                feedback=request.comment or "",
+                rate=request.rating,
+                date=feedback_date.isoformat().replace("+00:00", "Z"),
+                user_name=user_name,
+                user_image_url=user_image_url,
+                feedback_type=FeedbackType.SERVICE.value,
+                location_id=None,
+                location_address=None,
+                waiter_id=str(waiter_id),
+                timestamp=now.isoformat().replace("+00:00", "Z"),
+            ),
+            context="_create_service_feedback",
+        )
 
     def _create_culinary_feedback(
         self,
@@ -393,31 +387,26 @@ class FeedbackService:
             raise
 
         if self._sqs is not None:
-            try:
-                location = self._location_repo.get(location_id)
-                self._sqs.publish(
-                    self._settings.event_queue_url,
-                    FeedbackEventMessage(
-                        event_type=FeedbackEventType.CREATED,
-                        feedback_id=str(feedback_id),
-                        reservation_id=str(reservation.id) if reservation.id else None,
-                        customer_id=str(customer_id),
-                        feedback=request.comment or "",
-                        rate=request.rating,
-                        date=feedback_date.isoformat().replace("+00:00", "Z"),
-                        user_name=user_name,
-                        user_image_url=user_image_url,
-                        feedback_type=FeedbackType.CULINARY.value,
-                        location_id=str(location_id),
-                        location_address=location.address if location else None,
-                        waiter_id=None,
-                        timestamp=now.isoformat().replace("+00:00", "Z"),
-                    ),
-                )
-            except Exception:
-                logger.error(
-                    "SQS publish failed in _create_culinary_feedback", exc_info=True
-                )
+            location = self._location_repo.get(location_id)
+            self._publish_feedback_event(
+                FeedbackEventMessage(
+                    event_type=FeedbackEventType.CREATED,
+                    feedback_id=str(feedback_id),
+                    reservation_id=str(reservation.id) if reservation.id else None,
+                    customer_id=str(customer_id),
+                    feedback=request.comment or "",
+                    rate=request.rating,
+                    date=feedback_date.isoformat().replace("+00:00", "Z"),
+                    user_name=user_name,
+                    user_image_url=user_image_url,
+                    feedback_type=FeedbackType.CULINARY.value,
+                    location_id=str(location_id),
+                    location_address=location.address if location else None,
+                    waiter_id=None,
+                    timestamp=now.isoformat().replace("+00:00", "Z"),
+                ),
+                context="_create_culinary_feedback",
+            )
 
     def _update_service_feedback(
         self,
@@ -465,6 +454,29 @@ class FeedbackService:
                 date=current.date,
                 waiter_id=current.waiter_id,
             )
+        )
+
+        now = datetime.now(UTC)
+        self._publish_feedback_event(
+            FeedbackEventMessage(
+                event_type=FeedbackEventType.EDITED,
+                feedback_id=str(current.id),
+                reservation_id=(
+                    str(current.reservation_id) if current.reservation_id else None
+                ),
+                customer_id=(str(current.customer_id) if current.customer_id else None),
+                feedback=next_comment,
+                rate=next_rate,
+                date=current.date.isoformat().replace("+00:00", "Z"),
+                user_name=current.user_name,
+                user_image_url=current.user_image_url,
+                feedback_type=FeedbackType.SERVICE.value,
+                location_id=None,
+                location_address=None,
+                waiter_id=str(current.waiter_id),
+                timestamp=now.isoformat().replace("+00:00", "Z"),
+            ),
+            context="_update_service_feedback",
         )
         return True
 
@@ -515,7 +527,59 @@ class FeedbackService:
                 location_id=current.location_id,
             )
         )
+
+        if self._sqs is not None:
+            now = datetime.now(UTC)
+            location = self._location_repo.get(current.location_id)
+            self._publish_feedback_event(
+                FeedbackEventMessage(
+                    event_type=FeedbackEventType.EDITED,
+                    feedback_id=str(current.id),
+                    reservation_id=(
+                        str(current.reservation_id) if current.reservation_id else None
+                    ),
+                    customer_id=(
+                        str(current.customer_id) if current.customer_id else None
+                    ),
+                    feedback=next_comment,
+                    rate=next_rate,
+                    date=current.date.isoformat().replace("+00:00", "Z"),
+                    user_name=current.user_name,
+                    user_image_url=current.user_image_url,
+                    feedback_type=FeedbackType.CULINARY.value,
+                    location_id=str(current.location_id),
+                    location_address=location.address if location else None,
+                    waiter_id=None,
+                    timestamp=now.isoformat().replace("+00:00", "Z"),
+                ),
+                context="_update_culinary_feedback",
+            )
         return True
+
+    def _publish_feedback_event(
+        self,
+        message: FeedbackEventMessage,
+        *,
+        context: str,
+    ) -> None:
+        """Best-effort publish a feedback lifecycle event to the SQS event queue.
+
+        Publishing is best-effort and must never break the API response: the
+        call is skipped when no ``SqsService`` is configured (local dev / unit
+        tests) and any exception is caught and logged. ``context`` names the
+        originating call site so the log line identifies which action failed.
+
+        Args:
+            message: The feedback event envelope to publish.
+            context: Name of the calling method, used in the failure log line.
+
+        """
+        if self._sqs is None:
+            return
+        try:
+            self._sqs.publish(self._settings.event_queue_url, message)
+        except Exception:
+            logger.error(f"SQS publish failed in {context}", exc_info=True)
 
     def _resolve_location_id_for_reservation(self, reservation: Reservation) -> UUID:
         """Resolve reservation location using the first slot's table."""

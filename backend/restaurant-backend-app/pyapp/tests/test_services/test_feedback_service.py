@@ -13,6 +13,7 @@ with ImportFromSourceContext():
     from domain.reservation import Reservation
     from domain.slot import Slot
     from domain.table import Table
+    from dto.feedback_event import FeedbackEventType
     from dto.feedbacks import LeaveFeedbackRequest, UpdateFeedbackRequest
     from enums import FeedbackType, ReservationStatus
     from services.feedback_service import FeedbackService
@@ -29,9 +30,12 @@ class TestFeedbackService(TestCase):
         self.reservation_repo = MagicMock()
         self.slot_repo = MagicMock()
         self.table_repo = MagicMock()
+        self.location_repo = MagicMock()
+        self.location_repo.get.return_value = SimpleNamespace(address="123 Main St")
         self.waiter_repo = MagicMock()
         self.waiter_report_repo = MagicMock()
         self.waiter_report_repo.find_latest_by_waiter_id.return_value = None
+        self.sqs = MagicMock()
 
         self.service = FeedbackService(
             feedback_cuisine_repo=self.feedback_cuisine_repo,
@@ -40,8 +44,10 @@ class TestFeedbackService(TestCase):
             reservation_repo=self.reservation_repo,
             slot_repo=self.slot_repo,
             table_repo=self.table_repo,
+            location_repo=self.location_repo,
             waiter_repo=self.waiter_repo,
             waiter_report_repo=self.waiter_report_repo,
+            sqs_service=self.sqs,
         )
 
         self.customer_id = uuid4()
@@ -577,3 +583,107 @@ class TestFeedbackService(TestCase):
 
         self.assertEqual(exc.exception.code, 403)
         self.feedback_service_repo.update.assert_not_called()
+
+    def test_update_service_feedback_publishes_edited_event(self) -> None:
+        """A successful service-feedback edit publishes an EDITED event with new values."""
+        self.reservation_repo.get.return_value = self.reservation
+        feedback_id = uuid5(NAMESPACE_URL, f"service:{self.reservation_id}")
+        self.feedback_service_repo.get.return_value = SimpleNamespace(
+            id=feedback_id,
+            reservation_id=self.reservation_id,
+            customer_id=self.customer_id,
+            user_name="John Doe",
+            user_image_url="https://example.com/avatar.png",
+            feedback="Old",
+            rate=2,
+            date=datetime.now(UTC),
+            waiter_id=self.waiter_id,
+        )
+        request = UpdateFeedbackRequest(
+            reservation_id=self.reservation_id,
+            type=FeedbackType.SERVICE,
+            rating=5,
+            comment="Updated",
+        )
+
+        result = self.service.update_feedback(
+            request=request, customer_id=self.customer_id
+        )
+
+        self.assertTrue(result)
+        self.sqs.publish.assert_called_once()
+        published = self.sqs.publish.call_args.args[1]
+        self.assertEqual(published.event_type, FeedbackEventType.EDITED)
+        self.assertEqual(published.feedback_id, str(feedback_id))
+        self.assertEqual(published.feedback_type, FeedbackType.SERVICE.value)
+        self.assertEqual(published.rate, 5)
+        self.assertEqual(published.feedback, "Updated")
+        self.assertEqual(published.waiter_id, str(self.waiter_id))
+
+    def test_update_culinary_feedback_publishes_edited_event(self) -> None:
+        """A successful culinary-feedback edit publishes an EDITED event with new values."""
+        self.reservation_repo.get.return_value = self.reservation
+        feedback_id = uuid5(NAMESPACE_URL, f"culinary:{self.reservation_id}")
+        location_id = uuid4()
+        self.feedback_cuisine_repo.get.return_value = SimpleNamespace(
+            id=feedback_id,
+            reservation_id=self.reservation_id,
+            customer_id=self.customer_id,
+            user_name="John Doe",
+            user_image_url="https://example.com/avatar.png",
+            feedback="Old",
+            rate=3,
+            date=datetime.now(UTC),
+            location_id=location_id,
+        )
+        request = UpdateFeedbackRequest(
+            reservation_id=self.reservation_id,
+            type=FeedbackType.CULINARY,
+            rating=1,
+            comment="Updated culinary",
+        )
+
+        result = self.service.update_feedback(
+            request=request, customer_id=self.customer_id
+        )
+
+        self.assertTrue(result)
+        self.sqs.publish.assert_called_once()
+        published = self.sqs.publish.call_args.args[1]
+        self.assertEqual(published.event_type, FeedbackEventType.EDITED)
+        self.assertEqual(published.feedback_type, FeedbackType.CULINARY.value)
+        self.assertEqual(published.location_id, str(location_id))
+        self.assertEqual(published.location_address, "123 Main St")
+        self.assertEqual(published.rate, 1)
+        self.assertEqual(published.feedback, "Updated culinary")
+        self.assertIsNone(published.waiter_id)
+
+    def test_update_service_feedback_noop_does_not_publish(self) -> None:
+        """A no-op edit (unchanged rate and comment) writes nothing and publishes nothing."""
+        self.reservation_repo.get.return_value = self.reservation
+        feedback_id = uuid5(NAMESPACE_URL, f"service:{self.reservation_id}")
+        self.feedback_service_repo.get.return_value = SimpleNamespace(
+            id=feedback_id,
+            reservation_id=self.reservation_id,
+            customer_id=self.customer_id,
+            user_name="John Doe",
+            user_image_url="https://example.com/avatar.png",
+            feedback="Same",
+            rate=4,
+            date=datetime.now(UTC),
+            waiter_id=self.waiter_id,
+        )
+        request = UpdateFeedbackRequest(
+            reservation_id=self.reservation_id,
+            type=FeedbackType.SERVICE,
+            rating=4,
+            comment="Same",
+        )
+
+        result = self.service.update_feedback(
+            request=request, customer_id=self.customer_id
+        )
+
+        self.assertFalse(result)
+        self.feedback_service_repo.update.assert_not_called()
+        self.sqs.publish.assert_not_called()
