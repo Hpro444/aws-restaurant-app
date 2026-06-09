@@ -82,6 +82,48 @@ class FeedbackContextResponse(BaseModel):
     waiter_image_url: str | None = None
 
 
+class UpdateFeedbackRequest(BaseModel):
+    """Validated body for PUT /feedbacks/."""
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        extra="ignore",
+        str_strip_whitespace=True,
+    )
+
+    reservation_id: UUID = Field(...)
+    type: FeedbackType
+    rating: int | None = Field(None, ge=1, le=5)
+    comment: str | None = None
+
+    @field_validator("type", mode="before")
+    @classmethod
+    def normalize_type(cls, value: object) -> object:
+        """Accept legacy 'cuisine' input and map it to 'culinary'."""
+        if isinstance(value, str) and value.strip().lower() == "cuisine":
+            return FeedbackType.CULINARY
+        return value
+
+    @field_validator("rating", mode="before")
+    @classmethod
+    def coerce_rating(cls, value: object) -> object:
+        """Allow numeric-string ratings while keeping integer validation strict."""
+        if isinstance(value, str) and value.strip():
+            try:
+                return int(value)
+            except ValueError:
+                return value
+        return value
+
+
+class UpdateFeedbackResponse(BaseModel):
+    """Simple success payload for feedback update."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    message: str
+
+
 class GetFeedbacksRequest(BaseModel):
     """Validated query params for GET /locations/{id}/feedbacks."""
 
