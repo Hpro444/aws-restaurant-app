@@ -13,7 +13,7 @@ with ImportFromSourceContext():
     from domain.reservation import Reservation
     from domain.slot import Slot
     from domain.table import Table
-    from dto.feedbacks import LeaveFeedbackRequest
+    from dto.feedbacks import LeaveFeedbackRequest, UpdateFeedbackRequest
     from enums import FeedbackType, ReservationStatus
     from services.feedback_service import FeedbackService
 
@@ -315,3 +315,111 @@ class TestFeedbackService(TestCase):
             )
 
         self.assertEqual(exc.exception.code, 403)
+
+    def test_update_service_feedback_updates_rate_and_comment(self) -> None:
+        """Editing service feedback should update only editable fields."""
+        self.reservation_repo.get.return_value = self.reservation
+        feedback_id = uuid5(NAMESPACE_URL, f"service:{self.reservation_id}")
+        self.feedback_service_repo.get.return_value = SimpleNamespace(
+            id=feedback_id,
+            reservation_id=self.reservation_id,
+            customer_id=self.customer_id,
+            user_name="John Doe",
+            user_image_url="https://example.com/avatar.png",
+            feedback="Old",
+            rate=2,
+            date=datetime.now(UTC),
+            waiter_id=self.waiter_id,
+        )
+        request = UpdateFeedbackRequest(
+            reservation_id=self.reservation_id,
+            type=FeedbackType.SERVICE,
+            rating=5,
+            comment="Updated",
+        )
+
+        self.service.update_feedback(request=request, customer_id=self.customer_id)
+
+        self.feedback_service_repo.update.assert_called_once()
+        updated = self.feedback_service_repo.update.call_args.args[0]
+        self.assertEqual(updated.id, feedback_id)
+        self.assertEqual(updated.rate, 5)
+        self.assertEqual(updated.feedback, "Updated")
+        self.feedback_cuisine_repo.update.assert_not_called()
+
+    def test_update_culinary_feedback_updates_rate_and_comment(self) -> None:
+        """Editing culinary feedback should update only editable fields."""
+        self.reservation_repo.get.return_value = self.reservation
+        feedback_id = uuid5(NAMESPACE_URL, f"culinary:{self.reservation_id}")
+        location_id = uuid4()
+        self.feedback_cuisine_repo.get.return_value = SimpleNamespace(
+            id=feedback_id,
+            reservation_id=self.reservation_id,
+            customer_id=self.customer_id,
+            user_name="John Doe",
+            user_image_url="https://example.com/avatar.png",
+            feedback="Old",
+            rate=3,
+            date=datetime.now(UTC),
+            location_id=location_id,
+        )
+        request = UpdateFeedbackRequest(
+            reservation_id=self.reservation_id,
+            type=FeedbackType.CULINARY,
+            rating=4,
+            comment="Updated culinary",
+        )
+
+        self.service.update_feedback(request=request, customer_id=self.customer_id)
+
+        self.feedback_cuisine_repo.update.assert_called_once()
+        updated = self.feedback_cuisine_repo.update.call_args.args[0]
+        self.assertEqual(updated.id, feedback_id)
+        self.assertEqual(updated.rate, 4)
+        self.assertEqual(updated.feedback, "Updated culinary")
+        self.feedback_service_repo.update.assert_not_called()
+
+    def test_update_feedback_raises_404_when_target_feedback_missing(self) -> None:
+        """Editing non-existing feedback should return 404."""
+        self.reservation_repo.get.return_value = self.reservation
+        self.feedback_service_repo.get.return_value = None
+        request = UpdateFeedbackRequest(
+            reservation_id=self.reservation_id,
+            type=FeedbackType.SERVICE,
+            rating=4,
+            comment="Updated",
+        )
+
+        with self.assertRaises(ApplicationException) as exc:
+            self.service.update_feedback(request=request, customer_id=self.customer_id)
+
+        self.assertEqual(exc.exception.code, 404)
+        self.feedback_service_repo.update.assert_not_called()
+
+    def test_update_feedback_raises_403_for_foreign_customer(self) -> None:
+        """Customers cannot edit another customer's feedback."""
+        self.reservation_repo.get.return_value = self.reservation
+        feedback_id = uuid5(NAMESPACE_URL, f"service:{self.reservation_id}")
+        self.feedback_service_repo.get.return_value = SimpleNamespace(
+            id=feedback_id,
+            reservation_id=self.reservation_id,
+            customer_id=uuid4(),
+            user_name="Other",
+            user_image_url=None,
+            feedback="Old",
+            rate=2,
+            date=datetime.now(UTC),
+            waiter_id=self.waiter_id,
+        )
+        request = UpdateFeedbackRequest(
+            reservation_id=self.reservation_id,
+            type=FeedbackType.SERVICE,
+            rating=3,
+            comment="Updated",
+        )
+
+        with self.assertRaises(ApplicationException) as exc:
+            self.service.update_feedback(request=request, customer_id=self.customer_id)
+
+        self.assertEqual(exc.exception.code, 403)
+        self.feedback_service_repo.update.assert_not_called()

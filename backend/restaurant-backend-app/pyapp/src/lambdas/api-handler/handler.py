@@ -16,6 +16,8 @@ from dto.feedbacks import (
     LeaveFeedbackRequest,
     LeaveFeedbackResponse,
     PageFeedbackResponse,
+    UpdateFeedbackRequest,
+    UpdateFeedbackResponse,
 )
 from dto.locations import LocationAddressResponse, LocationResponse
 from dto.logout import LogoutRequest, LogoutResponse
@@ -1249,6 +1251,35 @@ class ApiHandler(AbstractLambda):
         return build_response(
             LeaveFeedbackResponse(message="Feedback has been created.").model_dump(),
             code=HttpStatusCode.RESPONSE_CREATED_CODE,
+        )
+
+    def _update_feedback(self, event: dict) -> LambdaResponse:
+        """Handle PUT /feedbacks/ for customer-submitted feedback updates."""
+        user_id, role = self._get_actor_context(event)
+        if role != UserRole.CUSTOMER:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
+                "Only customers can edit feedback.",
+            )
+
+        request: UpdateFeedbackRequest = self._validate(
+            UpdateFeedbackRequest, self._parse_body(event)
+        )
+
+        is_changed = self._feedback_service.update_feedback(
+            request=request,
+            customer_id=user_id,
+        )
+
+        return build_response(
+            UpdateFeedbackResponse(
+                message=(
+                    "Feedback has been updated."
+                    if is_changed
+                    else "Nothing has been changed."
+                )
+            ).model_dump(),
+            code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 
     def _get_feedback_context(self, event: dict) -> LambdaResponse:

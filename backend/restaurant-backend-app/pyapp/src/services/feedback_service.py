@@ -19,6 +19,7 @@ from dto.feedbacks import (
     FeedbackResponse,
     LeaveFeedbackRequest,
     PageFeedbackResponse,
+    UpdateFeedbackRequest,
 )
 from enums import FeedbackType, HttpStatusCode, ReservationStatus
 from repositories.customer_repository import CustomerRepository
@@ -136,6 +137,34 @@ class FeedbackService:
             return
 
         self._create_culinary_feedback(request, reservation, customer_uuid)
+
+    def update_feedback(
+        self,
+        request: UpdateFeedbackRequest,
+        customer_id: UUID | str,
+    ) -> bool:
+        """Update an existing feedback row for the authenticated customer."""
+        customer_uuid = coerce_uuid(customer_id)
+        reservation = self._reservation_repo.get(request.reservation_id)
+
+        if reservation is None:
+            raise ApplicationException(
+                HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                "Reservation not found",
+            )
+
+        if reservation.customer_id != customer_uuid:
+            raise ApplicationException(
+                HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
+                "Customers can edit feedback only for their own reservations.",
+            )
+
+        self._validate_feedback_eligibility(request.type, reservation.status)
+
+        if request.type == FeedbackType.SERVICE:
+            return self._update_service_feedback(request, customer_uuid)
+
+        return self._update_culinary_feedback(request, customer_uuid)
 
     @staticmethod
     def _feedback_date_for(reservation: Reservation) -> datetime:
@@ -387,6 +416,104 @@ class FeedbackService:
                 logger.error(
                     "SQS publish failed in _create_culinary_feedback", exc_info=True
                 )
+
+    def _update_service_feedback(
+        self,
+        request: UpdateFeedbackRequest,
+        customer_id: UUID,
+    ) -> bool:
+        """Update service feedback for a reservation."""
+        feedback_id = uuid5(NAMESPACE_URL, f"service:{request.reservation_id}")
+        current = self._feedback_service_repo.get(feedback_id)
+
+        if current is None:
+            raise ApplicationException(
+                HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                "Service feedback for this reservation was not found.",
+            )
+
+        if current.customer_id != customer_id:
+            raise ApplicationException(
+                HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
+                "Customers can edit feedback only for their own reservations.",
+            )
+
+        next_rate = request.rating if request.rating is not None else current.rate
+        next_comment = (
+            request.comment if request.comment is not None else current.feedback
+        )
+
+        if (
+            request.rating is not None
+            and request.comment is not None
+            and next_rate == current.rate
+            and next_comment == current.feedback
+        ):
+            return False
+
+        self._feedback_service_repo.update(
+            ServiceFeedback(
+                id=current.id,
+                reservation_id=current.reservation_id,
+                customer_id=current.customer_id,
+                user_name=current.user_name,
+                user_image_url=current.user_image_url,
+                feedback=next_comment,
+                rate=next_rate,
+                date=current.date,
+                waiter_id=current.waiter_id,
+            )
+        )
+        return True
+
+    def _update_culinary_feedback(
+        self,
+        request: UpdateFeedbackRequest,
+        customer_id: UUID,
+    ) -> bool:
+        """Update culinary feedback for a reservation."""
+        feedback_id = uuid5(NAMESPACE_URL, f"culinary:{request.reservation_id}")
+        current = self._feedback_cuisine_repo.get(feedback_id)
+
+        if current is None:
+            raise ApplicationException(
+                HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                "Culinary feedback for this reservation was not found.",
+            )
+
+        if current.customer_id != customer_id:
+            raise ApplicationException(
+                HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
+                "Customers can edit feedback only for their own reservations.",
+            )
+
+        next_rate = request.rating if request.rating is not None else current.rate
+        next_comment = (
+            request.comment if request.comment is not None else current.feedback
+        )
+
+        if (
+            request.rating is not None
+            and request.comment is not None
+            and next_rate == current.rate
+            and next_comment == current.feedback
+        ):
+            return False
+
+        self._feedback_cuisine_repo.update(
+            FeedbackCuisine(
+                id=current.id,
+                reservation_id=current.reservation_id,
+                customer_id=current.customer_id,
+                user_name=current.user_name,
+                user_image_url=current.user_image_url,
+                feedback=next_comment,
+                rate=next_rate,
+                date=current.date,
+                location_id=current.location_id,
+            )
+        )
+        return True
 
     def _resolve_location_id_for_reservation(self, reservation: Reservation) -> UUID:
         """Resolve reservation location using the first slot's table."""
