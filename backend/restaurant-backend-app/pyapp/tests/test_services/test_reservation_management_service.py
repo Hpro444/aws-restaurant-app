@@ -3,7 +3,7 @@
 import unittest
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from pyapp.tests import ImportFromSourceContext
 
@@ -126,6 +126,18 @@ class DummyWaiterRepo:
         return self._waiter
 
 
+class DummyFeedbackRepo:
+    """In-memory feedback repository with get-by-id lookup."""
+
+    def __init__(self, existing_ids=None):
+        """Initialise with optional ids that should resolve as existing feedback."""
+        self._existing_ids = set(existing_ids or [])
+
+    def get(self, item_id):
+        """Return a dummy object when feedback id exists; otherwise None."""
+        return object() if item_id in self._existing_ids else None
+
+
 def _build_service(start_in_minutes=120):
     """Construct service with deterministic in-memory entities."""
     customer_id = uuid4()
@@ -186,6 +198,8 @@ def _build_service(start_in_minutes=120):
     service._location_repo = DummyLocationRepo(location)
     service._waiter_repo = DummyWaiterRepo(waiter)
     service._waiter_view_repo = DummyWaiterViewRepo()
+    service._feedback_service_repo = DummyFeedbackRepo()
+    service._feedback_cuisine_repo = DummyFeedbackRepo()
     return service, reservation, customer_id, waiter_id
 
 
@@ -207,6 +221,41 @@ class TestReservationManagementService(unittest.TestCase):
         self.assertTrue(item.time_from)
         self.assertTrue(item.time_to)
         self.assertEqual(item.guests_number, 4)
+        self.assertFalse(item.allowed_actions.can_leave_feedback)
+        self.assertFalse(item.allowed_actions.can_edit_feedback)
+
+    def test_in_progress_without_feedback_allows_leave_feedback(self):
+        """IN_PROGRESS reservation without existing feedback should enable leave feedback."""
+        service, reservation, customer_id, _ = _build_service(start_in_minutes=120)
+        reservation.status = ReservationStatus.IN_PROGRESS
+
+        response = service.get_reservation(
+            reservation_id=reservation.id,
+            actor_id=customer_id,
+            role=UserRole.CUSTOMER,
+        )
+
+        self.assertFalse(response.allowed_actions.can_edit)
+        self.assertFalse(response.allowed_actions.can_cancel)
+        self.assertTrue(response.allowed_actions.can_leave_feedback)
+        self.assertFalse(response.allowed_actions.can_edit_feedback)
+
+    def test_in_progress_with_existing_feedback_allows_only_edit_feedback(self):
+        """When feedback exists, leave is disabled and edit feedback is enabled."""
+        service, reservation, customer_id, _ = _build_service(start_in_minutes=120)
+        reservation.status = ReservationStatus.IN_PROGRESS
+        service._feedback_service_repo = DummyFeedbackRepo(
+            {uuid5(NAMESPACE_URL, f"service:{reservation.id}")}
+        )
+
+        response = service.get_reservation(
+            reservation_id=reservation.id,
+            actor_id=customer_id,
+            role=UserRole.CUSTOMER,
+        )
+
+        self.assertFalse(response.allowed_actions.can_leave_feedback)
+        self.assertTrue(response.allowed_actions.can_edit_feedback)
 
     def test_cancel_fails_within_cutoff_window(self):
         """Cancel is blocked when reservation starts within 30 minutes."""
@@ -514,6 +563,8 @@ class TestReservationManagementService(unittest.TestCase):
         service._table_repo = DummyTableRepo(table)
         service._location_repo = DummyLocationRepo(location)
         service._waiter_view_repo = DummyWaiterViewRepo()
+        service._feedback_service_repo = DummyFeedbackRepo()
+        service._feedback_cuisine_repo = DummyFeedbackRepo()
 
         service.cancel_reservation(
             reservation_id=reservation.id,

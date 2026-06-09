@@ -84,6 +84,8 @@ class TestReservationManagement(ApiHandlerLambdaTestCase):
         self.assertEqual(item["timeFrom"], "12:00")
         self.assertEqual(item["timeTo"], "13:30")
         self.assertEqual(item["guestsNumber"], 4)
+        self.assertIn("canLeaveFeedback", item["allowedActions"])
+        self.assertIn("canEditFeedback", item["allowedActions"])
 
     def test_get_reservation_returns_200(self) -> None:
         """GET /bookings/client/{id} returns one reservation payload."""
