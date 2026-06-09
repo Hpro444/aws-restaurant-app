@@ -151,6 +151,7 @@ class ApiHandler(AbstractLambda):
             self._get_feedback_context,
         )
         router.add("POST", "/feedbacks", self._leave_feedback)
+        router.add("PUT", "/feedbacks", self._update_feedback)
 
         router.add("GET", "/bookings/tables", self._get_available_tables)
         router.add("GET", "/bookings/waiter/tables", self._get_waiter_available_tables)

@@ -621,6 +621,37 @@
               }
             }
           },
+          "/locations/{id}/tables": {
+            "get": {
+              "tags": ["Locations"],
+              "summary": "Get tables for a location (waiter only)",
+              "security": [{ "bearerAuth": [] }],
+              "parameters": [
+                {
+                  "name": "id",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string", "format": "uuid" }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Tables list",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "array",
+                        "items": { "$ref": "#/components/schemas/TableDTO" }
+                      }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
           "/locations/{id}/feedbacks": {
             "get": {
               "tags": ["Feedback"],
@@ -697,6 +728,33 @@
                 "403": { "$ref": "#/components/responses/ForbiddenError" },
                 "404": { "$ref": "#/components/responses/NotFoundError" },
                 "409": { "$ref": "#/components/responses/ConflictError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            },
+            "put": {
+              "tags": ["Feedback"],
+              "summary": "Update feedback (customer only)",
+              "security": [{ "bearerAuth": [] }],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": { "$ref": "#/components/schemas/UpdateFeedbackRequest" }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Feedback updated or unchanged",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/UpdateFeedbackResponse" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "404": { "$ref": "#/components/responses/NotFoundError" },
                 "422": { "$ref": "#/components/responses/ValidationError" }
               }
             }
@@ -1218,6 +1276,34 @@
                 "message": { "type": "string" }
               }
             },
+            "UpdateFeedbackRequest": {
+              "type": "object",
+              "required": ["reservation_id", "type"],
+              "properties": {
+                "reservation_id": { "type": "string", "format": "uuid" },
+                "type": {
+                  "type": "string",
+                  "enum": ["service", "culinary", "cuisine"],
+                  "description": "cuisine is accepted and normalized to culinary."
+                },
+                "rating": { "type": "integer", "minimum": 1, "maximum": 5, "nullable": true },
+                "comment": { "type": "string", "nullable": true }
+              }
+            },
+            "UpdateFeedbackResponse": {
+              "type": "object",
+              "required": ["message"],
+              "properties": {
+                "message": { "type": "string" }
+              }
+            },
+            "TableDTO": {
+              "type": "object",
+              "required": ["table_number"],
+              "properties": {
+                "table_number": { "type": "integer" }
+              }
+            },
             "FeedbackContextResponse": {
               "type": "object",
               "required": ["reservation_id"],
@@ -1279,15 +1365,6 @@
                 "numberOfElements": { "type": "integer" },
                 "pageable": { "$ref": "#/components/schemas/FeedbackPageable" },
                 "empty": { "type": "boolean" }
-              }
-            },
-            "CustomerResponse": {
-              "type": "object",
-              "required": ["id", "user_name", "email"],
-              "properties": {
-                "id": { "type": "string", "format": "uuid" },
-                "user_name": { "type": "string" },
-                "email": { "type": "string", "format": "email" }
               }
             },
             "WaiterReservationView": {
