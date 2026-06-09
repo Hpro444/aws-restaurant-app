@@ -58,6 +58,15 @@
     "visibility_timeout": 600,
     "tags": {}
   },
+  "weekly-reports-sender-rule": {
+    "resource_type": "eventbridge_rule",
+    "rule_type": "schedule",
+    "region": "${region}",
+    "expression": "cron(0 8 ? * MON *)",
+    "tags": {
+      "purpose": "weekly-report-sender"
+    }
+  },
   "restaurant-api": {
     "resource_type": "api_gateway",
     "deploy_stage": "api",
