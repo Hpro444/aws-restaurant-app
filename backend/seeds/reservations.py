@@ -476,16 +476,21 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         for reservation in all_reservations:
             batch.put_item(Item=to_item(reservation))
 
-    # Flip today's active slots to RESERVED so availability queries are correct.
+    # Flip slots referenced by all non-cancelled reservations to RESERVED so
+    # availability checks see seeded bookings as occupied.
     slots_by_id = {slot.id: slot for slot in slots_list}
-    active_slots = [s_lea, s_lea2, s_olivia, s_ethan, s_mia, s_ava]
-    active_slots.extend(
-        slots_by_id[res.slot_ids[0]]
-        for res in lea_extra
-        if res.slot_ids[0] in slots_by_id
-    )
+    reserved_slot_ids = {
+        slot_id
+        for reservation in all_reservations
+        if reservation.status != ReservationStatus.CANCELLED
+        for slot_id in reservation.slot_ids
+    }
+    occupied_slots = [
+        slots_by_id[slot_id] for slot_id in reserved_slot_ids if slot_id in slots_by_id
+    ]
+
     with slots_table.batch_writer() as batch:
-        for slot in active_slots:
+        for slot in occupied_slots:
             slot.status = SlotStatus.RESERVED
             batch.put_item(Item=to_item(slot))
 
@@ -498,7 +503,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         f"{len(current_week_finished)} current-week FINISHED + "
         f"{len(lea_extra)} extra for Lea today "
         f"({finished_count} total finished) — "
-        f"{len(active_slots)} active slots flipped to RESERVED"
+        f"{len(occupied_slots)} occupied slots flipped to RESERVED"
     )
 
     context["reservations"] = all_reservations
