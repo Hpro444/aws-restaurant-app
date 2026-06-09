@@ -13,6 +13,8 @@ class AllowedActions(BaseModel):
 
     can_edit: bool = Field(..., alias="canEdit")
     can_cancel: bool = Field(..., alias="canCancel")
+    can_leave_feedback: bool = Field(False, alias="canLeaveFeedback")
+    can_edit_feedback: bool = Field(False, alias="canEditFeedback")
 
 
 class ReservationView(BaseModel):
