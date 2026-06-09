@@ -1,5 +1,9 @@
 import getApiBaseUrl from "../../config/GetApiBaseUrl";
-import type { GetTablesParams, GetTablesResponse, LocationSelectOption } from "../../types/location";
+import type {
+  GetTablesParams,
+  GetTablesResponse,
+  LocationSelectOption,
+} from "../../types/location";
 
 export const getLocationSelectOptions = async (
   accessToken?: string,
@@ -145,4 +149,59 @@ export const createBooking = async (
   }
 
   return data as CreateBookingResponse;
+};
+
+export const isDateOrNull = (date: unknown): date is Date | null => {
+  return date === null || date instanceof Date;
+};
+
+export const toLocalApiDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+export const toCalendarDate = (value: string): Date | null => {
+  if (!value) return null;
+  const [y, m, d] = value.split("-").map(Number);
+  if (!y || !m || !d) return null;
+
+  const localDate = new Date(y, m - 1, d);
+  return Number.isNaN(localDate.getTime()) ? null : localDate;
+};
+
+export const toCalendarTime = (value: string): Date | null => {
+  if (!value) return null;
+
+  const [hRaw, mRaw] = value.split(":");
+  const h = Number(hRaw);
+  const m = mRaw !== undefined ? Number(mRaw) : 0;
+
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+
+  const date = new Date();
+  date.setHours(h, m, 0, 0);
+  return date;
+};
+
+export const toTimeString = (date: Date): string => {
+  const hh = String(date.getHours()).padStart(2, "0");
+  const mm = String(date.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+};
+
+export const toApiFromTime = (
+  date: string,
+  time: string,
+): string | undefined => {
+  if (!date || !time) return undefined;
+
+  const parts = time.split(":");
+  const hour = (parts[0] || "").padStart(2, "0");
+  const minute = (parts[1] || "00").padStart(2, "0");
+
+  if (!hour) return undefined;
+
+  return date + "T" + hour + ":" + minute + ":00Z";
 };
