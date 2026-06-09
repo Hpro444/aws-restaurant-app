@@ -1,20 +1,18 @@
-import type { TableResult } from "../../../types/location";
 import Card from "./Card";
+import { type TableResult } from "../availableTables.services";
 
 type FoundResultsProps = {
-  tables: TableResult[];
-  locationAddress: string;
   locationId: string;
+  tables: TableResult[];
   date: string;
-  initialGuests: number;
+  initialGuests?: number;
 };
 
 const FoundResults = ({
   tables,
-  locationId,
-  locationAddress,
   date,
-  initialGuests,
+  initialGuests = 1,
+  locationId,
 }: FoundResultsProps) => {
   return (
     <>
@@ -26,10 +24,9 @@ const FoundResults = ({
           <Card
             key={table.table_id}
             table={table}
-            locationId={locationId}
-            locationAddress={locationAddress}
             date={date}
             initialGuests={initialGuests}
+            locationId={locationId}
           />
         ))}
       </section>

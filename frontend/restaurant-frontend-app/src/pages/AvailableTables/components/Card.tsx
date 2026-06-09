@@ -31,19 +31,13 @@ const SlotButton = ({ slot, onClick }: SlotButtonProps) => {
 
 type CardProps = {
   table: TableResult;
-  locationAddress: string;
+  locationAddress?: string;
   locationId: string;
   date: string;
   initialGuests?: number;
 };
 
-const Card = ({
-  table,
-  locationId,
-  locationAddress,
-  date,
-  initialGuests = 1,
-}: CardProps) => {
+const Card = ({ table, date, initialGuests = 1, locationId }: CardProps) => {
   const [isSlotsModalOpen, setIsSlotsModalOpen] = useState(false);
   const [isMakeReservationOpen, setIsMakeReservationOpen] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
@@ -88,7 +82,7 @@ const Card = ({
                 alt="Location icon"
                 className="w-4 h-4"
               />
-              {locationAddress}
+              {table.location_address}
             </p>
             <p>Table {table.table_number}</p>
           </div>
@@ -125,7 +119,7 @@ const Card = ({
       {isSlotsModalOpen && (
         <AvailableSlotsModal
           slots={table.available_slots}
-          locationAddress={locationAddress}
+          locationAddress={table.location_address}
           tableNumber={table.table_number}
           date={date}
           onSelectSlot={handleSlotSelectFromModal}
@@ -137,12 +131,12 @@ const Card = ({
         <MakeReservationModal
           slot={selectedSlot}
           allSlots={table.available_slots}
-          locationAddress={locationAddress}
           locationId={locationId}
+          locationAddress={table.location_address}
           tableNumber={table.table_number}
           tableCapacity={table.capacity}
-          date={date}
           initialGuests={initialGuests}
+          date={date}
           onClose={handleCloseMakeReservation}
           onSelectSlot={setSelectedSlot}
           onReservationResult={(result) => {

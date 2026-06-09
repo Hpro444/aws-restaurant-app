@@ -78,6 +78,7 @@ export interface TableResult {
   table_number: number;
   capacity: number;
   available_slots: AvailableSlot[];
+  location_address: string;
 }
 
 export interface GetTablesParams {
