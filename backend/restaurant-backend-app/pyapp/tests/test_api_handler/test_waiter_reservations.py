@@ -41,6 +41,7 @@ def _view() -> ReservationWaiterViewDTO:
         time_from="12:00",
         time_to="13:30",
         guests_number=4,
+        status="reserved",
     )
 
 

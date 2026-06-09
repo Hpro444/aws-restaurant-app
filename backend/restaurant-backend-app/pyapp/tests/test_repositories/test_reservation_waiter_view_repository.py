@@ -57,8 +57,8 @@ class _RepoTestCase(unittest.TestCase):
 class TestQueryForTable(_RepoTestCase):
     """Tests for ReservationWaiterViewRepository.query_for_table."""
 
-    def test_targets_gsi_with_exact_key_condition(self) -> None:
-        """Query must target location_date_index with an exact PK+SK condition and waiter filter."""
+    def test_targets_gsi_with_range_key_condition(self) -> None:
+        """Query must target location_date_index with a range SK condition and waiter+table filters."""
         self.mock_client.query.return_value = {"Items": []}
 
         self.repo.query_for_table(_LOC_ID, _DATE, "12:00", "5", waiter_id=_WAITER_ID)
@@ -67,16 +67,20 @@ class TestQueryForTable(_RepoTestCase):
         self.assertEqual(kwargs["IndexName"], "location_date_index")
         self.assertEqual(
             kwargs["KeyConditionExpression"],
-            "location_date = :pk AND time_table = :tt",
+            "location_date = :pk AND time_table >= :tt",
         )
-        self.assertEqual(kwargs["FilterExpression"], "#wid = :wid")
-        self.assertEqual(kwargs["ExpressionAttributeNames"], {"#wid": "waiter_id"})
+        self.assertEqual(kwargs["FilterExpression"], "#wid = :wid AND #tname = :tname")
+        self.assertEqual(
+            kwargs["ExpressionAttributeNames"],
+            {"#wid": "waiter_id", "#tname": "table_name"},
+        )
         self.assertEqual(
             kwargs["ExpressionAttributeValues"],
             {
                 ":pk": {"S": f"{_LOC_ID}#{_DATE}"},
-                ":tt": {"S": "12:00#5"},
+                ":tt": {"S": "12:00"},
                 ":wid": {"S": str(_WAITER_ID)},
+                ":tname": {"S": "5"},
             },
         )
 
@@ -108,7 +112,7 @@ class TestReusedBaseCrud(_RepoTestCase):
         self.assertEqual(kwargs["ConditionExpression"], "attribute_not_exists(id)")
         self.assertEqual(kwargs["Item"]["id"], {"S": str(_RES_ID)})
         self.assertEqual(kwargs["Item"]["location_date"], {"S": f"{_LOC_ID}#{_DATE}"})
-        self.assertEqual(kwargs["Item"]["time_table"], {"S": "12:00#5"})
+        self.assertEqual(kwargs["Item"]["time_table"], {"S": "13:30#5"})
 
     def test_update_puts_item_without_condition(self) -> None:
         """Update must put the item as an unconditional upsert."""

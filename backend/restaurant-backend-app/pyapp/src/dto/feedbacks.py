@@ -80,6 +80,7 @@ class FeedbackContextResponse(BaseModel):
     waiter_id: str | None = None
     waiter_name: str | None = None
     waiter_image_url: str | None = None
+    waiter_avg_rating: float | None = None
 
 
 class UpdateFeedbackRequest(BaseModel):

@@ -39,6 +39,7 @@ class ReservationWaiterViewDTO(BaseModel):
     time_from: str = Field(..., alias="timeFrom")
     time_to: str = Field(..., alias="timeTo")
     guests_number: int = Field(..., alias="guestsNumber")
+    status: str
 
 
 class WaiterReservationListResponse(BaseModel):

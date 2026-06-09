@@ -48,10 +48,10 @@ class TestKeyHelpers(unittest.TestCase):
         )
 
     def test_time_table_joins_with_hash(self) -> None:
-        """time_table must be ``time_from#table_name``."""
+        """time_table must be ``time_to#table_name`` (end time, for active-at queries)."""
         self.assertEqual(
-            ReservationWaiterView.time_table("12:00", "5"),
-            "12:00#5",
+            ReservationWaiterView.time_table("13:30", "5"),
+            "13:30#5",
         )
 
 
@@ -68,8 +68,8 @@ class TestToDynamoItem(unittest.TestCase):
         self.assertEqual(self.item["location_date"], {"S": f"{_LOC_ID}#2026-05-16"})
 
     def test_injects_time_table_sort_attribute(self) -> None:
-        """The GSI sort attribute must be synthesized into the item."""
-        self.assertEqual(self.item["time_table"], {"S": "12:00#5"})
+        """The GSI sort attribute must be synthesized from the end time."""
+        self.assertEqual(self.item["time_table"], {"S": "13:30#5"})
 
     def test_id_serialized_as_s(self) -> None:
         """The reservation id is stored as the DynamoDB partition key string."""
@@ -90,6 +90,26 @@ class TestRoundTrip(unittest.TestCase):
         view = _make_view(customer_id=None)
         restored = ReservationWaiterView.from_dynamodb_item(view.to_dynamodb_item())
         self.assertIsNone(restored.customer_id)
+
+    def test_deserializes_item_with_omitted_nullable_attributes(self) -> None:
+        """A seeded visitor row omits None attributes; it must still deserialize.
+
+        The seeder writes projection rows with ``exclude_none=True``, so a visitor
+        booking (``customer_id`` is None) has no ``customer_id`` attribute at all.
+        Such rows must deserialize with the nullable fields defaulting to None
+        rather than raising a validation error (previously a 500 on the waiter view).
+        """
+        item = _make_view().to_dynamodb_item()
+        for attr in ("customer_id", "waiter_id", "location_address", "table_number"):
+            item.pop(attr, None)
+
+        restored = ReservationWaiterView.from_dynamodb_item(item)
+
+        self.assertIsNone(restored.customer_id)
+        self.assertIsNone(restored.waiter_id)
+        self.assertIsNone(restored.location_address)
+        self.assertIsNone(restored.table_number)
+        self.assertEqual(restored.id, _RES_ID)
 
 
 if __name__ == "__main__":
