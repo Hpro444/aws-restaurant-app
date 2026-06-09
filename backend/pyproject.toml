@@ -32,6 +32,9 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["restaurant-backend-app/pyapp/tests"]
 pythonpath = ["restaurant-backend-app"]
+filterwarnings = [
+    'ignore:datetime\.datetime\.utcnow\(\) is deprecated and scheduled for removal in a future version\..*:DeprecationWarning:botocore\.auth',
+]
 
 [tool.ruff]
 line-length = 88
