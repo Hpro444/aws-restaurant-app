@@ -9,6 +9,7 @@ Usage:
 
 import importlib
 import json
+import os
 import re
 import sys
 import time
@@ -314,26 +315,38 @@ def main():
     print("  RESTAURANT APP — AWS DYNAMODB SEEDER")
     print("=" * 70 + "\n")
 
-    # Build session from environment first, then fallback to syndicate config.
-    credentials = load_syndicate_credentials()
-    if credentials:
-        print("▶ Loaded AWS credentials from syndicate config")
-        session = boto3.session.Session(region_name=AWS_REGION, **credentials)
-    else:
-        print("▶ Using AWS credentials from environment/profile")
-        session = boto3.session.Session(region_name=AWS_REGION)
-
-    # Verify AWS access.
+    # Build session from syndicate config first, then fall back to env/profile
+    # when the syndicate temp credentials are stale.
     print("▶ Verifying AWS credentials...")
-    try:
-        sts = session.client("sts", region_name=AWS_REGION)
-        identity = sts.get_caller_identity()
-        print(f"  ✓ AWS Account: {identity['Account']}")
-        print(f"  ✓ Caller ARN: {identity['Arn']}\n")
-    except (ClientError, NoCredentialsError) as e:
-        print(f"  ✗ AWS credentials invalid: {e}")
-        print("     Run 'aws sso login' or check your credentials.\n")
-        return 1
+    credentials = load_syndicate_credentials()
+    session = None
+    if credentials:
+        candidate = boto3.session.Session(region_name=AWS_REGION, **credentials)
+        try:
+            identity = candidate.client(
+                "sts", region_name=AWS_REGION
+            ).get_caller_identity()
+            session = candidate
+            print("  ✓ Loaded AWS credentials from syndicate config")
+        except (ClientError, NoCredentialsError):
+            print("  ⚠ Syndicate credentials expired — falling back to env/profile")
+            credentials = None
+
+    if session is None:
+        candidate = boto3.session.Session(region_name=AWS_REGION)
+        try:
+            identity = candidate.client(
+                "sts", region_name=AWS_REGION
+            ).get_caller_identity()
+            session = candidate
+            print("  ✓ Using AWS credentials from environment/profile")
+        except (ClientError, NoCredentialsError) as e:
+            print(f"  ✗ AWS credentials invalid: {e}")
+            print("     Run 'aws sso login' or check your credentials.\n")
+            return 1
+
+    print(f"  ✓ AWS Account: {identity['Account']}")
+    print(f"  ✓ Caller ARN: {identity['Arn']}\n")
 
     # Resolve actual DynamoDB table names (handles syndicate prefix/suffix).
     print("▶ Resolving DynamoDB table names (region: eu-west-3)...")
@@ -410,8 +423,10 @@ def main():
         traceback.print_exc()
         return 1
 
-    # Write ids.json with all seeded entity IDs for testing.
-    _write_ids_json(context, Path(__file__).parent / "ids.json")
+    # Write ids.json with all seeded entity IDs for testing.  The e2e runner
+    # sets E2E_ARTIFACTS_DIR so the file lands in automation-qa instead.
+    artifacts_dir = Path(os.environ.get("E2E_ARTIFACTS_DIR") or Path(__file__).parent)
+    _write_ids_json(context, artifacts_dir / "ids.json")
 
     # Summary.
     today_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")

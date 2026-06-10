@@ -217,3 +217,8 @@ __marimo__/
 
 ids.json
 tokens.json
+
+# E2E test artifacts (automation-qa)
+/automation-qa/logs/
+/automation-qa/test_output.pdf
+/automation-qa/pipeline*.log

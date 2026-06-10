@@ -152,10 +152,18 @@ class SlotRepository(DynamoRepository[Slot]):
         )
         return items
 
-    def find_by_ids(self, slot_ids: list[UUID]) -> list[Slot]:
+    def find_by_ids(self, slot_ids: list[UUID], consistent: bool = False) -> list[Slot]:
         """Return existing slots for the provided IDs in input order.
 
         Uses ``BatchGetItem`` to avoid one round-trip per slot id.
+
+        Args:
+            slot_ids: Slot IDs to fetch.
+            consistent: When True, reads the base table with strong
+                consistency — used by availability to confirm a slot is
+                really FREE, since the GSI it lists from is only eventually
+                consistent.
+
         """
         if not slot_ids:
             return []
@@ -171,6 +179,7 @@ class SlotRepository(DynamoRepository[Slot]):
                     "Keys": [
                         {self._pk_field: {"S": str(slot_id)}} for slot_id in chunk
                     ],
+                    "ConsistentRead": consistent,
                 }
             }
 

@@ -11,6 +11,7 @@ SEED_ORDER = [
     "customers",
     "waiters",
     "admin_emails",
+    "admins",
     "waiter_emails",
     "tables",
     "dishes",
