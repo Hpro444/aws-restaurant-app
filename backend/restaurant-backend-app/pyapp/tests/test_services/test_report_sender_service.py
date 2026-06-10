@@ -61,8 +61,8 @@ def _make_location_report() -> LocationReport:
 class TestReportSenderService(TestCase):
     """Tests for compiling report tables and sending email attachments."""
 
-    def test_sends_current_week_report_with_two_csv_attachments(self):
-        """Service reads period rows and sends SES raw email with both CSV files."""
+    def test_sends_previous_week_report_with_two_csv_attachments(self):
+        """Service reads previous-week rows and sends SES raw email with both CSV files."""
         waiter_report_repo = MagicMock()
         waiter_report_repo.find_by_period_start.return_value = [_make_waiter_report()]
 
@@ -87,8 +87,8 @@ class TestReportSenderService(TestCase):
 
         summary = service.send_weekly_report(target_date=date(2026, 6, 9))
 
-        waiter_report_repo.find_by_period_start.assert_called_once_with("2026-06-08")
-        location_report_repo.find_by_period_start.assert_called_once_with("2026-06-08")
+        waiter_report_repo.find_by_period_start.assert_called_once_with("2026-06-01")
+        location_report_repo.find_by_period_start.assert_called_once_with("2026-06-01")
         ses_client.send_raw_email.assert_called_once()
 
         call_kwargs = ses_client.send_raw_email.call_args.kwargs
@@ -113,7 +113,7 @@ class TestReportSenderService(TestCase):
             attachments["location_report.csv"],
         )
 
-        self.assertEqual(summary["report_period_start"], "2026-06-08")
-        self.assertEqual(summary["report_period_end"], "2026-06-14")
+        self.assertEqual(summary["report_period_start"], "2026-06-01")
+        self.assertEqual(summary["report_period_end"], "2026-06-07")
         self.assertEqual(summary["waiter_rows"], 1)
         self.assertEqual(summary["location_rows"], 1)
