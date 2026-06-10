@@ -2,6 +2,7 @@
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
+from time import sleep
 
 import boto3
 from botocore.exceptions import ClientError
@@ -36,6 +37,8 @@ _SHIFT_WAITERS_BY_LOCATION = {
         "second": ("ava@example.com", "luka@example.com"),
     },
 }
+
+_MAX_DAY_WRITE_RETRIES = 8
 
 
 def _build_waiter_assignment(context: dict) -> dict:
@@ -160,19 +163,40 @@ def _seed_day(
     )
     dyn_table = dyn_resource.Table(table_name)
 
-    while True:
+    last_error: ClientError | None = None
+    for attempt in range(1, _MAX_DAY_WRITE_RETRIES + 1):
         try:
             with dyn_table.batch_writer() as batch:
                 for s in day_slots:
                     batch.put_item(Item=s.model_dump(mode="json"))
             break
-        except ClientError:
+        except ClientError as exc:
+            last_error = exc
+            code = exc.response.get("Error", {}).get("Code", "Unknown")
+            message = exc.response.get("Error", {}).get("Message", str(exc))
+            if attempt == _MAX_DAY_WRITE_RETRIES:
+                dyn_resource.meta.client.close()
+                raise RuntimeError(
+                    "Failed to seed slots for "
+                    f"day_offset={day_offset} after {_MAX_DAY_WRITE_RETRIES} attempts "
+                    f"(AWS {code}: {message})"
+                ) from exc
+            pbar.write(
+                "  ! Retrying slot batch for "
+                f"day_offset={day_offset} (attempt {attempt}/{_MAX_DAY_WRITE_RETRIES}, "
+                f"AWS {code})"
+            )
             dyn_resource.meta.client.close()
             session = boto3.session.Session(region_name=aws_region, **credentials)
             dyn_resource = session.resource(
                 "dynamodb", region_name=aws_region, config=DYNAMO_RETRY_CONFIG
             )
             dyn_table = dyn_resource.Table(table_name)
+            sleep(min(8, 2 ** (attempt - 1)))
+
+    if last_error is not None:
+        # Defensive guard; loop either breaks on success or raises on final failure.
+        raise RuntimeError("Unexpected slot seeding retry state") from last_error
 
     dyn_resource.meta.client.close()
     pbar.update(1)
@@ -180,7 +204,7 @@ def _seed_day(
 
 
 def seed(dynamodb, tables: dict, context: dict) -> None:
-    """Seed 90-minute slots from today through today + SLOT_SEED_DAYS_AHEAD.
+    """Seed 90-minute slots from today - days_past through today + days_ahead.
 
     Uses a ThreadPoolExecutor with 7 workers, one worker per day.
     Each worker opens its own DynamoDB connection, writes the day's slots,
@@ -194,9 +218,10 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
     credentials = context.get("aws_credentials", {})
     aws_region = context.get("aws_region", "eu-west-3")
     slot_seed_days_ahead = context["slot_seed_days_ahead"]
+    slot_seed_days_past = context.get("slot_seed_days_past", 0)
     shift_assignment = _build_waiter_assignment(context)
 
-    day_offsets = list(range(slot_seed_days_ahead + 1))
+    day_offsets = list(range(-slot_seed_days_past, slot_seed_days_ahead + 1))
     all_slots: list = []
 
     with tqdm(total=len(day_offsets), desc="  Seeding slots", unit="day") as pbar:
@@ -220,6 +245,11 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
 
     print(
         f"  ✓ Seeded {len(all_slots)} slots dynamically based on restaurant hours "
-        f"(today + {slot_seed_days_ahead} days)"
+        f"(today - {slot_seed_days_past} days to today + {slot_seed_days_ahead} days)"
     )
+    today_date = datetime.now(timezone.utc).date()
+    context["slot_seed_start_date"] = (
+        today_date - timedelta(days=slot_seed_days_past)
+    ).isoformat()
+    context["slot_seed_days_past"] = slot_seed_days_past
     context["slots"] = all_slots
