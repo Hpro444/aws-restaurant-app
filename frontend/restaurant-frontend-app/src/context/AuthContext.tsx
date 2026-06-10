@@ -13,6 +13,7 @@ import type {
   LoginResponse,
   ViewerRole,
 } from "../types/auth";
+import { fetchWaiterLocation } from "../pages/WaiterReservations/waiterReservations.services";
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
@@ -33,12 +34,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signIn = async (payload: LoginPayload) => {
     const result = await loginUser(payload);
 
+    setAccessToken(result.access_token);
+    setRefreshToken(result.refresh_token);
+
+    let waiterLocation:
+      | { location_id: string; location_address: string }
+      | undefined;
+    if (result.role === "Waiter") {
+      try {
+        waiterLocation = await fetchWaiterLocation(result.access_token);
+      } catch (err) {
+        console.error("Failed to fetch waiter location:", err);
+      }
+    }
+
     setUser({
       username: result.username,
       role: result.role,
+      waiterLocation,
     });
-    setAccessToken(result.access_token);
-    setRefreshToken(result.refresh_token);
   };
 
   const signOut = () => {

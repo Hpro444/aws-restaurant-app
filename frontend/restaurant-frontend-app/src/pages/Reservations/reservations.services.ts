@@ -11,7 +11,7 @@ export interface UpdateReservationPayload {
   status?: ReservationStatus;
 }
 
-type BackendValidationError = {
+export type BackendValidationErrorE = {
   field?: string;
   message?: string;
 };
@@ -61,6 +61,34 @@ type BackendReservation = {
 type BackendReservationsResponse = {
   reservations: BackendReservation[];
 };
+
+export type FeedbackTab = "Service" | "Culinary Experience";
+export type FeedbackType = "service" | "culinary";
+
+export interface WaiterData {
+  name: string;
+  role: string;
+  avatar: string;
+  rating: number;
+}
+
+export interface FeedbackContextResponse {
+  reservation_id: string;
+  waiter_id: string;
+  waiter_name: string;
+  waiter_image_url: string;
+  waiter_avg_rating: number;
+}
+
+export interface FeedbackFormState {
+  selectedTab: FeedbackTab;
+  rating: number;
+  comments: string;
+}
+
+export interface BackendValidationError {
+  message?: string;
+}
 
 const mapReservation = (item: BackendReservation): ReservationResponse => ({
   reservation_id: item.reservationId,
@@ -172,6 +200,178 @@ export const updateReservation = async (
   return mapReservation(data as BackendReservation);
 };
 
+export const mapTabToType = (tab: FeedbackTab): FeedbackType =>
+    tab === "Service" ? "service" : "culinary";
+
+export const handleSubmit = async (
+  setSubmitError: React.Dispatch<React.SetStateAction<string | null>>,
+  reservationId: string | null,
+  accessToken: string | null,
+  form: FeedbackFormState,
+  setIsSubmitting: React.Dispatch<React.SetStateAction<boolean>>,
+  onHide: () => void,
+): Promise<void> => {
+  if (!reservationId) {
+    setSubmitError("Reservation id is required.");
+    return;
+  }
+
+  if (!accessToken) {
+    setSubmitError("Please log in to submit feedback.");
+    return;
+  }
+
+  if (form.rating < 1 || form.rating > 5) {
+    setSubmitError("Please select a rating from 1 to 5.");
+    return;
+  }
+
+  try {
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    const response = await fetch(`${getApiBaseUrl()}/feedbacks`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        reservation_id: reservationId,
+        type: mapTabToType(form.selectedTab),
+        rating: form.rating,
+        comment: form.comments,
+      }),
+    });
+
+    const data: unknown = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(getFeedbackErrorMessage(response.status, data));
+    }
+
+    onHide();
+  } catch (err) {
+    setSubmitError(
+      err instanceof Error ? err.message : "Failed to submit feedback.",
+    );
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
+export const fetchWaiterContext = async (
+  setIsWaiterLoading: React.Dispatch<React.SetStateAction<boolean>>,
+  setWaiterError: React.Dispatch<React.SetStateAction<string | null>>,
+  setWaiterData: React.Dispatch<React.SetStateAction<WaiterData | null>>,
+  reservationId: string,
+  accessToken: string,
+  controller: AbortController,
+) => {
+  try {
+    setIsWaiterLoading(true);
+    setWaiterError(null);
+    setWaiterData(null);
+
+    const response = await fetch(
+      `${getApiBaseUrl()}/feedbacks/context/${encodeURIComponent(reservationId)}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        signal: controller.signal,
+      },
+    );
+
+    const payload: unknown = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(getWaiterContextErrorMessage(response.status, payload));
+    }
+
+    const data = payload as FeedbackContextResponse;
+
+    setWaiterData({
+      name: data.waiter_name,
+      role: "Waiter",
+      avatar: data.waiter_image_url,
+      rating: data.waiter_avg_rating,
+    });
+  } catch (err) {
+    if ((err as Error).name === "AbortError") return;
+
+    setWaiterData(null);
+    setWaiterError(
+      err instanceof Error ? err.message : "Failed to load waiter info.",
+    );
+  } finally {
+    setIsWaiterLoading(false);
+  }
+};
+
+export const getWaiterContextErrorMessage = (
+  status: number,
+  payload: unknown,
+): string => {
+  const maybe = payload as Record<string, unknown> | null;
+
+  const directMessage =
+    (typeof maybe?.message === "string" && maybe.message) ||
+    (typeof maybe?.error === "string" && maybe.error);
+
+  if (directMessage) return directMessage;
+
+  switch (status) {
+    case 401:
+      return "Unauthorized. Please log in again.";
+    case 403:
+      return "Forbidden. You are not allowed to access feedback context.";
+    case 404:
+      return "Feedback context was not found for this reservation.";
+    default:
+      return "Failed to load waiter info.";
+  }
+};
+
+export const getFeedbackErrorMessage = (
+  status: number,
+  payload: unknown,
+): string => {
+  const maybe = payload as Record<string, unknown> | null;
+
+  if (status === 422 && Array.isArray(maybe?.errors)) {
+    const messages = (maybe.errors as BackendValidationError[])
+      .map((e) => e.message)
+      .filter((m): m is string => Boolean(m));
+
+    if (messages.length > 0) {
+      return messages.join(", ");
+    }
+  }
+
+  const directMessage =
+    (typeof maybe?.message === "string" && maybe.message) ||
+    (typeof maybe?.error === "string" && maybe.error);
+
+  if (directMessage) return directMessage;
+
+  switch (status) {
+    case 401:
+      return "Unauthorized. Please log in again.";
+    case 403:
+      return "Forbidden. You are not allowed to leave feedback.";
+    case 404:
+      return "Reservation was not found.";
+    case 409:
+      return "Feedback already exists for this reservation.";
+    case 422:
+      return "Validation failed. Please check provided values.";
+    default:
+      return "Failed to submit feedback.";
+  }
+};
 
 const getCancelReservationErrorMessage = (
   status: number,

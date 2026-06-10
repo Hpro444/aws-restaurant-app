@@ -1,5 +1,4 @@
 import Header from "../../components/header";
-
 import logoWhite from "../../assets/logoWhite.png";
 import subheading from "../../assets/reservations/subheading.png";
 import { useAuth } from "../../context/AuthContext";
@@ -8,9 +7,7 @@ import { Calendar } from "primereact/calendar";
 import { useEffect, useState } from "react";
 import DownloadButton from "./components/DownloadButton";
 import ReportTable from "./components/Table";
-import {
-  getLocationSelectOptions
-} from "../AvailableTables/availableTables.services";
+import { getLocationSelectOptions } from "../AvailableTables/availableTables.services";
 import type { LocationSelectOption } from "../../types/location";
 
 const DashboardPage = () => {
@@ -51,9 +48,7 @@ const DashboardPage = () => {
       >
         <div className="max-w-[1440px] mx-auto px-10 py-[18px] flex justify-between items-center font-poppins">
           <h2 className="font-medium text-2xl leading-10 tracking-normal align-middle text-white">
-            {user?.username
-              ? `Hello, ${user.username} (${user.role})`
-              : "Hello, Admin"}
+            {user && `Hello, ${user.username} (${user.role})`}
           </h2>
           <div>
             <img src={logoWhite} alt="Logo" />
@@ -129,7 +124,9 @@ const DashboardPage = () => {
             Report
           </h2>
 
-          {locationsError ? (<p className="text-[#B70B0B] font-medium">{locationsError}</p>) : null}
+          {locationsError ? (
+            <p className="text-[#B70B0B] font-medium">{locationsError}</p>
+          ) : null}
 
           <ReportTable />
 

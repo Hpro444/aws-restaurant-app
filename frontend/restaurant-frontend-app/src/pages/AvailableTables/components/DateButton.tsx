@@ -17,7 +17,7 @@ const DateButton = ({ value, onChange }: DateButtonProps) => {
   return (
     <div className="relative w-full max-w-[200px]">
       <div className="border-2 rounded-lg overflow-hidden h-full">
-        <button className="w-full cursor-pointer flex items-center justify-between px-6 py-4 bg-white hover:bg-gray-50">
+        <div className="w-full cursor-pointer flex items-center justify-between px-6 py-4 bg-white hover:bg-gray-50">
           <Calendar
             value={toCalendarDate(value)}
             onChange={(e) => {
@@ -42,7 +42,7 @@ const DateButton = ({ value, onChange }: DateButtonProps) => {
           <span
             className={`pi pi-chevron-down text-lg transition-transform text-[#232323] transform ${isPanelOpen ? "rotate-180" : ""}`}
           />
-        </button>
+        </div>
       </div>
     </div>
   );

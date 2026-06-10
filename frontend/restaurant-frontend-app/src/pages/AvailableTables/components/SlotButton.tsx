@@ -1,17 +1,22 @@
 import type { AvailableSlot } from "../../../types/location";
-import clock_icon from "../../../assets/availableTables/Clock.png";
-import { formatSlotTime } from "../../../utils/reservationHelpers";
+import { formatTime } from "../../../utils/reservationHelpers";
 
-const SlotButton = ({
-  slot: { start_time, end_time },
-}: {
+export const SLOTS_PREVIEW = 4;
+
+type SlotButtonProps = {
   slot: AvailableSlot;
-}) => {
+  onClick: () => void;
+};
+
+const SlotButton = ({ slot, onClick }: SlotButtonProps) => {
   return (
-    <button className="font-medium text-[14px] leading-[24px] align-middle border border-[var(--color-brand)] rounded-lg p-2 flex gap-2 items-center cursor-pointer hover:bg-green-50">
-      <img src={clock_icon} alt="Clock icon" className="w-4 h-4" />
+    <button
+      onClick={onClick}
+      className="font-medium text-[14px] leading-[24px] align-middle border border-[var(--color-brand)] rounded-lg p-2 flex gap-2 items-center cursor-pointer hover:bg-green-50"
+    >
+      <span className="pi pi-clock text-lg" />
       <span>
-        {formatSlotTime(start_time)} - {formatSlotTime(end_time)}
+        {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
       </span>
     </button>
   );

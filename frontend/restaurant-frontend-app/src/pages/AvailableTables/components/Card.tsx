@@ -1,33 +1,10 @@
 import { useState } from "react";
-import clock_icon from "../../../assets/availableTables/Clock.png";
-import location from "../../../assets/availableTables/location.png";
-import location_icon from "../../../assets/availableTables/location-icon.png";
-import plus_icon from "../../../assets/availableTables/plus-icon.png";
 import { type TableResult, type AvailableSlot } from "../../../types/location";
 import AvailableSlotsModal from "./AvailableSlotsModal";
 import MakeReservationModal from "./MakeReservationModal";
-import { formatDate, formatSlotTime } from "../../../utils/reservationHelpers";
-
-const SLOTS_PREVIEW = 4;
-
-type SlotButtonProps = {
-  slot: AvailableSlot;
-  onClick: () => void;
-};
-
-const SlotButton = ({ slot, onClick }: SlotButtonProps) => {
-  return (
-    <button
-      onClick={onClick}
-      className="font-medium text-[14px] leading-[24px] align-middle border border-[var(--color-brand)] rounded-lg p-2 flex gap-2 items-center cursor-pointer hover:bg-green-50"
-    >
-      <img src={clock_icon} alt="Clock icon" className="w-4 h-4" />
-      <span>
-        {formatSlotTime(slot.start_time)} - {formatSlotTime(slot.end_time)}
-      </span>
-    </button>
-  );
-};
+import { formatDate } from "../../../utils/reservationHelpers";
+import SlotButton, { SLOTS_PREVIEW } from "./SlotButton";
+import location from "../../../assets/availableTables/location.png";
 
 type CardProps = {
   table: TableResult;
@@ -77,11 +54,7 @@ const Card = ({ table, date, initialGuests = 1, locationId }: CardProps) => {
         <div className="flex-1 flex flex-col gap-4 p-6">
           <div className="flex justify-between items-center">
             <p className="flex gap-1 items-center font-medium text-[14px] leading-[24px] tracking-normal align-middle">
-              <img
-                src={location_icon}
-                alt="Location icon"
-                className="w-4 h-4"
-              />
+              <span className="pi pi-map-marker text-lg" />
               {table.location_address}
             </p>
             <p>Table {table.table_number}</p>
@@ -107,7 +80,7 @@ const Card = ({ table, date, initialGuests = 1, locationId }: CardProps) => {
                   onClick={handleShowAllClick}
                   className="font-medium text-[14px] leading-[24px] align-middle justify-self-start border border-[var(--color-brand)] rounded-lg p-2 flex gap-2 items-center cursor-pointer hover:bg-green-50"
                 >
-                  <img src={plus_icon} alt="Plus icon" className="w-4 h-4" />
+                  <span className="pi pi-plus text-lg" />
                   <span>Show all</span>
                 </button>
               )}
@@ -139,13 +112,13 @@ const Card = ({ table, date, initialGuests = 1, locationId }: CardProps) => {
           date={date}
           onClose={handleCloseMakeReservation}
           onSelectSlot={setSelectedSlot}
-          onReservationResult={(result) => {
-            if (result.ok) {
-              console.log("Reservation created:", result.data);
-            } else {
-              console.error("Reservation failed:", result.message);
-            }
-          }}
+          // onReservationResult={(result) => {
+          //   if (result.ok) {
+          //     console.log("Reservation created:", result.data);
+          //   } else {
+          //     console.error("Reservation failed:", result.message);
+          //   }
+          // }}
         />
       )}
     </>

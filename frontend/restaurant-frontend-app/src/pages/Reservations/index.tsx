@@ -40,7 +40,10 @@ const ReservationsPage = () => {
     useState<ReservationResponse | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isEditSubmitting, setIsEditSubmitting] = useState(false);
-  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(true);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [feedbackReservationId, setFeedbackReservationId] = useState<
+    string | null
+  >(null);
 
   const routedEditReservation =
     reservationAction === "edit" && openEditReservationId
@@ -179,9 +182,14 @@ const ReservationsPage = () => {
     }
   };
 
-  const handleLeaveFeedback = async (reservationId: string) => {
+  const handleLeaveFeedback = (reservationId: string) => {
+    setFeedbackReservationId(reservationId);
     setIsFeedbackModalOpen(true);
-    console.log("Leave feedback for reservation:", reservationId);
+  };
+
+  const handleCloseFeedbackModal = () => {
+    setIsFeedbackModalOpen(false);
+    setFeedbackReservationId(null);
   };
 
   const handleCancelReservation = async (reservationId: string) => {
@@ -291,7 +299,9 @@ const ReservationsPage = () => {
       {isFeedbackModalOpen && (
         <FeedbackModal
           visible={isFeedbackModalOpen}
-          onHide={() => setIsFeedbackModalOpen(false)}
+          onHide={handleCloseFeedbackModal}
+          reservationId={feedbackReservationId}
+          accessToken={accessToken}
         />
       )}
     </>

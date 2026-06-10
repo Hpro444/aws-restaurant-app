@@ -1,12 +1,8 @@
 import {
   getStatusColor,
   formatDate,
-  formatSlotTime,
+  formatTime,
 } from "../../../utils/reservationHelpers";
-import location_icon from "../../../assets/reservations/location-icon.png";
-import calendar_icon from "../../../assets/reservations/Calendar.png";
-import clock_icon from "../../../assets/reservations/Clock.png";
-import people_icon from "../../../assets/reservations/People.png";
 import type { ReservationResponse } from "../../../types/location";
 
 interface ReservationCardProps {
@@ -14,6 +10,7 @@ interface ReservationCardProps {
   onEdit?: (reservation: ReservationResponse) => void;
   onCancel?: (reservationId: string) => void;
   onFeedback?: (reservationId: string) => void;
+  showCustomerId?: boolean;
 }
 
 const ReservationCard = ({
@@ -21,6 +18,7 @@ const ReservationCard = ({
   onEdit,
   onCancel,
   onFeedback,
+  showCustomerId = false,
 }: ReservationCardProps) => {
   const {
     reservation_id,
@@ -30,29 +28,36 @@ const ReservationCard = ({
     time_from,
     time_to,
     guests_number,
+    customer_id,
     allowed_actions: { can_edit, can_cancel },
   } = reservation;
 
   return (
-    <div className="flex flex-col gap-12 shadow-[0px_0px_10px_4px_#DADADAB2] p-6 rounded-3xl font-medium text-sm leading-6 tracking-normal align-middle">
+    <div className="min-h-[256px] flex flex-col gap-12 shadow-[0px_0px_10px_4px_#DADADAB2] p-6 rounded-3xl font-medium text-sm leading-6 tracking-normal align-middle h-full">
       <div className="flex justify-between">
         <div className="flex flex-col gap-2">
           <div className="flex gap-2 items-center">
-            <img src={location_icon} alt="Location icon" className="w-3 h-3" />
+            <span className="pi pi-map-marker text-[var(--color-brand)]" />
             <p>{location_address}</p>
           </div>
           <div className="flex gap-2 items-center">
-            <img src={calendar_icon} alt="Calendar icon" className="w-3 h-3" />
+            <span className="pi pi-calendar text-[var(--color-brand)]" />
             <p>{formatDate(date)}</p>
           </div>
           <div className="flex gap-2 items-center">
-            <img src={clock_icon} alt="Clock icon" className="w-3 h-3" />
+            <span className="pi pi-clock text-[var(--color-brand)]" />
             <p>
-              {formatSlotTime(time_from)} - {formatSlotTime(time_to)}
+              {formatTime(time_from)} - {formatTime(time_to)}
             </p>
           </div>
+          {showCustomerId ? (
+            <div className="flex gap-2 items-center">
+              <span className="pi pi-user text-[var(--color-brand)]" />
+              <p>Customer {customer_id ?? "-"}</p>
+            </div>
+          ) : null}
           <div className="flex gap-2 items-center">
-            <img src={people_icon} alt="People icon" className="w-3 h-3" />
+            <span className="pi pi-users text-[var(--color-brand)]" />
             <p>{guests_number} guests</p>
           </div>
         </div>
@@ -63,7 +68,7 @@ const ReservationCard = ({
         </div>
       </div>
       <div className="flex justify-end gap-4">
-        {onFeedback && (
+        {onFeedback && status === "In Progress" && (
           <button
             className="cursor-pointer rounded-lg border border-[#00AD0C] py-2 px-9 bg-white text-[#00AD0C]"
             onClick={() => onFeedback?.(reservation_id)}

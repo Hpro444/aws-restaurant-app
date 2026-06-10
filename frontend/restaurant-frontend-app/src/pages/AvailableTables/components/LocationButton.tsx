@@ -1,6 +1,4 @@
 import { useState } from "react";
-import location_icon from "../../../assets/availableTables/location-icon.png";
-import arrow_down from "../../../assets/restaurant/arrow-down-icon.png";
 import { type LocationSelectOption } from "../../../types/location";
 
 type LocationButtonProps = {
@@ -26,15 +24,13 @@ const LocationButton = ({
           className="w-full cursor-pointer flex items-center justify-between px-6 py-4 bg-white hover:bg-gray-50"
         >
           <div className="flex items-center gap-2">
-            <img src={location_icon} alt="Location icon" className="w-6 h-6" />
+            <span className="pi pi-map-marker text-lg text-[#232323]" />
             <span className="text-gray-800">
               {selected ? selected.location_address : "Location"}
             </span>
           </div>
-          <img
-            src={arrow_down}
-            alt="Arrow icon"
-            className={`h-6 w-6 transition-transform ${isOpen ? "rotate-180" : ""}`}
+          <span
+            className={`pi pi-chevron-down text-lg text-[#232323] transition-transform transform ${isOpen ? "rotate-180" : ""}`}
           />
         </button>
       </div>

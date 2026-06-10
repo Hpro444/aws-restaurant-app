@@ -97,3 +97,28 @@ export interface LocationSelectOption {
   location_id: string;
   location_address: string;
 }
+
+export type ReservationResult =
+  | { ok: true; data: CreateBookingResponse }
+  | { ok: false; message: string };
+
+export interface CreateBookingPayload {
+  locationId: string;
+  tableNumber: number;
+  date: string;
+  guestsNumber: number;
+  timeFrom: string;
+  timeTo: string;
+}
+
+export interface CreateBookingResponse {
+  reservationId: string;
+  status: "RESERVED";
+  locationId: string;
+  location_address: string;
+  tableNumber: number;
+  date: string;
+  timeFrom: string;
+  timeTo: string;
+  guestsNumber: number;
+}

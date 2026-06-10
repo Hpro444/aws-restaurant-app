@@ -1,64 +1,5 @@
 import { type ReservationResponse } from "../../Reservations/reservations.services";
-import {
-  formatDate,
-  formatTime,
-} from "../../../utils/reservationHelpers";
-
-const LocationIcon = () => (
-  <svg
-    className="w-5 h-5 text-green-600"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    viewBox="0 0 24 24"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M12 21c-4.418 0-8-4.03-8-9a8 8 0 1116 0c0 4.97-3.582 9-8 9z"
-    />
-    <circle cx="12" cy="12" r="3" />
-  </svg>
-);
-
-const CalendarIcon = () => (
-  <svg
-    className="w-5 h-5 text-green-600"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    viewBox="0 0 24 24"
-  >
-    <rect x="3" y="4" width="18" height="18" rx="2" />
-    <path d="M16 2v4M8 2v4M3 10h18" />
-  </svg>
-);
-
-const ClockIcon = () => (
-  <svg
-    className="w-5 h-5 text-green-600"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    viewBox="0 0 24 24"
-  >
-    <circle cx="12" cy="12" r="10" />
-    <path d="M12 6v6l4 2" />
-  </svg>
-);
-
-const UserIcon = () => (
-  <svg
-    className="w-5 h-5 text-green-600"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    viewBox="0 0 24 24"
-  >
-    <circle cx="12" cy="8" r="4" />
-    <path d="M6 20v-2a6 6 0 0112 0v2" />
-  </svg>
-);
+import { formatDate, formatTime } from "../../../utils/reservationHelpers";
 
 interface ReservationCardProps {
   reservation: ReservationResponse;
@@ -75,9 +16,9 @@ const ReservationCard = ({
     <div className="bg-white rounded-2xl shadow-md p-6 w-full max-w-md">
       <div className="flex justify-between items-start mb-4">
         <div className="flex items-center gap-2">
-          <LocationIcon />
+          <span className="pi pi-map-marker text-xl" />
           <span className="text-gray-800 font-medium">
-            {reservation.location_address ?? "Unknown location"}
+            {reservation.location_address}
           </span>
         </div>
         <div className="text-gray-700 font-medium">
@@ -87,12 +28,12 @@ const ReservationCard = ({
 
       <div className="space-y-3 mb-6">
         <div className="flex items-center gap-2">
-          <CalendarIcon />
+          <span className="pi pi-calendar text-xl" />
           <span className="text-gray-700">{formatDate(reservation.date)}</span>
         </div>
 
         <div className="flex items-center gap-2">
-          <ClockIcon />
+          <span className="pi pi-clock text-xl" />
           <span className="text-gray-700">
             {formatTime(reservation.time_from)} -{" "}
             {formatTime(reservation.time_to)}
@@ -100,14 +41,14 @@ const ReservationCard = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <UserIcon />
+          <span className="pi pi-user text-xl" />
           <span className="text-gray-700">
             Customer {reservation.customer_id ?? "-"}
           </span>
         </div>
 
         <div className="flex items-center gap-2">
-          <UserIcon />
+          <span className="pi pi-users text-xl" />
           <span className="text-gray-700">
             {reservation.guests_number} Guests
           </span>

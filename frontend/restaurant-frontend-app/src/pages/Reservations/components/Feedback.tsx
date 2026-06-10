@@ -1,43 +1,41 @@
-import { useState, type FC } from "react";
+import { useEffect, useState, type FC } from "react";
 import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
 import { InputTextarea } from "primereact/inputtextarea";
 import { Rating } from "primereact/rating";
-
-type FeedbackTab = "Service" | "Culinary Experience";
+import { Skeleton } from "primereact/skeleton";
+import {
+  fetchWaiterContext,
+  handleSubmit,
+  type FeedbackFormState,
+  type FeedbackTab,
+  type WaiterData,
+} from "../reservations.services";
 
 interface FeedbackModalProps {
   visible: boolean;
   onHide: () => void;
+  reservationId: string | null;
+  accessToken: string | null;
 }
 
-interface WaiterData {
-  name: string;
-  role: string;
-  rating: number;
-  avatar: string;
-}
-
-interface FeedbackFormState {
-  selectedTab: FeedbackTab;
-  rating: number;
-  comments: string;
-}
-
-const FeedbackModal: FC<FeedbackModalProps> = ({ visible, onHide }) => {
+const FeedbackModal: FC<FeedbackModalProps> = ({
+  visible,
+  onHide,
+  reservationId,
+  accessToken,
+}) => {
   const [form, setForm] = useState<FeedbackFormState>({
     selectedTab: "Service",
     rating: 0,
     comments: "",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // TODO: Replace with fetched data for that reservation
-  const waiterData: WaiterData = {
-    name: "Mario Jast",
-    role: "Waiter",
-    rating: 4.96,
-    avatar: "/api/placeholder/60/60",
-  };
+  const [waiterData, setWaiterData] = useState<WaiterData | null>(null);
+  const [isWaiterLoading, setIsWaiterLoading] = useState(false);
+  const [waiterError, setWaiterError] = useState<string | null>(null);
 
   const tabs: FeedbackTab[] = ["Service", "Culinary Experience"];
 
@@ -48,10 +46,24 @@ const FeedbackModal: FC<FeedbackModalProps> = ({ visible, onHide }) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSubmit = (): void => {
-    // TODO: Implement logic
-    onHide();
-  };
+  useEffect(() => {
+    if (!visible || !reservationId || !accessToken) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    void fetchWaiterContext(
+      setIsWaiterLoading,
+      setWaiterError,
+      setWaiterData,
+      reservationId,
+      accessToken,
+      controller,
+    );
+
+    return () => controller.abort();
+  }, [visible, reservationId, accessToken]);
 
   const headerContent = (
     <div className="flex items-center justify-between w-full">
@@ -88,42 +100,77 @@ const FeedbackModal: FC<FeedbackModalProps> = ({ visible, onHide }) => {
             <button
               key={tab}
               onClick={() => updateForm("selectedTab", tab)}
-              className={`flex-1 pb-3 text-lg font-medium border-b-1 transition-colors text-left ${
-                form.selectedTab === tab
-                  ? "text-[var(--color-brand)] border-[#00ad0c]"
-                  : "text-gray-400 border-transparent hover:text-gray-600"
-              }`}
+              className={`flex-1 pb-3 text-lg font-medium border-b-1 transition-colors text-left ${form.selectedTab === tab ? "text-[var(--color-brand)] border-[#00ad0c]" : "text-gray-400 border-transparent hover:text-gray-600"}`}
             >
               {tab}
             </button>
           ))}
         </div>
 
-        <div className="flex items-center gap-4">
-          <img
-            src={waiterData.avatar}
-            alt={waiterData.name}
-            className="w-[88px] h-[88px] rounded-full object-cover outline"
-          />
-          <div className="flex-1 flex flex-col gap-1">
-            <h3 className="font-medium text-[#232323] text-sm">
-              {waiterData.name}
-            </h3>
-            <p className="text-xs text-gray-500">{waiterData.role}</p>
-            <div className="flex items-center gap-1">
-              <span className="text-[14px] text-[#232323]">
-                {waiterData.rating}
-              </span>
-              <i className="pi pi-star-fill text-yellow-400 text-xs"></i>
+        <div className="min-h-[88px]">
+          {isWaiterLoading ? (
+            <div className="flex items-center gap-4">
+              <Skeleton
+                shape="circle"
+                size="88px"
+                className="feedback-skeleton"
+              />{" "}
+              <Skeleton
+                width="10rem"
+                height="0.9rem"
+                className="feedback-skeleton"
+              />{" "}
+              <Skeleton
+                width="5rem"
+                height="0.75rem"
+                className="feedback-skeleton"
+              />{" "}
+              <Skeleton
+                width="2.2rem"
+                height="0.9rem"
+                className="feedback-skeleton"
+              />{" "}
+              <Skeleton
+                width="1rem"
+                height="1rem"
+                shape="circle"
+                className="feedback-skeleton"
+              />
             </div>
-          </div>
+          ) : waiterError ? (
+            <div className="min-h-[88px] flex items-center text-sm text-red-500">
+              {waiterError}
+            </div>
+          ) : waiterData ? (
+            <div className="flex items-center gap-4 min-h-[88px]">
+              <img
+                src={waiterData.avatar}
+                alt={waiterData.name}
+                className="w-[88px] h-[88px] rounded-full object-cover outline"
+              />
+              <div className="flex-1 flex flex-col gap-1">
+                <h3 className="font-medium text-[#232323] text-sm">
+                  {waiterData.name}
+                </h3>
+                <p className="text-xs text-gray-500">{waiterData.role}</p>
+                <div className="flex items-center gap-1">
+                  <span className="text-[14px] text-[#232323]">
+                    {waiterData.rating}
+                  </span>
+                  <i className="pi pi-star-fill text-yellow-400 text-lg"></i>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="min-h-[88px]" />
+          )}
         </div>
 
         <div>
           <div className="flex items-center justify-between">
             <Rating
               value={form.rating}
-              onChange={(e) => updateForm("rating", e.value || 0)}
+              onChange={(e) => updateForm("rating", Number(e.value) || 0)}
               stars={5}
               cancel={false}
               className="gap-4"
@@ -164,12 +211,25 @@ const FeedbackModal: FC<FeedbackModalProps> = ({ visible, onHide }) => {
             rows={4}
             className="w-full p-4 border border-[#dadada] rounded-lg resize-none text-sm placeholder-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500"
           />
+          {submitError ? (
+            <p className="mt-2 text-sm text-red-500">{submitError}</p>
+          ) : null}
         </div>
 
         <Button
-          label="Submit Feedback"
-          onClick={handleSubmit}
-          className="w-full bg-[#898989] hover:bg-[#757575] text-white py-3 px-4 rounded-lg font-medium transition-colors"
+          label={isSubmitting ? "Submitting..." : "Submit Feedback"}
+          onClick={() =>
+            void handleSubmit(
+              setSubmitError,
+              reservationId,
+              accessToken,
+              form,
+              setIsSubmitting,
+              onHide,
+            )
+          }
+          disabled={isSubmitting || form.rating < 1}
+          className="w-full bg-[#898989] hover:bg-[#757575] cursor-pointer text-white py-3 px-4 rounded-lg font-medium transition-colors"
         />
       </div>
     </Dialog>

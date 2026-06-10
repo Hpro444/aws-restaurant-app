@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Calendar } from "primereact/calendar";
 import type { Nullable } from "primereact/ts-helpers";
 import subheading from "../../assets/reservations/subheading.png";
@@ -6,38 +6,24 @@ import logoWhite from "../../assets/logoWhite.png";
 import Header from "../../components/header";
 import Layout from "../../components/layout";
 import { useAuth } from "../../context/AuthContext";
-import ReservationCard from "./components/ReservationCard";
 import NoResults from "../Reservations/components/NoResults";
-import { type ReservationResponse } from "../Reservations/reservations.services";
-import { searchWaiterReservations } from "./waiterReservations.services";
+import ReservationCard from "../Reservations/components/ReservationCard";
+import EditReservationModal from "../Reservations/components/EditReservationModal";
+import {
+  cancelReservation,
+  type ReservationResponse,
+  updateReservation,
+  type UpdateReservationPayload,
+} from "../Reservations/reservations.services";
+import {
+  formatApiDate,
+  getLocationTables,
+  isDateOrNull,
+  searchWaiterReservations,
+  toApiDate,
+  toApiTimeFrom,
+} from "./waiterReservations.services";
 import NewReservationModal from "./components/NewReservationModal";
-
-const isDateOrNull = (value: unknown): value is Date | null => {
-  return value === null || value instanceof Date;
-};
-
-const formatSelectedDate = (selectedDate: Date | null) => {
-  if (!selectedDate) return "selected date";
-  return selectedDate.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-};
-
-const toApiDate = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const toApiTimeFromIso = (selectedDate: Date, selectedTime: Date): string => {
-  const combined = new Date(selectedDate);
-  combined.setHours(selectedTime.getHours(), selectedTime.getMinutes(), 0, 0);
-
-  return combined.toISOString().replace(/\.\d{3}Z$/, "Z");
-};
 
 const WaiterReservations = () => {
   const { accessToken, user } = useAuth();
@@ -49,6 +35,118 @@ const WaiterReservations = () => {
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+
+  const [selectedReservation, setSelectedReservation] =
+    useState<ReservationResponse | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isEditSubmitting, setIsEditSubmitting] = useState(false);
+  const [tableOptions, setTableOptions] = useState<number[]>([]);
+  const [tablesLoading, setTablesLoading] = useState(false);
+  const [tablesError, setTablesError] = useState<string | null>(null);
+
+  const [toastError, setToastError] = useState<string | null>(null);
+  const [toastSuccess, setToastSuccess] = useState<string | null>(null);
+
+  const hasWaiterContext = Boolean(
+    accessToken && user?.waiterLocation?.location_id,
+  );
+
+  const visibleTableOptions = hasWaiterContext ? tableOptions : [];
+  const visibleTablesError = hasWaiterContext ? tablesError : null;
+
+  useEffect(() => {
+    if (!hasWaiterContext) return;
+
+    let isMounted = true;
+
+    const loadTables = async () => {
+      try {
+        setTablesLoading(true);
+        setTablesError(null);
+        const tableNumbers = await getLocationTables(
+          accessToken as string,
+          user?.waiterLocation?.location_id as string,
+        );
+
+        if (!isMounted) return;
+        setTableOptions(tableNumbers);
+      } catch (err) {
+        if (!isMounted) return;
+        setTableOptions([]);
+        setTablesError(
+          err instanceof Error ? err.message : "Failed to load tables",
+        );
+      } finally {
+        if (isMounted) {
+          setTablesLoading(false);
+        }
+      }
+    };
+
+    void loadTables();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [hasWaiterContext, accessToken, user?.waiterLocation?.location_id]);
+
+  useEffect(() => {
+    if (!accessToken || !hasWaiterContext || tableOptions.length === 0) return;
+    if (hasSearched) return;
+
+    let isMounted = true;
+
+    const loadTodayReservations = async () => {
+      const today = new Date();
+      const defaultTable = String(tableOptions[0]);
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        const data = await searchWaiterReservations(accessToken, {
+          date: toApiDate(today),
+          time_from: "00:00",
+          table_name: defaultTable,
+        });
+
+        if (!isMounted) return;
+
+        setReservations(data);
+        console.log(data);
+        setSelectedDate(today);
+        setSelectedTime(
+          new Date(
+            today.getFullYear(),
+            today.getMonth(),
+            today.getDate(),
+            0,
+            0,
+            0,
+            0,
+          ),
+        );
+        setTableName(defaultTable);
+        setHasSearched(true);
+      } catch (err) {
+        if (!isMounted) return;
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load today's reservations",
+        );
+        setReservations([]);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    void loadTodayReservations();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [accessToken, hasWaiterContext, tableOptions, hasSearched]);
 
   const handleSearch = async () => {
     if (!accessToken) {
@@ -68,7 +166,7 @@ const WaiterReservations = () => {
 
       const data = await searchWaiterReservations(accessToken, {
         date: toApiDate(selectedDate),
-        time_from: toApiTimeFromIso(selectedDate, selectedTime),
+        time_from: toApiTimeFrom(selectedTime),
         table_name: tableName.trim(),
       });
 
@@ -84,15 +182,190 @@ const WaiterReservations = () => {
   };
 
   const handleEditReservation = (reservation: ReservationResponse) => {
-    console.log("Edit reservation:", reservation);
+    setError(null);
+    setSelectedReservation(reservation);
+    setIsEditModalOpen(true);
   };
 
-  const handleCancelReservation = (reservationId: string) => {
-    console.log("Cancel reservation:", reservationId);
+  const handleSubmitEdit = async (payload: UpdateReservationPayload) => {
+    if (!accessToken || !selectedReservation) {
+      setError("Please log in to edit reservation");
+      return;
+    }
+
+    try {
+      setIsEditSubmitting(true);
+      setError(null);
+
+      const updated = await updateReservation(
+        selectedReservation.reservation_id,
+        payload,
+        accessToken,
+      );
+
+      setReservations((prev) =>
+        prev.map((item) =>
+          item.reservation_id === updated.reservation_id ? updated : item,
+        ),
+      );
+
+      setSelectedReservation(updated);
+      setIsEditModalOpen(false);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to update reservation",
+      );
+    } finally {
+      setIsEditSubmitting(false);
+    }
   };
+
+  const handleReservationCreated = async () => {
+    if (!accessToken) return;
+
+    if (!selectedDate || !selectedTime || !tableName.trim()) {
+      setToastSuccess("Reservation created successfully.");
+      setToastError(null);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      setHasSearched(true);
+
+      const data = await searchWaiterReservations(accessToken, {
+        date: toApiDate(selectedDate),
+        time_from: toApiTimeFrom(selectedTime),
+        table_name: tableName.trim(),
+      });
+
+      setReservations(data);
+      setToastSuccess("Reservation created successfully.");
+      setToastError(null);
+    } catch (err) {
+      setToastError(
+        err instanceof Error
+          ? `Reservation created, but refresh failed: ${err.message}`
+          : "Reservation created, but refresh failed.",
+      );
+      setToastSuccess(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelReservation = async (reservationId: string) => {
+    if (!accessToken) {
+      setError("Please log in to cancel reservation");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Are you sure you want to cancel this reservation?",
+    );
+    if (!confirmed) return;
+
+    try {
+      setError(null);
+
+      const updated = await cancelReservation(reservationId, accessToken);
+
+      setReservations((prev) =>
+        prev.map((item) =>
+          item.reservation_id === updated.reservation_id ? updated : item,
+        ),
+      );
+
+      if (
+        selectedReservation &&
+        selectedReservation.reservation_id === updated.reservation_id
+      ) {
+        setSelectedReservation(updated);
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to cancel reservation",
+      );
+    }
+  };
+
+  const handleCloseEditModal = () => {
+    setIsEditModalOpen(false);
+    setSelectedReservation(null);
+  };
+
+  const responseDateLabel =
+    reservations.length > 0
+      ? formatApiDate(reservations[0].date)
+      : selectedDate
+        ? formatApiDate(toApiDate(selectedDate))
+        : "selected date";
 
   return (
     <>
+      {(toastError || toastSuccess) && (
+        <div
+          className={`fixed top-4 right-4 z-50 max-w-md w-full flex items-start gap-4 p-4 rounded-lg shadow-lg ${
+            toastSuccess
+              ? "bg-[#eaffea] border border-[#00ad0c]"
+              : "bg-[#fde8e8] border border-[#b70b0b]"
+          }`}
+        >
+          <div className="flex-shrink-0">
+            {toastSuccess ? (
+              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#00ad0c]">
+                <svg
+                  className="w-5 h-5 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </span>
+            ) : (
+              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#b70b0b]">
+                <svg
+                  className="w-5 h-5 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </span>
+            )}
+          </div>
+          <div>
+            <div className="font-semibold text-lg text-black">
+              {toastSuccess ? "Success" : "Error"}
+            </div>
+            <div className="text-black mt-1">{toastSuccess ?? toastError}</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setToastError(null);
+              setToastSuccess(null);
+            }}
+            aria-label="Close notification"
+            className="ml-auto text-2xl cursor-pointer font-bold text-black hover:text-gray-700 focus:outline-none"
+          >
+            <span className="pi pi-times text-lg" />
+          </button>
+        </div>
+      )}
       <Header />
 
       <div
@@ -101,9 +374,7 @@ const WaiterReservations = () => {
       >
         <div className="max-w-[1440px] mx-auto px-10 py-[18px] flex justify-between items-center">
           <h2 className="font-medium text-2xl leading-10 tracking-normal align-middle text-white">
-            {user?.username
-              ? `Hello, ${user.username} (${user.role})`
-              : "Hello, Waiter"}
+            {user && `Hello, ${user.username} (${user.role})`}
           </h2>
           <img src={logoWhite} alt="Logo" />
         </div>
@@ -154,18 +425,20 @@ const WaiterReservations = () => {
               value={tableName}
               onChange={(e) => setTableName(e.target.value)}
               className="border border-gray-200 rounded-xl px-6 py-4 bg-white w-[200px] hover:border-green-500 transition"
+              disabled={
+                tablesLoading ||
+                !hasWaiterContext ||
+                visibleTableOptions.length === 0
+              }
             >
-              <option value="">Select table</option>
-              <option value="Table 1">Table 1</option>
-              <option value="Table 2">Table 2</option>
-              <option value="Table 3">Table 3</option>
-              <option value="Table 4">Table 4</option>
-              <option value="Table 5">Table 5</option>
-              <option value="Table 6">Table 6</option>
-              <option value="Table 7">Table 7</option>
-              <option value="Table 8">Table 8</option>
-              <option value="Table 9">Table 9</option>
-              <option value="Table 10">Table 10</option>
+              <option value="">
+                {tablesLoading ? "Loading tables..." : "Select table"}
+              </option>
+              {visibleTableOptions.map((tableNumber) => (
+                <option key={tableNumber} value={String(tableNumber)}>
+                  Table {tableNumber}
+                </option>
+              ))}
             </select>
 
             <button
@@ -177,11 +450,13 @@ const WaiterReservations = () => {
               <span className="pi pi-search"></span>
             </button>
           </div>
+          {visibleTablesError ? (
+            <p className="text-center text-red-500">{visibleTablesError}</p>
+          ) : null}
 
           <div className="flex items-center justify-between gap-4">
             <p className="text-lg font-medium text-[#232323]">
-              {reservations.length} reservations for{" "}
-              {formatSelectedDate(selectedDate)}
+              {reservations.length} reservations for {responseDateLabel}
             </p>
             <button
               onClick={() => setIsModalOpen(true)}
@@ -204,24 +479,39 @@ const WaiterReservations = () => {
           ) : (
             <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 xl:grid-cols-3">
               {reservations.map((reservation) => (
-                <ReservationCard
+                <div
                   key={reservation.reservation_id}
-                  reservation={reservation}
-                  onEdit={handleEditReservation}
-                  onCancel={handleCancelReservation}
-                />
+                  id={`reservation-${reservation.reservation_id}`}
+                >
+                  <ReservationCard
+                    reservation={reservation}
+                    onEdit={handleEditReservation}
+                    onCancel={handleCancelReservation}
+                    showCustomerId={true}
+                  />
+                </div>
               ))}
             </div>
           )}
         </div>
       </Layout>
+
+      {selectedReservation && isEditModalOpen ? (
+        <EditReservationModal
+          reservation={selectedReservation}
+          isSubmitting={isEditSubmitting}
+          submitError={error}
+          onClose={handleCloseEditModal}
+          onSubmit={handleSubmitEdit}
+        />
+      ) : null}
+
       {isModalOpen && (
-        // Implement logic for commucating with backend
         <NewReservationModal
           onClose={() => setIsModalOpen(false)}
-          onSubmit={(payload) => {
-            console.log("New reservation:", payload);
+          onSubmit={() => {
             setIsModalOpen(false);
+            void handleReservationCreated();
           }}
         />
       )}
