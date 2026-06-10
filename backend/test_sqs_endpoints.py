@@ -970,6 +970,80 @@ def main() -> int:
         _assert("T-10: HTTP 200/204", False, "skipped")
         _assert("T-10: reports unchanged after CANCELLED", False, "skipped")
 
+    # ── T-11: kate edits her SERVICE feedback (4 → 1) ──────────────────────
+    #          SQS SERVICE EDITED → waiter-report RECALCULATED (avg drops).
+    cur_waiter = snap_waiter()
+    r11 = _req(
+        "PUT",
+        "/feedbacks",
+        TOKEN_KATE,
+        body={
+            "reservation_id": res_id,
+            "comment": "On reflection the service was slow.",
+            "rating": 1,
+            "type": "service",
+        },
+        label=(
+            "T-11 | kate edits SERVICE feedback  (rating 4 → 1)\n"
+            "  SQS      : SERVICE EDITED → waiter-report RECALCULATED\n"
+            "  Expected : 200  |  avg_service_feedback DROPS, count unchanged"
+        ),
+    )
+    _assert("T-11: HTTP 200", r11.status_code == 200, f"got {r11.status_code}")
+
+    print(f"\n  {_BOLD}Waiting for waiter-report update (max 15s)...{_RESET}")
+    _bw11 = cur_waiter
+    new_waiter, _ = _poll_until_changed(snap_waiter, _bw11, _WAITER_FIELDS)
+    print()
+    _show_diff("waiter-report (max):", _bw11, new_waiter, _WAITER_FIELDS)
+    _assert_dynamo(
+        "T-11: avg_service_feedback decreased after edit",
+        lambda bw=_bw11: (
+            (snap_waiter() or {}).get("avg_service_feedback", 0)
+            < (bw or {}).get("avg_service_feedback", 5)
+        ),
+        "edited rating 1 should lower the average",
+        diagnose=diag_waiter,
+    )
+    cur_waiter = new_waiter
+
+    # ── T-12: kate edits her CULINARY feedback (5 → 1) ─────────────────────
+    #          SQS CULINARY EDITED → location-report RECALCULATED (avg drops).
+    cur_location = snap_location()
+    r12 = _req(
+        "PUT",
+        "/feedbacks",
+        TOKEN_KATE,
+        body={
+            "reservation_id": res_id,
+            "comment": "On reflection the food was disappointing.",
+            "rating": 1,
+            "type": "culinary",
+        },
+        label=(
+            "T-12 | kate edits CULINARY feedback  (rating 5 → 1)\n"
+            "  SQS      : CULINARY EDITED → location-report RECALCULATED\n"
+            "  Expected : 200  |  avg_cuisine_feedback DROPS, count unchanged"
+        ),
+    )
+    _assert("T-12: HTTP 200", r12.status_code == 200, f"got {r12.status_code}")
+
+    print(f"\n  {_BOLD}Waiting for location-report update (max 15s)...{_RESET}")
+    _bl12 = cur_location
+    new_location, _ = _poll_until_changed(snap_location, _bl12, _LOCATION_FIELDS)
+    print()
+    _show_diff("location-report (airport):", _bl12, new_location, _LOCATION_FIELDS)
+    _assert_dynamo(
+        "T-12: avg_cuisine_feedback decreased after edit",
+        lambda bl=_bl12: (
+            (snap_location() or {}).get("avg_cuisine_feedback", 0)
+            < (bl or {}).get("avg_cuisine_feedback", 5)
+        ),
+        "edited rating 1 should lower the average",
+        diagnose=diag_location,
+    )
+    cur_location = new_location
+
     if _pending_retries:
         print(
             f"\n▶ Re-checking {len(_pending_retries)} failed DynamoDB assertion(s) (waiting 15s)..."

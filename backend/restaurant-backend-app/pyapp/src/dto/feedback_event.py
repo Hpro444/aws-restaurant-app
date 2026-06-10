@@ -11,6 +11,7 @@ class FeedbackEventType(str, Enum):
     """Lifecycle event types published to the feedback SQS queue."""
 
     CREATED = "CREATED"
+    EDITED = "EDITED"
 
 
 class FeedbackEventMessage(BaseModel):
