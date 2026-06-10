@@ -1,32 +1,4 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Restaurant API Docs</title>
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"
-    />
-    <style>
-      html,
-      body {
-        margin: 0;
-        padding: 0;
-        background: #fafafa;
-      }
-
-      .topbar {
-        display: block;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="swagger-ui"></div>
-    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
-    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
-    <script>
-      window.OPENAPI_SPEC = {
+{
         "openapi": "3.0.3",
         "info": {
           "title": "Restaurant App API",
@@ -51,7 +23,9 @@
           { "name": "Dishes" },
           { "name": "Feedback" },
           { "name": "Customers" },
-          { "name": "Reservations" }
+          { "name": "Reservations" },
+          { "name": "Reports" },
+          { "name": "Orders" }
         ],
         "paths": {
           "/auth/sign-up": {
@@ -212,9 +186,29 @@
               }
             }
           },
-          "/customers": {
+          "/users/waiter/location": {
             "get": {
               "tags": ["Users"],
+              "summary": "Get authenticated waiter's location",
+              "security": [{ "bearerAuth": [] }],
+              "responses": {
+                "200": {
+                  "description": "Waiter location",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/LocationAddressResponse" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "404": { "$ref": "#/components/responses/NotFoundError" }
+              }
+            }
+          },
+          "/customers": {
+            "get": {
+              "tags": ["Customers"],
               "summary": "List all customers (waiter only)",
               "security": [{ "bearerAuth": [] }],
               "responses": {
@@ -298,6 +292,45 @@
               }
             }
           },
+          "/locations/{id}/valid-slot-times": {
+            "get": {
+              "tags": ["Locations"],
+              "summary": "Get valid slot start/end times for a location",
+              "parameters": [
+                {
+                  "name": "id",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string", "format": "uuid" }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Available slot boundaries",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "required": ["start_times", "end_times"],
+                        "properties": {
+                          "start_times": {
+                            "type": "array",
+                            "items": { "type": "string", "example": "10:00" }
+                          },
+                          "end_times": {
+                            "type": "array",
+                            "items": { "type": "string", "example": "11:30" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "404": { "$ref": "#/components/responses/NotFoundError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
           "/bookings/tables": {
             "get": {
               "tags": ["Bookings"],
@@ -343,6 +376,107 @@
                     }
                   }
                 },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/bookings/waiter/tables": {
+            "get": {
+              "tags": ["Bookings"],
+              "summary": "Find available tables (waiter view)",
+              "security": [{ "bearerAuth": [] }],
+              "parameters": [
+                {
+                  "name": "location_id",
+                  "in": "query",
+                  "required": true,
+                  "schema": { "type": "string", "format": "uuid" }
+                },
+                {
+                  "name": "date",
+                  "in": "query",
+                  "required": false,
+                  "schema": { "type": "string", "format": "date" },
+                  "description": "Optional booking date in YYYY-MM-DD. Defaults to today (UTC)."
+                },
+                {
+                  "name": "guests_number",
+                  "in": "query",
+                  "required": true,
+                  "schema": { "type": "integer", "minimum": 1, "maximum": 10 }
+                },
+                {
+                  "name": "from_time",
+                  "in": "query",
+                  "required": true,
+                  "schema": {
+                    "type": "string",
+                    "format": "date-time",
+                    "example": "2026-05-27T11:45:00Z"
+                  },
+                  "description": "UTC ISO datetime. Must be on the same date as 'date'."
+                },
+                {
+                  "name": "to_time",
+                  "in": "query",
+                  "required": true,
+                  "schema": {
+                    "type": "string",
+                    "format": "date-time",
+                    "example": "2026-05-27T13:15:00Z"
+                  },
+                  "description": "UTC ISO datetime. Must be later than from_time and on the same date."
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Available tables",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/AvailableTablesResponse" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/bookings/waiter/{id}": {
+            "put": {
+              "tags": ["Bookings"],
+              "summary": "Update booking as waiter",
+              "security": [{ "bearerAuth": [] }],
+              "parameters": [
+                {
+                  "name": "id",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string", "format": "uuid" },
+                  "description": "Reservation identifier"
+                }
+              ],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": { "$ref": "#/components/schemas/UpdateReservationRequest" }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Reservation updated",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/ReservationView" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "404": { "$ref": "#/components/responses/NotFoundError" },
                 "422": { "$ref": "#/components/responses/ValidationError" }
               }
             }
@@ -788,25 +922,90 @@
               }
             }
           },
-          "/customers": {
+          "/reports": {
             "get": {
-              "tags": ["Customers"],
-              "summary": "Get customers list (waiter only)",
+              "tags": ["Reports"],
+              "summary": "Get admin reports",
               "security": [{ "bearerAuth": [] }],
+              "parameters": [
+                {
+                  "name": "reportType",
+                  "in": "query",
+                  "required": false,
+                  "schema": {
+                    "type": "string",
+                    "enum": ["staff_performance", "sales"],
+                    "default": "staff_performance"
+                  },
+                  "description": "Report category. Accepts aliases like staff/staffperformance/location as well."
+                },
+                {
+                  "name": "period",
+                  "in": "query",
+                  "required": false,
+                  "schema": { "type": "string" },
+                  "description": "Single date or range string (e.g. '2026-06-01 - 2026-06-07')."
+                },
+                {
+                  "name": "periodStart",
+                  "in": "query",
+                  "required": false,
+                  "schema": { "type": "string", "format": "date" }
+                },
+                {
+                  "name": "periodEnd",
+                  "in": "query",
+                  "required": false,
+                  "schema": { "type": "string", "format": "date" }
+                },
+                {
+                  "name": "locationId",
+                  "in": "query",
+                  "required": false,
+                  "schema": { "type": "string", "format": "uuid" }
+                }
+              ],
               "responses": {
                 "200": {
-                  "description": "Customers list",
+                  "description": "Report table payload",
                   "content": {
                     "application/json": {
-                      "schema": {
-                        "type": "array",
-                        "items": { "$ref": "#/components/schemas/CustomerResponse" }
-                      }
+                      "schema": { "$ref": "#/components/schemas/ReportsResponse" }
                     }
                   }
                 },
                 "401": { "$ref": "#/components/responses/UnauthorizedError" },
-                "403": { "$ref": "#/components/responses/ForbiddenError" }
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/orders": {
+            "post": {
+              "tags": ["Orders"],
+              "summary": "Create order for reservation (waiter only)",
+              "security": [{ "bearerAuth": [] }],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": { "$ref": "#/components/schemas/CreateOrderRequest" }
+                  }
+                }
+              },
+              "responses": {
+                "201": {
+                  "description": "Order created",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/CreateOrderResponse" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "404": { "$ref": "#/components/responses/NotFoundError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
               }
             }
           },
@@ -856,7 +1055,13 @@
             "bearerAuth": {
               "type": "http",
               "scheme": "bearer",
-              "bearerFormat": "JWT"
+              "bearerFormat": "JWT",
+              "x-amazon-apigateway-authorizer": {
+                "type": "cognito_user_pools",
+                "x-syndicate-cognito-userpool-names": [
+                  "${restaurant-userpool}"
+                ]
+              }
             }
           },
           "responses": {
@@ -1391,6 +1596,54 @@
                 }
               }
             },
+            "ReportsResponse": {
+              "type": "object",
+              "required": ["reportType", "periodStart", "periodEnd", "rows"],
+              "properties": {
+                "reportType": {
+                  "type": "string",
+                  "enum": ["staff_performance", "sales"]
+                },
+                "periodStart": { "type": "string", "format": "date" },
+                "periodEnd": { "type": "string", "format": "date" },
+                "rows": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "description": "Row structure varies by reportType (staff_performance or sales)."
+                  }
+                }
+              }
+            },
+            "OrderItemRequest": {
+              "type": "object",
+              "required": ["dishId", "quantity"],
+              "properties": {
+                "dishId": { "type": "string", "format": "uuid" },
+                "quantity": { "type": "integer", "minimum": 1 }
+              }
+            },
+            "CreateOrderRequest": {
+              "type": "object",
+              "required": ["reservationId", "items"],
+              "properties": {
+                "reservationId": { "type": "string", "format": "uuid" },
+                "items": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": { "$ref": "#/components/schemas/OrderItemRequest" }
+                }
+              }
+            },
+            "CreateOrderResponse": {
+              "type": "object",
+              "required": ["orderId", "reservationId"],
+              "properties": {
+                "orderId": { "type": "string", "format": "uuid" },
+                "reservationId": { "type": "string", "format": "uuid" }
+              }
+            },
             "ReservationEventType": {
               "type": "string",
               "enum": ["CREATED", "UPDATED", "COMPLETED", "CANCELLED"]
@@ -1410,18 +1663,4 @@
             }
           }
         }
-      };
-      window.onload = function () {
-        window.ui = SwaggerUIBundle({
-          spec: window.OPENAPI_SPEC,
-          dom_id: "#swagger-ui",
-          deepLinking: true,
-          supportedSubmitMethods: [],
-          persistAuthorization: true,
-          presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
-          layout: "BaseLayout",
-        });
-      };
-    </script>
-  </body>
-</html>
+      }

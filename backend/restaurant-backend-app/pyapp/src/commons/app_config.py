@@ -44,6 +44,7 @@ class AppConfig(BaseSettings):
     # CORS
     cors_origins: list[str] = [
         "http://epam-restaurantapp-dev-eu-west-3-frontend.s3-website.eu-west-3.amazonaws.com",
+        "http://tm3-restaurant-api-ui-hoster-dev3.s3-website.eu-west-3.amazonaws.com",
         "http://localhost:5173",
     ]
 

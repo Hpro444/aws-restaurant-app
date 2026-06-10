@@ -525,58 +525,6 @@
           "enable_proxy": true
         }
       },
-      "/locations/{id}/valid-slot-start-times": {
-        "OPTIONS": {
-          "authorization_type": "NONE",
-          "integration_type": "lambda",
-          "lambda_name": "api-handler",
-          "api_key_required": false,
-          "method_request_parameters": {},
-          "integration_request_body_template": {},
-          "responses": [],
-          "integration_responses": [],
-          "default_error_pattern": true,
-          "enable_proxy": true
-        },
-        "GET": {
-          "authorization_type": "NONE",
-          "integration_type": "lambda",
-          "lambda_name": "api-handler",
-          "api_key_required": false,
-          "method_request_parameters": {},
-          "integration_request_body_template": {},
-          "responses": [],
-          "integration_responses": [],
-          "default_error_pattern": true,
-          "enable_proxy": true
-        }
-      },
-      "/locations/{id}/valid-slot-end-times": {
-        "OPTIONS": {
-          "authorization_type": "NONE",
-          "integration_type": "lambda",
-          "lambda_name": "api-handler",
-          "api_key_required": false,
-          "method_request_parameters": {},
-          "integration_request_body_template": {},
-          "responses": [],
-          "integration_responses": [],
-          "default_error_pattern": true,
-          "enable_proxy": true
-        },
-        "GET": {
-          "authorization_type": "NONE",
-          "integration_type": "lambda",
-          "lambda_name": "api-handler",
-          "api_key_required": false,
-          "method_request_parameters": {},
-          "integration_request_body_template": {},
-          "responses": [],
-          "integration_responses": [],
-          "default_error_pattern": true,
-          "enable_proxy": true
-        }
-      },
       "/dishes": {
         "OPTIONS": {
           "authorization_type": "NONE",
@@ -1223,5 +1171,45 @@
     ],
     "autoscaling": [],
     "tags": {}
+  },
+  "restaurant-api-ui-hoster": {
+    "resource_type": "s3_bucket",
+    "acl": "private",
+    "cors": [],
+    "policy": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Sid": "WebSiteHostingGetObject",
+          "Effect": "Allow",
+          "Principal": "*",
+          "Action": [
+            "s3:GetObject"
+          ],
+          "Resource": [
+            "arn:aws:s3:::restaurant-api-ui-hoster/*"
+          ],
+          "Condition": {
+            "IpAddress": {
+              "aws:SourceIp": [
+                "x.x.x.x/32"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "public_access_block": {
+      "block_public_acls": true,
+      "ignore_public_acls": true,
+      "block_public_policy": true,
+      "restrict_public_buckets": true
+    },
+    "tags": {},
+    "website_hosting": {
+      "enabled": true,
+      "index_document": "index.html",
+      "error_document": "error.html"
+    }
   }
 }
