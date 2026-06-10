@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -33,7 +34,17 @@ from seeds.cognito_users import (
 )
 from seeds.config import AWS_REGION
 
-TOKENS_FILE = Path(__file__).parent / "tokens.json"
+
+def _tokens_file() -> Path:
+    """Return the tokens.json path, honouring the E2E_ARTIFACTS_DIR override.
+
+    The e2e runner (automation-qa) sets ``E2E_ARTIFACTS_DIR`` so seeded
+    artifacts land next to the e2e tests instead of in backend/.
+    """
+    override = os.environ.get("E2E_ARTIFACTS_DIR")
+    base = Path(override) if override else Path(__file__).parent
+    return base / "tokens.json"
+
 
 _SYNDICATE_CONFIG = (
     Path(__file__).parent
@@ -75,14 +86,15 @@ def _load_syndicate_credentials() -> dict:
 
 def _load_tokens() -> dict:
     """Load existing token entries from tokens.json, or return an empty dict."""
-    if TOKENS_FILE.exists():
-        return json.loads(TOKENS_FILE.read_text(encoding="utf-8"))
+    tokens_file = _tokens_file()
+    if tokens_file.exists():
+        return json.loads(tokens_file.read_text(encoding="utf-8"))
     return {}
 
 
 def _save_tokens(tokens: dict) -> None:
     """Persist token entries to tokens.json."""
-    TOKENS_FILE.write_text(json.dumps(tokens, indent=2), encoding="utf-8")
+    _tokens_file().write_text(json.dumps(tokens, indent=2), encoding="utf-8")
 
 
 def _resolve_client_id(cognito_client, pool_id: str) -> str:

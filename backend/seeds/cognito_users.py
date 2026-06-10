@@ -26,6 +26,7 @@ _GROUP_DEFINITIONS = [
 
 # (email, first_name, last_name, cognito_group)
 _USERS: list[tuple[str, str, str, str]] = [
+    ("admin@example.com", "Ada", "Admin", "Admin"),
     ("alice@example.com", "Alice", "Smith", "Customer"),
     ("bob@example.com", "Bob", "Johnson", "Customer"),
     ("carol@example.com", "Carol", "Williams", "Customer"),

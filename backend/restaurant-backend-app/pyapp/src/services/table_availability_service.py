@@ -161,6 +161,7 @@ class TableAvailabilityService:
                 before_filter=before_filter,
                 after_filter=len(free_slots),
             )
+        free_slots = self._verify_free_with_base_table(free_slots)
         logger.info(
             "Availability computed",
             total_slots=len(slots),
@@ -244,6 +245,8 @@ class TableAvailabilityService:
                 after_filter=len(free_slots),
             )
 
+        free_slots = self._verify_free_with_base_table(free_slots)
+
         if not free_slots:
             logger.info(
                 "No waiter free slots in requested window",
@@ -288,6 +291,44 @@ class TableAvailabilityService:
 
     # ── Private helpers ──────────────────────────────────────────────
 
+    def _verify_free_with_base_table(self, candidates: list[Slot]) -> list[Slot]:
+        """Drop candidate slots whose base-table row is no longer FREE.
+
+        Availability reads flow through the ``table_id_date_index`` GSI,
+        which is eventually consistent — after a write burst it can serve a
+        stale FREE for a slot the base table already has as RESERVED, making
+        the API advertise slots that cannot actually be booked (the booking
+        path's conditional claim against the base table then returns 409).
+        Re-reading the candidates from the base table with a strongly
+        consistent ``BatchGetItem`` removes those phantom entries.
+
+        Args:
+            candidates: Slots the GSI reported as FREE.
+
+        Returns:
+            The subset of candidates whose base-table status is FREE.
+
+        """
+        if not candidates:
+            return []
+
+        fresh = self._slot_repo.find_by_ids(
+            [slot.id for slot in candidates], consistent=True
+        )
+        fresh_status = {slot.id: slot.status for slot in fresh}
+        verified = [
+            slot for slot in candidates if fresh_status.get(slot.id) == SlotStatus.FREE
+        ]
+
+        dropped = len(candidates) - len(verified)
+        if dropped:
+            logger.warning(
+                "Dropped stale GSI slots not FREE in base table",
+                candidates=len(candidates),
+                dropped=dropped,
+            )
+        return verified
+
     @staticmethod
     def _snap_to_slot_start(open_time: time, requested_time: time) -> time:
         """Return earliest slot start not earlier than requested_time."""
@@ -318,7 +359,7 @@ class TableAvailabilityService:
         if date_iso == now_utc.date().isoformat():
             free_slots = [slot for slot in free_slots if slot.start_time > now_utc]
 
-        return free_slots
+        return self._verify_free_with_base_table(free_slots)
 
     @staticmethod
     def _parse_utc_datetime(value: str, date_iso: str) -> datetime:

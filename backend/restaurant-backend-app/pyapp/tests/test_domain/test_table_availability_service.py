@@ -85,6 +85,16 @@ class TestTableAvailabilityService(unittest.TestCase):
         self.mock_slot_repo_cls.return_value = self.mock_slot_repo
         self.mock_location_repo_cls.return_value = self.mock_location_repo
 
+        # Base-table verification echoes the GSI mock: base table agrees by
+        # default; staleness scenarios override find_by_ids explicitly.
+        self.mock_slot_repo.find_by_ids.side_effect = (
+            lambda slot_ids, consistent=False: [
+                slot
+                for slot in self.mock_slot_repo.find_by_table_ids_and_date.return_value
+                if slot.id in set(slot_ids)
+            ]
+        )
+
         location = MagicMock()
         location.name = "48 Rustaveli Avenue, Tbilisi"
         location.address = "48 Rustaveli Avenue, Tbilisi"

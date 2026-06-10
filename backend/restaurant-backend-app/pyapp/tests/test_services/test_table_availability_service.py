@@ -112,11 +112,24 @@ class TestTableAvailabilityService(unittest.TestCase):
     """Verify location/capacity/time/status filters in service orchestration."""
 
     def setUp(self) -> None:
-        """Create service instance with mocked repositories."""
+        """Create service instance with mocked repositories.
+
+        ``find_by_ids`` (the base-table verification read) echoes whatever the
+        GSI query mock returns, so by default the base table agrees with the
+        GSI; staleness tests override it explicitly.
+        """
         self.service = TableAvailabilityService.__new__(TableAvailabilityService)
         self.service._table_repo = MagicMock()
         self.service._slot_repo = MagicMock()
         self.service._location_repo = MagicMock()
+
+        self.service._slot_repo.find_by_ids.side_effect = (
+            lambda slot_ids, consistent=False: [
+                slot
+                for slot in self.service._slot_repo.find_by_table_ids_and_date.return_value
+                if slot.id in set(slot_ids)
+            ]
+        )
 
         location = MagicMock()
         location.name = "48 Rustaveli Avenue, Tbilisi"
@@ -156,6 +169,64 @@ class TestTableAvailabilityService(unittest.TestCase):
         data = response.model_dump()
         self.assertEqual(len(data["tables"]), 1)
         self.assertEqual(len(data["tables"][0]["available_slots"]), 3)
+
+    def test_stale_gsi_free_slot_is_dropped_when_base_table_says_reserved(
+        self,
+    ) -> None:
+        """A slot the GSI reports FREE but the base table has RESERVED is not listed.
+
+        Regression test for the e2e finding where availability advertised
+        seeder-reserved slots and booking then returned 409.
+        """
+        table = _table(_TABLE_1_ID, table_number=1, capacity=4)
+        s1 = _slot(_SLOT_1_ID, _TABLE_1_ID, 12, 0)  # truly FREE
+        s2 = _slot(_SLOT_2_ID, _TABLE_1_ID, 13, 45)  # stale: GSI says FREE…
+
+        self.service._table_repo.find_by_location_id.return_value = [table]
+        self.service._slot_repo.find_by_table_ids_and_date.return_value = [s1, s2]
+        # …but the base table already has it RESERVED.
+        self.service._slot_repo.find_by_ids.side_effect = (
+            lambda slot_ids, consistent=False: [
+                s1,
+                _slot(_SLOT_2_ID, _TABLE_1_ID, 13, 45, status=SlotStatus.RESERVED),
+            ]
+        )
+
+        response = self.service.get_available_tables(
+            location_id=_LOCATION_ID,
+            booking_date="2026-05-20",
+            guests_number=2,
+        )
+
+        data = response.model_dump()
+        self.assertEqual(len(data["tables"]), 1)
+        listed_ids = [slot["slot_id"] for slot in data["tables"][0]["available_slots"]]
+        self.assertEqual(listed_ids, [str(_SLOT_1_ID)])
+        self.service._slot_repo.find_by_ids.assert_called_once()
+        _, called_kwargs = self.service._slot_repo.find_by_ids.call_args
+        self.assertTrue(called_kwargs.get("consistent"))
+
+    def test_slot_missing_from_base_table_is_dropped(self) -> None:
+        """A GSI row whose base-table item no longer exists is not listed."""
+        table = _table(_TABLE_1_ID, table_number=1, capacity=4)
+        s1 = _slot(_SLOT_1_ID, _TABLE_1_ID, 12, 0)
+        s2 = _slot(_SLOT_2_ID, _TABLE_1_ID, 13, 45)  # deleted from base table
+
+        self.service._table_repo.find_by_location_id.return_value = [table]
+        self.service._slot_repo.find_by_table_ids_and_date.return_value = [s1, s2]
+        self.service._slot_repo.find_by_ids.side_effect = (
+            lambda slot_ids, consistent=False: [s1]
+        )
+
+        response = self.service.get_available_tables(
+            location_id=_LOCATION_ID,
+            booking_date="2026-05-20",
+            guests_number=2,
+        )
+
+        data = response.model_dump()
+        listed_ids = [slot["slot_id"] for slot in data["tables"][0]["available_slots"]]
+        self.assertEqual(listed_ids, [str(_SLOT_1_ID)])
 
     def test_from_time_on_slot_boundary_qualifies_table_and_returns_later_slots(
         self,
