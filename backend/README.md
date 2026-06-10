@@ -1,6 +1,6 @@
 # Restaurant Backend
 
-AWS Lambda + API Gateway backend for the restaurant management platform. A single Lambda function (`ApiHandler`) routes all requests by inspecting `event["path"]` and `event["httpMethod"]`. DynamoDB is the primary store; AWS Cognito handles authentication.
+AWS Lambda + API Gateway backend for the restaurant management platform. Three Lambda functions handle all traffic: `ApiHandler` routes HTTP requests, `DataCaptureLambda` processes async SQS events to maintain report aggregates, and `ReportSenderLambda` emails weekly CSV reports via SES. DynamoDB is the primary store; AWS Cognito handles authentication.
 
 ---
 
@@ -8,10 +8,12 @@ AWS Lambda + API Gateway backend for the restaurant management platform. A singl
 
 | Layer | Technology |
 |---|---|
-| Runtime | Python 3.14 |
+| Runtime | Python 3.13 |
 | Framework | AWS Syndicate (Lambda + API Gateway) |
 | Database | DynamoDB |
 | Auth | AWS Cognito (USER_PASSWORD_AUTH) |
+| Async events | AWS SQS |
+| Email reports | AWS SES |
 | Validation | Pydantic v2 |
 | Logging | structlog |
 | Tests | pytest + unittest.mock |
@@ -24,17 +26,17 @@ AWS Lambda + API Gateway backend for the restaurant management platform. A singl
 restaurant-backend-app/
 ├── pyapp/
 │   ├── src/
-│   │   ├── lambdas/api-handler/
-│   │   │   ├── handler.py          # Entry point; route dispatch
-│   │   │   └── requirements.txt    # Lambda runtime dependencies
-│   │   ├── services/               # Business logic
-│   │   ├── repositories/           # DynamoDB access (generic DynamoRepository[T])
-│   │   ├── domain/                 # Persistent entity models (DynamoModel)
-│   │   ├── dto/                    # Request / response Pydantic models
-│   │   ├── enums/                  # HttpStatusCode, UserRole, etc.
-│   │   └── commons/                # AbstractLambda, LambdaResponse, exceptions, AppConfig
-│   └── tests/                      # pytest tests (no real AWS calls)
-├── CHANGELOG.md
+│   │   ├── lambdas/
+│   │   │   ├── api-handler/             # HTTP entry point; route dispatch
+│   │   │   ├── data_capture_lambda/     # SQS consumer; updates report aggregates
+│   │   │   └── report_sender_lambda/    # Scheduled; emails weekly CSV via SES
+│   │   ├── services/                    # Business logic
+│   │   ├── repositories/               # DynamoDB access (generic DynamoRepository[T])
+│   │   ├── domain/                     # Persistent entity models (DynamoModel)
+│   │   ├── dto/                        # Request / response Pydantic models
+│   │   ├── enums/                      # HttpStatusCode, UserRole, etc.
+│   │   └── commons/                    # AbstractLambda, LambdaResponse, exceptions, AppConfig
+│   └── tests/                          # pytest unit tests (no real AWS calls)
 └── README.md
 ```
 
@@ -44,45 +46,91 @@ restaurant-backend-app/
 
 ### Auth
 
-| Method | Path | Description |
-|---|---|---|
-| POST | `/auth/sign-up` | Register a new user |
-| POST | `/auth/sign-in` | Authenticate and receive tokens |
-| POST | `/auth/refresh` | Refresh access token |
-| POST | `/auth/logout` | Revoke refresh token |
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/auth/sign-up` | — | Register a new user |
+| POST | `/auth/sign-in` | — | Authenticate and receive tokens |
+| POST | `/auth/refresh` | — | Refresh access token |
+| POST | `/auth/logout` | — | Revoke refresh token |
 
 ### Users
 
-| Method | Path | Description |
-|---|---|---|
-| GET | `/users/profile` | Fetch the authenticated user's profile |
-| PUT | `/users/profile` | Update the authenticated user's profile |
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/users/profile` | Any | Fetch the authenticated user's profile |
+| PUT | `/users/profile` | Any | Update the authenticated user's profile |
+| GET | `/users/waiter/location` | Waiter | Return the waiter's assigned location |
 
 ### Locations
 
-| Method | Path | Description |
-|---|---|---|
-| GET | `/locations` | List all restaurant locations |
-| GET | `/locations/{id}` | Get a single location |
-| GET | `/locations/{id}/speciality-dishes` | Get speciality dishes for a location |
-| GET | `/locations/{id}/feedbacks` | Get paginated feedbacks for a location |
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/locations` | — | List all restaurant locations |
+| GET | `/locations/{id}` | — | Get a single location |
+| GET | `/locations/select-options` | — | Location id + address pairs for pickers |
+| GET | `/locations/{id}/valid-slot-times` | — | Valid slot start/end times for a location |
+| GET | `/locations/{id}/speciality-dishes` | — | Speciality dishes for a location |
+| GET | `/locations/{id}/feedbacks` | — | Paginated feedbacks for a location |
+| GET | `/locations/{id}/tables` | Waiter | All tables at a location |
 
 ### Bookings
 
-| Method | Path | Description |
-|---|---|---|
-| GET | `/bookings/tables` | List available tables (with free time slots) |
-| POST | `/bookings/client` | Create a reservation |
-| GET | `/bookings/client` | List the authenticated user's reservations |
-| GET | `/bookings/client/{id}` | Get a single reservation |
-| PUT | `/bookings/client/{id}` | Update reservation status |
-| DELETE | `/bookings/client/{id}/cancel` | Cancel a reservation |
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/bookings/tables` | — | Available tables with free slots (customer view) |
+| GET | `/bookings/waiter/tables` | Waiter | Available tables with free slots (waiter view) |
+| POST | `/bookings/client` | Customer / Waiter | Create a reservation |
+| GET | `/bookings/client` | Customer / Waiter | Dashboard reservations list |
+| GET | `/bookings/client/{reservationId}` | Customer / Waiter | Get a single reservation |
+| PUT | `/bookings/client/{reservationId}` | Customer / Waiter | Update reservation status |
+| PUT | `/bookings/waiter/{reservationId}` | Waiter | Waiter-only reservation status update |
+| DELETE | `/bookings/client/{reservationId}/cancel` | Customer / Waiter | Cancel a reservation |
+
+### Reservations
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/reservations/waiter` | Waiter | Table-filtered waiter reservation view |
 
 ### Dishes
 
-| Method | Path | Description |
-|---|---|---|
-| GET | `/dishes/popular` | List popular dishes |
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/dishes` | — | List dishes (filterable by type, sort, dietary) |
+| GET | `/dishes/popular` | — | List all popular dishes |
+| GET | `/dishes/{id}` | — | Get a single dish |
+
+### Feedbacks
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/feedbacks/context/{reservationId}` | Customer | Feedback modal data for a reservation |
+| POST | `/feedbacks` | Customer | Submit feedback |
+| PUT | `/feedbacks` | Customer | Update feedback |
+
+### Orders
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/orders` | Waiter | Create an order for a reservation |
+
+### Customers & Reports
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/customers` | Waiter | List all customers |
+| GET | `/reports` | Admin | Aggregated reports filtered by type, period, location |
+
+---
+
+## Async SQS pipeline
+
+`ApiHandler` publishes events to SQS whenever a reservation changes status or feedback is submitted. `DataCaptureLambda` consumes these events and incrementally updates two report-aggregate tables:
+
+- **WaiterReport** — per-waiter metrics (reservations, orders, revenue, ratings) keyed by ISO week.
+- **LocationReport** — per-location metrics (reservations, revenue, cuisine/service feedback averages) keyed by ISO week.
+
+`ReportSenderLambda` runs on a schedule, reads the current ISO-week aggregates, generates CSV attachments, and sends the weekly summary via SES to configured admin recipients.
 
 ---
 
@@ -114,7 +162,7 @@ Modelled by `ValidationErrorResponse` / `FieldError` in `dto/error_response.py`.
 
 ## Auth rules
 
-- **Email normalization** — emails are lowercased and stripped on both sign-up and sign-in, so `User@Example.COM` and `user@example.com` resolve to the same account.
+- **Email normalization** — emails are lowercased and stripped on both sign-up and sign-in.
 - **Email format** — on sign-up, the local part (before `@`) must start with a letter.
 - **Password policy** — 8–16 characters, requires uppercase, lowercase, digit, and special character.
 - **Login lockout** — account is locked for 15 minutes after 5 consecutive failed attempts (configurable via `MAX_LOGIN_ATTEMPTS` / `LOCKOUT_SECONDS`).
@@ -124,20 +172,20 @@ Modelled by `ValidationErrorResponse` / `FieldError` in `dto/error_response.py`.
 
 ## Running tests
 
-From the repo root (`restaurant-backend-app/`):
+From `backend/` (where `pyproject.toml` lives):
 
 ```bash
 # All tests
-python -m pytest pyapp/tests/
+python -m pytest
 
 # Single file
-python -m pytest pyapp/tests/test_api_handler/test_sign_in.py
+python -m pytest restaurant-backend-app/pyapp/tests/test_api_handler/test_sign_in.py
 
 # Single test
-python -m pytest pyapp/tests/test_api_handler/test_sign_in.py::TestSignIn::test_success_returns_200_with_tokens_username_role
+python -m pytest restaurant-backend-app/pyapp/tests/test_api_handler/test_sign_in.py::TestSignIn::test_success_returns_200_with_tokens_username_role
 
 # With coverage
-python -m pytest pyapp/tests/ --cov=pyapp/src
+python -m pytest --cov=restaurant-backend-app/pyapp/src
 ```
 
 Tests use `unittest.mock` — no real AWS calls are made.
@@ -150,6 +198,7 @@ Tests use `unittest.mock` — no real AWS calls are made.
 
 | Package | Version |
 |---|---|
+| aws-lambda-powertools | 3.29.0 |
 | pydantic[email] | 2.13.4 |
 | pydantic-settings | 2.0.0 |
 | structlog | 25.5.0 |
@@ -162,26 +211,8 @@ Tests use `unittest.mock` — no real AWS calls are made.
 | pytest | 9.0.3 |
 | pytest-cov | >=7.1.0 |
 | boto3 | 1.38.12 |
-| ruff | latest |
+| ruff | 0.15.15 |
 | pre-commit | 4.6.0 |
-
----
-
-## Changelog
-
-<!-- CHANGELOG -->
-### [1.1.0] - 2026-05-20
-- Added `ValidationErrorResponse` / `FieldError` DTOs; all 422 responses now return `{"errors": [...]}`
-- Email normalization (lowercase + strip) on sign-up and sign-in
-- Email local-part must start with a letter on sign-up
-- Comprehensive README documentation
-
-### [1.0.1] - 2026-05-20
-- Fixed account lockout message; added missing reservation and sign-in tests
-- Changed booking cancellation from PUT to DELETE
-
-### [1.0.0] - 2026-05-20
-- Full-featured restaurant API: locations, feedbacks, dishes, reservations, multi-slot bookings, waiter assignment, GSI queries
-
-> Full history: [CHANGELOG.md](CHANGELOG.md)
-<!-- /CHANGELOG -->
+| requests | >=2.32.0 |
+| fpdf2 | >=2.8.0 |
+| argon2-cffi | 23.1.0 |
