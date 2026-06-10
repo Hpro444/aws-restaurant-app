@@ -9,6 +9,7 @@ SEED_ORDER = [
     "cognito_users",
     "locations",
     "customers",
+    "admins",
     "waiters",
     "admin_emails",
     "admins",

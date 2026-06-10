@@ -8,6 +8,7 @@ from botocore.config import Config
 AWS_REGION = "eu-west-3"
 
 # Slot generation
+SLOT_SEED_DAYS_PAST = 5
 SLOT_SEED_DAYS_AHEAD = 7
 SLOT_DURATION_MINUTES = 90
 SLOT_BREAK_MINUTES = 15

@@ -14,6 +14,8 @@ from __future__ import annotations
 import boto3
 from botocore.exceptions import ClientError
 
+from seeds.utils import seed_id
+
 _POOL_NAME_BASE = "restaurant-userpool"
 _DEMO_PASSWORD = "Password123@"
 _MAX_POOL_RESULTS = 60
@@ -155,7 +157,19 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
     cognito_client = boto3.client("cognito-idp", region_name=region, **creds)
 
     pool_name = f"{prefix}{_POOL_NAME_BASE}{suffix}"
-    pool_id = _resolve_pool_id(cognito_client, pool_name)
+    try:
+        pool_id = _resolve_pool_id(cognito_client, pool_name)
+    except RuntimeError as exc:
+        # Keep downstream DynamoDB seeders working even when Cognito env is missing.
+        subs = {email: str(seed_id("cognito-sub", email)) for email, *_ in _USERS}
+        context["cognito_subs"] = subs
+        print(
+            "  ! Cognito pool not found; using deterministic fallback subs so "
+            "DynamoDB seed can continue"
+        )
+        print(f"    ({exc})")
+        return
+
     _ensure_groups(cognito_client, pool_id)
 
     subs: dict[str, str] = {}

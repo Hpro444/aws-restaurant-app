@@ -302,159 +302,142 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
     s_ava = pick("ava@example.com")  # Old Town 2nd shift → IN_PROGRESS
     s_noah = pick("noah@example.com")  # Old Town 1st shift (t4-6) → FINISHED
 
-    today_slots = [
-        s_lea,
-        s_lea2,
-        s_olivia,
-        s_charlie,
-        s_ethan,
-        s_max,
-        s_liam,
-        s_mia,
-        s_nina,
-        s_ava,
-        s_noah,
-    ]
-    if any(s is None for s in today_slots):
-        missing = [
-            name
-            for name, s in zip(
-                [
-                    "lea",
-                    "lea2",
-                    "olivia",
-                    "charlie",
-                    "ethan",
-                    "max",
-                    "liam",
-                    "mia",
-                    "nina",
-                    "ava",
-                    "noah",
-                ],
-                today_slots,
-            )
-            if s is None
-        ]
-        print(f"  ! Skipping today's reservations: no slots found for {missing}")
-        context["reservations"] = []
-        return
+    today_slots = {
+        "lea": s_lea,
+        "lea2": s_lea2,
+        "olivia": s_olivia,
+        "charlie": s_charlie,
+        "ethan": s_ethan,
+        "max": s_max,
+        "liam": s_liam,
+        "mia": s_mia,
+        "nina": s_nina,
+        "ava": s_ava,
+        "noah": s_noah,
+    }
+    missing = [name for name, slot in today_slots.items() if slot is None]
+    if missing:
+        print(
+            "  ! Some showcase slots are missing; seeding available reservations only "
+            f"(missing: {missing})"
+        )
 
     today_str = today.isoformat()
-    reservations: list[Reservation] = [
-        Reservation(
-            id=seed_id("reservation", f"{s_lea2.id}:visitor"),
-            customer_id=None,
-            client_name="Sofia Greco",
-            waiter_id=s_lea2.waiter_id,
-            created_at=created_at,
-            slot_ids=[s_lea2.id],
-            status=_resolve_status(s_lea2, ReservationStatus.RESERVED, now),
-            number_of_guests=3,
-            date=today_str,
+    showcase_plan = [
+        ("lea2", ReservationStatus.RESERVED, None, "Sofia Greco", 3, "visitor"),
+        (
+            "lea",
+            ReservationStatus.RESERVED,
+            "alice@example.com",
+            None,
+            4,
+            "reserved",
         ),
-        Reservation(
-            id=seed_id("reservation", f"{s_lea.id}:reserved"),
-            customer_id=customers["alice@example.com"].id,
-            waiter_id=s_lea.waiter_id,
-            created_at=created_at,
-            slot_ids=[s_lea.id],
-            status=_resolve_status(s_lea, ReservationStatus.RESERVED, now),
-            number_of_guests=4,
-            date=today_str,
+        (
+            "olivia",
+            ReservationStatus.IN_PROGRESS,
+            "bob@example.com",
+            None,
+            2,
+            "in-progress",
         ),
-        Reservation(
-            id=seed_id("reservation", f"{s_olivia.id}:in-progress"),
-            customer_id=customers["bob@example.com"].id,
-            waiter_id=s_olivia.waiter_id,
-            created_at=created_at,
-            slot_ids=[s_olivia.id],
-            status=ReservationStatus.IN_PROGRESS,
-            number_of_guests=2,
-            date=today_str,
+        (
+            "charlie",
+            ReservationStatus.CANCELLED,
+            "carol@example.com",
+            None,
+            3,
+            "cancelled",
         ),
-        Reservation(
-            id=seed_id("reservation", f"{s_charlie.id}:cancelled"),
-            customer_id=customers["carol@example.com"].id,
-            waiter_id=s_charlie.waiter_id,
-            created_at=created_at,
-            slot_ids=[s_charlie.id],
-            status=ReservationStatus.CANCELLED,
-            number_of_guests=3,
-            date=today_str,
+        (
+            "ethan",
+            ReservationStatus.RESERVED,
+            None,
+            "Marco Rossi",
+            2,
+            "visitor",
         ),
-        Reservation(
-            id=seed_id("reservation", f"{s_ethan.id}:visitor"),
-            customer_id=None,
-            client_name="Marco Rossi",
-            waiter_id=s_ethan.waiter_id,
-            created_at=created_at,
-            slot_ids=[s_ethan.id],
-            status=_resolve_status(s_ethan, ReservationStatus.RESERVED, now),
-            number_of_guests=2,
-            date=today_str,
+        (
+            "max",
+            ReservationStatus.FINISHED,
+            "david@example.com",
+            None,
+            5,
+            "finished",
         ),
-        Reservation(
-            id=seed_id("reservation", f"{s_max.id}:finished"),
-            customer_id=customers["david@example.com"].id,
-            waiter_id=s_max.waiter_id,
-            created_at=created_at,
-            slot_ids=[s_max.id],
-            status=ReservationStatus.FINISHED,
-            number_of_guests=5,
-            date=today_str,
+        (
+            "liam",
+            ReservationStatus.FINISHED,
+            "emma@example.com",
+            None,
+            2,
+            "finished",
         ),
-        Reservation(
-            id=seed_id("reservation", f"{s_liam.id}:finished"),
-            customer_id=customers["emma@example.com"].id,
-            waiter_id=s_liam.waiter_id,
-            created_at=created_at,
-            slot_ids=[s_liam.id],
-            status=ReservationStatus.FINISHED,
-            number_of_guests=2,
-            date=today_str,
+        (
+            "mia",
+            ReservationStatus.RESERVED,
+            "frank@example.com",
+            None,
+            6,
+            "reserved",
         ),
-        Reservation(
-            id=seed_id("reservation", f"{s_mia.id}:reserved"),
-            customer_id=customers["frank@example.com"].id,
-            waiter_id=s_mia.waiter_id,
-            created_at=created_at,
-            slot_ids=[s_mia.id],
-            status=_resolve_status(s_mia, ReservationStatus.RESERVED, now),
-            number_of_guests=6,
-            date=today_str,
+        (
+            "nina",
+            ReservationStatus.FINISHED,
+            "grace@example.com",
+            None,
+            4,
+            "finished",
         ),
-        Reservation(
-            id=seed_id("reservation", f"{s_nina.id}:finished"),
-            customer_id=customers["grace@example.com"].id,
-            waiter_id=s_nina.waiter_id,
-            created_at=created_at,
-            slot_ids=[s_nina.id],
-            status=ReservationStatus.FINISHED,
-            number_of_guests=4,
-            date=today_str,
+        (
+            "ava",
+            ReservationStatus.IN_PROGRESS,
+            "henry@example.com",
+            None,
+            3,
+            "in-progress",
         ),
-        Reservation(
-            id=seed_id("reservation", f"{s_ava.id}:in-progress"),
-            customer_id=customers["henry@example.com"].id,
-            waiter_id=s_ava.waiter_id,
-            created_at=created_at,
-            slot_ids=[s_ava.id],
-            status=ReservationStatus.IN_PROGRESS,
-            number_of_guests=3,
-            date=today_str,
-        ),
-        Reservation(
-            id=seed_id("reservation", f"{s_noah.id}:finished"),
-            customer_id=customers["iris@example.com"].id,
-            waiter_id=s_noah.waiter_id,
-            created_at=created_at,
-            slot_ids=[s_noah.id],
-            status=ReservationStatus.FINISHED,
-            number_of_guests=2,
-            date=today_str,
+        (
+            "noah",
+            ReservationStatus.FINISHED,
+            "iris@example.com",
+            None,
+            2,
+            "finished",
         ),
     ]
+
+    reservations: list[Reservation] = []
+    for (
+        name,
+        intended_status,
+        customer_email,
+        client_name,
+        guests,
+        label,
+    ) in showcase_plan:
+        slot = today_slots.get(name)
+        if slot is None:
+            continue
+
+        status = (
+            _resolve_status(slot, intended_status, now)
+            if intended_status == ReservationStatus.RESERVED
+            else intended_status
+        )
+        reservations.append(
+            Reservation(
+                id=seed_id("reservation", f"{slot.id}:{label}"),
+                customer_id=customers[customer_email].id if customer_email else None,
+                client_name=client_name,
+                waiter_id=slot.waiter_id,
+                created_at=created_at,
+                slot_ids=[slot.id],
+                status=status,
+                number_of_guests=guests,
+                date=today_str,
+            )
+        )
 
     # ── Past FINISHED reservations (delta testing) ─────────────────────────
     past_reservations = _seed_past_reservations(slots_list, customers, today)

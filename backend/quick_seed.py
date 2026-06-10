@@ -29,7 +29,7 @@ sys.path.insert(0, str(PYAPP_SRC))
 sys.path.insert(0, str(Path(__file__).parent))
 
 import seeds
-from seeds.config import AWS_REGION, SLOT_SEED_DAYS_AHEAD
+from seeds.config import AWS_REGION, SLOT_SEED_DAYS_AHEAD, SLOT_SEED_DAYS_PAST
 from seeds.utils import seed_id
 
 SYNDICATE_CONFIG = (
@@ -399,6 +399,7 @@ def main():
         "aws_region": AWS_REGION,
         "resources_prefix": resources_prefix,
         "resources_suffix": resources_suffix,
+        "slot_seed_days_past": SLOT_SEED_DAYS_PAST,
         "slot_seed_days_ahead": SLOT_SEED_DAYS_AHEAD,
     }
     current_module = None
@@ -430,6 +431,9 @@ def main():
 
     # Summary.
     today_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    first_seeded_date = (
+        datetime.now(timezone.utc) - timedelta(days=SLOT_SEED_DAYS_PAST)
+    ).strftime("%Y-%m-%d")
     last_seeded_date = (
         datetime.now(timezone.utc) + timedelta(days=SLOT_SEED_DAYS_AHEAD)
     ).strftime("%Y-%m-%d")
@@ -463,7 +467,7 @@ def main():
         f"   - Customer (Carol)  carol@example.com:  {cognito_subs.get('carol@example.com', str(seed_id('customer', 'carol')))}"
     )
     print("\n🔑 Demo credentials (all seeded users): Password123@")
-    first_seeded_date = context.get("slot_seed_start_date", today_date)
+    first_seeded_date = context.get("slot_seed_start_date", first_seeded_date)
     print(f"   - Slots seeded for date range: {first_seeded_date} → {last_seeded_date}")
     days_past = context.get("slot_seed_days_past", 0)
     if days_past:
