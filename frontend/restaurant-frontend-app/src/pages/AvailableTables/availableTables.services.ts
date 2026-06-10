@@ -1,5 +1,7 @@
 import getApiBaseUrl from "../../config/GetApiBaseUrl";
 import type {
+  CreateBookingPayload,
+  CreateBookingResponse,
   GetTablesParams,
   GetTablesResponse,
   LocationSelectOption,
@@ -64,27 +66,6 @@ export const getAvailableTables = async (
 
   return payload as GetTablesResponse;
 };
-
-export interface CreateBookingPayload {
-  locationId: string;
-  tableNumber: number;
-  date: string;
-  guestsNumber: number;
-  timeFrom: string;
-  timeTo: string;
-}
-
-export interface CreateBookingResponse {
-  reservationId: string;
-  status: "RESERVED";
-  locationId: string;
-  location_address: string;
-  tableNumber: number;
-  date: string;
-  timeFrom: string;
-  timeTo: string;
-  guestsNumber: number;
-}
 
 export const createBooking = async (
   payload: CreateBookingPayload,
@@ -166,4 +147,33 @@ export const toApiFromTime = (
   if (!hour) return undefined;
 
   return date + "T" + hour + ":" + minute + ":00Z";
+};
+
+export const stripMilliseconds = (iso: string): string =>
+  iso.replace(/\.\d{3}Z$/, "Z");
+
+export const toUtcIsoDatetime = (date: string, value: string): string => {
+  const trimmed = value.trim();
+
+  const timeOnly = /^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/.exec(trimmed);
+  if (timeOnly) {
+    const [, hh, mm, ss] = timeOnly;
+    return `${date}T${hh}:${mm}:${ss ?? "00"}Z`;
+  }
+
+  const dateTimeNoZone =
+    /^(\d{4}-\d{2}-\d{2})[T\s]([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/.exec(
+      trimmed,
+    );
+  if (dateTimeNoZone) {
+    const [, yyyyMmDd, hh, mm, ss] = dateTimeNoZone;
+    return `${yyyyMmDd}T${hh}:${mm}:${ss ?? "00"}Z`;
+  }
+
+  const parsed = new Date(trimmed);
+  if (!Number.isNaN(parsed.getTime())) {
+    return stripMilliseconds(parsed.toISOString());
+  }
+
+  return `${date}T00:00:00Z`;
 };

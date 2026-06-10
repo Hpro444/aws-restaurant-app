@@ -2,85 +2,45 @@ import { useEffect, useMemo, useState } from "react";
 import getApiBaseUrl from "../../../config/GetApiBaseUrl";
 import { useAuth } from "../../../context/AuthContext";
 import { Calendar } from "primereact/calendar";
-import type { Nullable } from "primereact/ts-helpers";
-
-type CustomerType = "visitor" | "existing";
-
-interface CustomerApiItem {
-  user_name: string;
-  email: string;
-}
-
-interface CustomerOption {
-  userName: string;
-  email: string;
-}
-
-interface NewReservationPayload {
-  customerType: CustomerType;
-  customerName: string;
-  guests: number;
-  fromTime: string;
-  toTime: string;
-  table: string;
-}
-
-interface NewReservationFormState {
-  customerType: CustomerType;
-  customerName: string;
-  selectedCustomer: CustomerOption | null;
-  guests: number;
-  fromTime: string;
-  toTime: string;
-  table: string;
-}
+import {
+  apiDateToDate,
+  createWaiterReservation,
+  getCustomerIdFromApiItem,
+  getLocationTables,
+  getValidSlotTimes,
+  isCustomerApiItem,
+  toApiDate,
+  type CustomerOption,
+  type NewReservationFormState,
+  type NewReservationPayload,
+} from "../waiterReservations.services";
 
 interface NewReservationModalProps {
   onClose: () => void;
   onSubmit?: (payload: NewReservationPayload) => void;
 }
 
-// TODO: Replace with real API data
-const availableTables = [
-  "Table 1",
-  "Table 2",
-  "Table 3",
-  "Table 4",
-  "Table 5",
-  "Table 6",
-  "Table 7",
-  "Table 8",
-  "Table 9",
-  "Table 10",
-];
-
-const isCustomerApiItem = (value: unknown): value is CustomerApiItem => {
-  if (typeof value !== "object" || value === null) return false;
-  const maybe = value as Record<string, unknown>;
-  return typeof maybe.user_name === "string" && typeof maybe.email === "string";
-};
-
-const dateToIsoString = (date: Nullable<Date>): string => {
-  if (!date) return "";
-  return date.toISOString();
-};
-
-const isoStringToDate = (iso: string): Nullable<Date> => {
-  if (!iso) return null;
-  return new Date(iso);
-};
-
 export default function NewReservationModal({
   onClose,
   onSubmit,
 }: NewReservationModalProps) {
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
+  const [tableOptions, setTableOptions] = useState<number[]>([]);
+  const [tablesLoading, setTablesLoading] = useState<boolean>(false);
+  const [tablesError, setTablesError] = useState<string | null>(null);
+  const [validStartTimes, setValidStartTimes] = useState<string[]>([]);
+  const [validEndTimes, setValidEndTimes] = useState<string[]>([]);
+  const [slotTimesLoading, setSlotTimesLoading] = useState<boolean>(false);
+  const [slotTimesError, setSlotTimesError] = useState<string | null>(null);
+
+  const locationId = user?.waiterLocation?.location_id ?? "";
 
   const [form, setForm] = useState<NewReservationFormState>({
     customerType: "visitor",
     customerName: "",
     selectedCustomer: null,
     guests: 1,
+    date: "",
     fromTime: "",
     toTime: "",
     table: "",
@@ -88,6 +48,8 @@ export default function NewReservationModal({
 
   const [showTableDropdown, setShowTableDropdown] = useState<boolean>(false);
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [customersLoading, setCustomersLoading] = useState<boolean>(false);
@@ -103,8 +65,83 @@ export default function NewReservationModal({
   };
 
   useEffect(() => {
-    if (form.customerType !== "existing" || hasFetchedCustomers) return;
+    if (!accessToken || !locationId) return;
+    let isMounted = true;
 
+    const fetchTables = async () => {
+      try {
+        setTablesLoading(true);
+        setTablesError(null);
+
+        const tableNumbers = await getLocationTables(accessToken, locationId);
+
+        if (!isMounted) return;
+        setTableOptions(tableNumbers);
+      } catch (err) {
+        if (!isMounted) return;
+        setTableOptions([]);
+        setTablesError(
+          err instanceof Error ? err.message : "Failed to load tables",
+        );
+      } finally {
+        if (isMounted) {
+          setTablesLoading(false);
+        }
+      }
+    };
+
+    void fetchTables();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [accessToken, locationId]);
+
+  useEffect(() => {
+    if (!accessToken || !locationId) return;
+    let isMounted = true;
+
+    const fetchSlotTimes = async () => {
+      try {
+        setSlotTimesLoading(true);
+        setSlotTimesError(null);
+
+        const payload = await getValidSlotTimes(accessToken, locationId);
+
+        if (!isMounted) return;
+
+        setValidStartTimes(payload.start_times);
+        setValidEndTimes(payload.end_times);
+        setForm((prev) => ({
+          ...prev,
+          fromTime: payload.start_times.includes(prev.fromTime)
+            ? prev.fromTime
+            : "",
+          toTime: payload.end_times.includes(prev.toTime) ? prev.toTime : "",
+        }));
+      } catch (err) {
+        if (!isMounted) return;
+        setValidStartTimes([]);
+        setValidEndTimes([]);
+        setSlotTimesError(
+          err instanceof Error ? err.message : "Failed to load slot times",
+        );
+      } finally {
+        if (isMounted) {
+          setSlotTimesLoading(false);
+        }
+      }
+    };
+
+    void fetchSlotTimes();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [accessToken, locationId]);
+
+  useEffect(() => {
+    if (form.customerType !== "existing" || hasFetchedCustomers) return;
     const controller = new AbortController();
 
     const fetchCustomers = async () => {
@@ -135,10 +172,14 @@ export default function NewReservationModal({
           throw new Error("Invalid customers response format");
         }
 
-        const mapped = payload.filter(isCustomerApiItem).map((item) => ({
-          userName: item.user_name,
-          email: item.email,
-        }));
+        const mapped = payload
+          .filter(isCustomerApiItem)
+          .map((item) => ({
+            customerId: getCustomerIdFromApiItem(item),
+            userName: item.user_name,
+            email: item.email,
+          }))
+          .filter((item) => item.customerId);
 
         setCustomers(mapped);
         setHasFetchedCustomers(true);
@@ -160,10 +201,22 @@ export default function NewReservationModal({
     };
   }, [form.customerType, hasFetchedCustomers, accessToken]);
 
+  const toReservationIsoTime = (date: string, time: string): string => {
+    if (!date || !time) return "";
+
+    const normalizedTime = /^\d{2}:\d{2}$/.test(time)
+      ? `${time}:00`
+      : /^\d{2}:\d{2}:\d{2}$/.test(time)
+        ? time
+        : "";
+    if (!normalizedTime) return "";
+
+    return `${date}T${normalizedTime}Z`;
+  };
+
   const filteredCustomers = useMemo(() => {
     const query = form.customerName.trim().toLowerCase();
     if (!query) return customers;
-
     return customers.filter(
       (customer) =>
         customer.userName.toLowerCase().includes(query) ||
@@ -171,20 +224,125 @@ export default function NewReservationModal({
     );
   }, [customers, form.customerName]);
 
-  const handleSubmit = () => {
-    const finalCustomerName =
-      form.customerType === "existing"
-        ? form.selectedCustomer?.userName || form.customerName.trim()
-        : "";
+  const handleSubmit = async () => {
+    if (!accessToken) {
+      setSubmitError("Please log in to create reservation.");
+      return;
+    }
+    if (!locationId) {
+      setSubmitError("Waiter location is missing.");
+      return;
+    }
 
-    onSubmit?.({
-      customerType: form.customerType,
-      customerName: finalCustomerName,
-      guests: form.guests,
-      fromTime: form.fromTime,
-      toTime: form.toTime,
-      table: form.table,
-    });
+    if (!form.date) {
+      setSubmitError("Date is required.");
+      return;
+    }
+
+    if (!form.fromTime || !form.toTime) {
+      setSubmitError("Both from and to time are required.");
+      return;
+    }
+
+    if (
+      !validStartTimes.includes(form.fromTime) ||
+      !validEndTimes.includes(form.toTime)
+    ) {
+      setSubmitError("Please select valid slot times.");
+      return;
+    }
+
+    const isoFrom = toReservationIsoTime(form.date, form.fromTime);
+    const isoTo = toReservationIsoTime(form.date, form.toTime);
+
+    if (!isoFrom || !isoTo) {
+      setSubmitError("Invalid time format.");
+      return;
+    }
+
+    if (!form.table) {
+      setSubmitError("Please select a table.");
+      return;
+    }
+
+    if (form.guests < 1) {
+      setSubmitError("Guests number must be at least 1.");
+      return;
+    }
+
+    const trimmedName = form.customerName.trim();
+
+    if (form.customerType === "visitor" && !trimmedName) {
+      setSubmitError("Client name is required for visitor reservation.");
+      return;
+    }
+
+    if (
+      form.customerType === "existing" &&
+      !form.selectedCustomer?.customerId
+    ) {
+      setSubmitError("Please select an existing customer.");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setSubmitError(null);
+
+      const basePayload = {
+        locationId,
+        tableNumber: Number(form.table),
+        date: form.date,
+        guestsNumber: form.guests,
+        timeFrom: isoFrom,
+        timeTo: isoTo,
+      };
+
+      if (form.customerType === "existing") {
+        console.log({
+          ...basePayload,
+          existingCustomer: true,
+          customerId: form.selectedCustomer!.customerId,
+        });
+        await createWaiterReservation(accessToken, {
+          ...basePayload,
+          existingCustomer: true,
+          customerId: form.selectedCustomer!.customerId,
+        });
+      } else {
+        console.log({
+          ...basePayload,
+          existingCustomer: false,
+          clientName: trimmedName,
+        });
+        await createWaiterReservation(accessToken, {
+          ...basePayload,
+          existingCustomer: false,
+          clientName: trimmedName,
+        });
+      }
+
+      onSubmit?.({
+        customerType: form.customerType,
+        customerName:
+          form.customerType === "existing"
+            ? form.selectedCustomer?.userName || trimmedName
+            : trimmedName,
+        guests: form.guests,
+        date: form.date,
+        fromTime: form.fromTime,
+        toTime: form.toTime,
+        table: form.table,
+      });
+
+      onClose();
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : "Failed to create reservation.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -197,15 +355,14 @@ export default function NewReservationModal({
           aria-label="Close modal"
         >
           <span className="pi pi-times" />
-        </button>
-
+        </button>{" "}
         <h2 className="text-2xl font-semibold mb-6">New Reservation</h2>
-
         <div className="flex items-center gap-2 mb-6">
           <span className="pi pi-map-marker" />
-          <span className="text-gray-800 font-medium">48 Rustaveli Avenue</span>
+          <span className="text-gray-800 font-medium">
+            {user?.waiterLocation?.location_address}
+          </span>
         </div>
-
         <div className="flex flex-col gap-3 mb-6">
           <button
             className={`flex items-center gap-2 border rounded-xl px-4 py-3 font-medium transition ${
@@ -213,7 +370,10 @@ export default function NewReservationModal({
                 ? "border-green-500 bg-green-50"
                 : "border-gray-200 bg-white"
             }`}
-            onClick={() => updateForm("customerType", "visitor")}
+            onClick={() => {
+              updateForm("customerType", "visitor");
+              updateForm("selectedCustomer", null);
+            }}
             type="button"
           >
             <span
@@ -253,11 +413,25 @@ export default function NewReservationModal({
             Existing Customer
           </button>
         </div>
-
+        {form.customerType === "visitor" && (
+          <div className="mb-6 border border-green-500 rounded-xl px-4 py-3">
+            <label className="block font-medium text-gray-800 mb-2">
+              Client Name
+            </label>
+            <input
+              className="w-full border-none outline-none bg-transparent text-gray-800 font-medium"
+              type="text"
+              value={form.customerName}
+              onChange={(e) => updateForm("customerName", e.target.value)}
+              placeholder="Enter visitor full name"
+              autoComplete="off"
+            />
+          </div>
+        )}
         {form.customerType === "existing" && (
           <div className="mb-6 border border-green-500 rounded-xl px-4 py-3">
             <label className="block font-medium text-gray-800 mb-2">
-              Customer's Name
+              Customer Name
             </label>
 
             <input
@@ -296,11 +470,12 @@ export default function NewReservationModal({
                   {filteredCustomers.length > 0 ? (
                     filteredCustomers.map((customer) => {
                       const isSelected =
-                        form.selectedCustomer?.email === customer.email;
+                        form.selectedCustomer?.customerId ===
+                        customer.customerId;
 
                       return (
                         <button
-                          key={customer.email}
+                          key={customer.customerId}
                           className={
                             "w-full text-left px-4 py-2 " +
                             (isSelected ? "bg-green-100" : "hover:bg-green-50")
@@ -333,7 +508,6 @@ export default function NewReservationModal({
               )}
           </div>
         )}
-
         <div className="flex items-center gap-3 border border-gray-200 rounded-xl px-4 py-3 mb-6">
           <span className="pi pi-users" />
           <span className="font-medium text-gray-800 flex-1">Guests</span>
@@ -365,61 +539,98 @@ export default function NewReservationModal({
             +
           </button>
         </div>
-
+        <div className="mb-3">
+          <div className="text-xs text-gray-500 mb-1">Date</div>
+          <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2 w-full bg-white">
+            <span className="pi pi-calendar" />
+            <Calendar
+              onChange={(e) => {
+                const value = e.value;
+                if (value instanceof Date) {
+                  updateForm("date", toApiDate(value));
+                }
+              }}
+              value={apiDateToDate(form.date)}
+              dateFormat="M d, yy"
+              placeholder="Pick date"
+              showIcon={false}
+              panelClassName="bg-white"
+            />
+          </div>
+        </div>
         <div className="mb-2">
           <div className="font-medium text-gray-800 mb-1">Time</div>
           <div className="text-gray-500 text-sm mb-3">
             Please choose your preferred time from the dropdowns below
           </div>
+
           <div className="flex gap-2 mb-3">
             <div className="flex-1">
               <div className="text-xs text-gray-500 mb-1">From</div>
-              <button
-                className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2 w-full bg-white"
-                type="button"
-              >
+              <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2 w-full bg-white">
                 <span className="pi pi-clock" />
-                <Calendar
-                  onChange={(e) =>
-                    updateForm("fromTime", dateToIsoString(e.value))
-                  }
-                  value={isoStringToDate(form.fromTime)}
-                  timeOnly
-                  panelClassName="bg-white p-4 text-[20px]"
-                  hourFormat="24"
-                  placeholder="Pick time"
-                />
-              </button>
+                <select
+                  className="w-full bg-transparent outline-none text-gray-800 font-medium disabled:text-gray-400"
+                  value={form.fromTime}
+                  onChange={(e) => updateForm("fromTime", e.target.value)}
+                  disabled={slotTimesLoading || validStartTimes.length === 0}
+                >
+                  <option value="">
+                    {slotTimesLoading ? "Loading..." : "Select start time"}
+                  </option>
+                  {validStartTimes.map((time) => (
+                    <option key={time} value={time}>
+                      {time}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
+
             <div className="flex-1">
               <div className="text-xs text-gray-500 mb-1">To</div>
-              <button
-                className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2 w-full bg-white"
-                type="button"
-              >
+              <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2 w-full bg-white">
                 <span className="pi pi-clock" />
-                <Calendar
-                  onChange={(e) =>
-                    updateForm("toTime", dateToIsoString(e.value))
-                  }
-                  value={isoStringToDate(form.toTime)}
-                  timeOnly
-                  panelClassName="bg-white p-4 text-[20px]"
-                  hourFormat="24"
-                  placeholder="Pick time"
-                />
-              </button>
+                <select
+                  className="w-full bg-transparent outline-none text-gray-800 font-medium disabled:text-gray-400"
+                  value={form.toTime}
+                  onChange={(e) => updateForm("toTime", e.target.value)}
+                  disabled={slotTimesLoading || validEndTimes.length === 0}
+                >
+                  <option value="">
+                    {slotTimesLoading ? "Loading..." : "Select end time"}
+                  </option>
+                  {validEndTimes.map((time) => (
+                    <option key={time} value={time}>
+                      {time}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
+          {slotTimesError ? (
+            <p className="text-sm text-red-500 mb-2">{slotTimesError}</p>
+          ) : null}
+
           <div className="relative">
             <button
-              className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2 w-full bg-white hover:border-green-500 transition"
+              className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2 w-full bg-white hover:border-green-500 transition disabled:cursor-not-allowed disabled:opacity-70"
               type="button"
-              onClick={() => setShowTableDropdown(!showTableDropdown)}
+              onClick={() => {
+                if (!tablesLoading && tableOptions.length > 0) {
+                  setShowTableDropdown((prev) => !prev);
+                }
+              }}
+              disabled={tablesLoading || tableOptions.length === 0}
             >
               <span className="text-gray-800 font-medium flex-1 text-left">
-                {form.table || "Select table"}
+                {tablesLoading
+                  ? "Loading tables..."
+                  : form.table
+                    ? `Table ${form.table}`
+                    : "Select table"}
               </span>
               <span
                 className={`pi pi-chevron-down transition-transform ${
@@ -428,37 +639,44 @@ export default function NewReservationModal({
               />
             </button>
 
-            {showTableDropdown && (
+            {tablesError ? (
+              <p className="text-sm text-red-500 mt-2">{tablesError}</p>
+            ) : null}
+
+            {showTableDropdown && !tablesLoading && tableOptions.length > 0 && (
               <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg mt-1 shadow-lg max-h-48 overflow-y-auto z-10">
-                {availableTables.map((tableOption) => (
+                {tableOptions.map((tableNumber) => (
                   <button
-                    key={tableOption}
+                    key={tableNumber}
                     className={
                       "w-full text-left px-4 py-2 " +
-                      (form.table === tableOption
+                      (form.table === String(tableNumber)
                         ? "bg-green-100"
                         : "hover:bg-green-50")
                     }
                     onClick={() => {
-                      updateForm("table", tableOption);
+                      updateForm("table", String(tableNumber));
                       setShowTableDropdown(false);
                     }}
                     type="button"
                   >
-                    {tableOption}
+                    {`Table ${tableNumber}`}
                   </button>
                 ))}
               </div>
             )}
           </div>
         </div>
-
+        {submitError ? (
+          <p className="text-sm text-red-500 mb-2">{submitError}</p>
+        ) : null}
         <button
-          className="w-full bg-green-600 text-white font-semibold rounded-xl py-3 mt-2 hover:bg-green-700 transition"
+          className="w-full bg-green-600 text-white font-semibold rounded-xl py-3 mt-2 hover:bg-green-700 transition disabled:opacity-70 disabled:cursor-not-allowed"
           type="button"
-          onClick={handleSubmit}
+          onClick={() => void handleSubmit()}
+          disabled={isSubmitting}
         >
-          Make a Reservation
+          {isSubmitting ? "Creating reservation..." : "Make a Reservation"}
         </button>
       </div>
     </div>

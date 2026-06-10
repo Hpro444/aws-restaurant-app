@@ -53,3 +53,29 @@ input[type="password"]::-webkit-contacts-auto-fill-button {
   display: none !important;
   pointer-events: none;
 }
+
+@keyframes feedback-skeleton-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.feedback-skeleton.p-skeleton {
+  background: #d1d5db;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+.feedback-skeleton.p-skeleton::after {
+  background: linear-gradient(
+    90deg,
+    rgba(209, 213, 219, 0) 0%,
+    rgba(255, 255, 255, 0.92) 50%,
+    rgba(209, 213, 219, 0) 100%
+  );
+  animation: feedback-skeleton-shimmer 1s infinite;
+}

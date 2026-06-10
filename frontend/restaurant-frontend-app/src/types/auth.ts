@@ -3,6 +3,10 @@ import type { InputHTMLAttributes } from "react";
 export type AuthUser = {
   username: string;
   role: LoginResponse["role"];
+  waiterLocation?: {
+    location_id: string;
+    location_address: string;
+  };
 };
 
 export type ViewerRole = "guest" | "customer" | "waiter" | "admin";

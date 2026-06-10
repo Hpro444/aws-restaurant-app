@@ -1,13 +1,9 @@
 import { useMemo, useState } from "react";
-import close_icon from "../../../assets/close_icon.png";
-import people_icon from "../../../assets/reservations/People.png";
-import minus_icon from "../../../assets/availableTables/minus-icon.png";
-import plus_icon from "../../../assets/availableTables/plus-icon.png";
 import type {
   ReservationResponse,
   UpdateReservationPayload,
 } from "../reservations.services";
-import { formatDate, formatSlotTime } from "../../../utils/reservationHelpers";
+import { formatDate, formatTime } from "../../../utils/reservationHelpers";
 
 type EditReservationModalProps = {
   reservation: ReservationResponse;
@@ -63,7 +59,7 @@ const EditReservationModal = ({
               Edit Reservation
             </h2>
             <button onClick={onClose} className="cursor-pointer">
-              <img src={close_icon} alt="Close" />
+              <span className="pi pi-times text-xl" />
             </button>
           </div>
           <p className="font-light text-sm leading-[24px]">
@@ -74,8 +70,8 @@ const EditReservationModal = ({
             ,{" "}
             <span className="font-medium">{formatDate(reservation.date)}</span>,{" "}
             <span className="font-medium">
-              {formatSlotTime(reservation.time_from)} -{" "}
-              {formatSlotTime(reservation.time_to)}
+              {formatTime(reservation.time_from)} -{" "}
+              {formatTime(reservation.time_to)}
             </span>
           </p>
         </div>
@@ -87,7 +83,7 @@ const EditReservationModal = ({
 
           <div className="flex justify-between py-4 px-6 border border-[#DADADA] rounded-lg">
             <div className="flex gap-2 items-center">
-              <img src={people_icon} alt="People icon" className="w-4 h-4" />
+              <span className="pi pi-users text-lg" />
               <p className="font-medium text-sm">Guests</p>
             </div>
             <div className="flex items-center gap-2">
@@ -98,7 +94,7 @@ const EditReservationModal = ({
                 disabled={!canEdit || isSubmitting || guests <= minGuests}
                 className="w-10 h-8 flex items-center justify-center border-2 border-green-500 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                <img src={minus_icon} alt="Minus icon" />
+                <span className="pi pi-minus" />
               </button>
               <span className="w-6 text-center">{guests}</span>
               <button
@@ -108,7 +104,7 @@ const EditReservationModal = ({
                 disabled={!canEdit || isSubmitting || guests >= maxGuests}
                 className="w-10 h-8 flex items-center justify-center border-2 border-green-500 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                <img src={plus_icon} alt="Plus icon" />
+                <span className="pi pi-plus" />
               </button>
             </div>
           </div>
@@ -122,14 +118,14 @@ const EditReservationModal = ({
           <button
             onClick={onClose}
             disabled={isSubmitting}
-            className="rounded-[8px] py-3 border border-[#00ad0c] text-[#00ad0c] font-bold text-sm disabled:opacity-60"
+            className="cursor-pointer rounded-[8px] py-3 border border-[#00ad0c] text-[#00ad0c] font-bold text-sm disabled:opacity-60"
           >
             Close
           </button>
           <button
             onClick={handleSave}
             disabled={isSubmitting || !hasChanges}
-            className="rounded-[8px] py-3 bg-[#00ad0c] text-white font-bold text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+            className="cursor-pointer rounded-[8px] py-3 bg-[#00ad0c] text-white font-bold text-sm disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {isSubmitting ? "Saving..." : "Save Changes"}
           </button>

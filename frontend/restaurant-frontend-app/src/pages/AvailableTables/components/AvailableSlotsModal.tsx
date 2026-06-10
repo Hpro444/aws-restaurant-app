@@ -1,7 +1,5 @@
-import clock_icon from "../../../assets/availableTables/Clock.png";
-import close_icon from "../../../assets/close_icon.png";
 import type { AvailableSlot } from "../../../types/location";
-import { formatDate, formatSlotTime } from "../../../utils/reservationHelpers";
+import { formatDate, formatTime } from "../../../utils/reservationHelpers";
 
 type AvailableSlotsModalProps = {
   slots: AvailableSlot[];
@@ -34,8 +32,8 @@ const AvailableSlotsModal = ({
             <h2 className="font-medium text-2xl leading-[40px] tracking-normal">
               Available slots
             </h2>
-            <button onClick={onClose}>
-              <img src={close_icon} alt="Close" />
+            <button onClick={onClose} className="cursor-pointer">
+              <span className="pi pi-times text-lg" />
             </button>
           </div>
           <p className="font-light text-sm leading-[24px] tracking-normal">
@@ -53,10 +51,9 @@ const AvailableSlotsModal = ({
               onClick={() => onSelectSlot(slot)}
               className="font-medium text-[14px] leading-[24px] border border-[var(--color-brand)] rounded-lg p-2 flex gap-2 items-center cursor-pointer hover:bg-green-50"
             >
-              <img src={clock_icon} alt="Clock icon" className="w-4 h-4" />
+              <span className="pi pi-clock text-lg" />
               <span>
-                {formatSlotTime(slot.start_time)} -{" "}
-                {formatSlotTime(slot.end_time)}
+                {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
               </span>
             </button>
           ))}

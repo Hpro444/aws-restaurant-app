@@ -1,23 +1,16 @@
 import { useState } from "react";
-import people_icon from "../../../assets/availableTables/People.png";
-import minus_icon from "../../../assets/availableTables/minus-icon.png";
-import plus_icon from "../../../assets/availableTables/plus-icon.png";
-import close_icon from "../../../assets/close_icon.png";
-import { formatDate, formatSlotTime } from "../../../utils/reservationHelpers";
-import {
-  createBooking,
-  type CreateBookingResponse,
-} from "../availableTables.services";
+import { formatDate, formatTime } from "../../../utils/reservationHelpers";
+import { createBooking, toUtcIsoDatetime } from "../availableTables.services";
 import { useAuth } from "../../../context/AuthContext";
 import ReservationConfirmModal from "./ReservationConfirmModal";
 import { useNavigate } from "react-router-dom";
-import type { AvailableSlot } from "../../../types/location";
+import type {
+  AvailableSlot,
+  CreateBookingResponse,
+  ReservationResult,
+} from "../../../types/location";
 
-type ReservationResult =
-  | { ok: true; data: CreateBookingResponse }
-  | { ok: false; message: string };
-
-type MakeReservationModalProps = {
+export type MakeReservationModalProps = {
   slot: AvailableSlot;
   allSlots: AvailableSlot[];
   locationAddress: string;
@@ -28,36 +21,7 @@ type MakeReservationModalProps = {
   initialGuests: number;
   onClose: () => void;
   onSelectSlot: (slot: AvailableSlot) => void;
-  onReservationResult: (result: ReservationResult) => void;
-};
-
-const stripMilliseconds = (iso: string): string =>
-  iso.replace(/\.\d{3}Z$/, "Z");
-
-const toUtcIsoDatetime = (date: string, value: string): string => {
-  const trimmed = value.trim();
-
-  const timeOnly = /^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/.exec(trimmed);
-  if (timeOnly) {
-    const [, hh, mm, ss] = timeOnly;
-    return `${date}T${hh}:${mm}:${ss ?? "00"}Z`;
-  }
-
-  const dateTimeNoZone =
-    /^(\d{4}-\d{2}-\d{2})[T\s]([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/.exec(
-      trimmed,
-    );
-  if (dateTimeNoZone) {
-    const [, yyyyMmDd, hh, mm, ss] = dateTimeNoZone;
-    return `${yyyyMmDd}T${hh}:${mm}:${ss ?? "00"}Z`;
-  }
-
-  const parsed = new Date(trimmed);
-  if (!Number.isNaN(parsed.getTime())) {
-    return stripMilliseconds(parsed.toISOString());
-  }
-
-  return `${date}T00:00:00Z`;
+  onReservationResult?: (result: ReservationResult) => void;
 };
 
 const MakeReservationModal = ({
@@ -71,7 +35,7 @@ const MakeReservationModal = ({
   initialGuests,
   onClose,
   onSelectSlot,
-  onReservationResult,
+  onReservationResult = () => {},
 }: MakeReservationModalProps) => {
   const navigate = useNavigate();
   const { accessToken } = useAuth();
@@ -184,7 +148,7 @@ const MakeReservationModal = ({
               Make a Reservation
             </h2>
             <button onClick={onClose} className="cursor-pointer">
-              <img src={close_icon} alt="Close" />
+              <span className="pi pi-times" />
             </button>
           </div>
           <p className="font-light text-sm leading-[24px] tracking-normal max-w-[416px]">
@@ -212,7 +176,7 @@ const MakeReservationModal = ({
 
             <div className="flex justify-between py-4 px-6 border border-[#DADADA] rounded-lg">
               <div className="flex gap-2">
-                <img src={people_icon} alt="People icon" className="w-6 h-6" />
+                <span className="pi pi-users text-lg" />
                 <p className="font-medium text-sm leading-[24px] align-middle tracking-normal text-center">
                   Guests
                 </p>
@@ -223,7 +187,7 @@ const MakeReservationModal = ({
                   disabled={guests <= 1 || isSubmitting}
                   className="w-10 h-8 flex items-center justify-center border-2 border-green-500 text-green-500 rounded-md cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  <img src={minus_icon} alt="Minus icon" />
+                  <span className="pi pi-minus" />
                 </button>
                 <span className="text-gray-800 w-4 text-center">{guests}</span>
                 <button
@@ -231,7 +195,7 @@ const MakeReservationModal = ({
                   disabled={guests >= tableCapacity || isSubmitting}
                   className="w-10 h-8 flex items-center justify-center border-2 border-green-500 text-green-500 rounded-md cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  <img src={plus_icon} alt="Plus icon" />
+                  <span className="pi pi-plus" />
                 </button>
               </div>
             </div>
@@ -258,7 +222,7 @@ const MakeReservationModal = ({
             >
               {allSlots.map((s) => (
                 <option key={s.slot_id} value={s.slot_id}>
-                  {formatSlotTime(s.start_time)} - {formatSlotTime(s.end_time)}
+                  {formatTime(s.start_time)} - {formatTime(s.end_time)}
                 </option>
               ))}
             </select>

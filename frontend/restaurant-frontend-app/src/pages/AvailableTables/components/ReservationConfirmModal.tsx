@@ -1,6 +1,5 @@
-import type { CreateBookingResponse } from "../availableTables.services";
-import close_icon from "../../../assets/close_icon.png";
-import { formatDate, formatSlotTime } from "../../../utils/reservationHelpers";
+import type { CreateBookingResponse } from "../../../types/location";
+import { formatDate, formatTime } from "../../../utils/reservationHelpers";
 
 type ReservationConfirmModalProps = {
   reservation: CreateBookingResponse;
@@ -23,7 +22,7 @@ const ReservationConfirmModal = ({
             Reservation Confirmed!
           </h2>
           <button onClick={onClose} className="cursor-pointer">
-            <img src={close_icon} alt="Close" />
+            <span className="pi pi-times text-lg" />
           </button>
         </div>
         <div className="flex flex-col gap-3 font-light text-sm leading-[24px] tracking-normal align-middle">
@@ -38,11 +37,11 @@ const ReservationConfirmModal = ({
             <span className="font-medium">{formatDate(reservation.date)}</span>,
             from{" "}
             <span className="font-medium">
-              {formatSlotTime(reservation.timeFrom)}
+              {formatTime(reservation.timeFrom)}
             </span>{" "}
             to{" "}
             <span className="font-medium">
-              {formatSlotTime(reservation.timeTo)}
+              {formatTime(reservation.timeTo)}
             </span>{" "}
             at{" "}
             <span className="font-medium">Table {reservation.tableNumber}</span>{" "}

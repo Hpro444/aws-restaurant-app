@@ -1,5 +1,5 @@
+import type { TableResult } from "../../../types/location";
 import Card from "./Card";
-import { type TableResult } from "../availableTables.services";
 
 type FoundResultsProps = {
   locationId: string;
