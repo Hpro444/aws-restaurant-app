@@ -23,6 +23,7 @@ from dto.locations import LocationAddressResponse, LocationResponse
 from dto.logout import LogoutRequest, LogoutResponse
 from dto.orders import CreateOrderRequest
 from dto.refresh import RefreshRequest, RefreshResponse
+from dto.reports import GetReportsRequest
 from dto.reservation_management import UpdateReservationRequest
 from dto.sign_in import SignInRequest, SignInResponse
 from dto.sign_up import SignUpRequest, SignUpResponse
@@ -43,6 +44,7 @@ from services.feedback_service import FeedbackService
 from services.locations_service import LocationsService
 from services.order_service import OrderService
 from services.registration_service import RegistrationService
+from services.reports_service import ReportsService
 from services.reservation_management_service import ReservationManagementService
 from services.sqs_service import SqsService
 from services.table_availability_service import TableAvailabilityService
@@ -87,6 +89,7 @@ class ApiHandler(AbstractLambda):
         self._customers_service = CustomersService(
             customer_repository=self._customer_repository,
         )
+        self._reports_service = ReportsService()
         self._order_service = OrderService()
 
     def validate_request(self, event: dict) -> dict:
@@ -173,6 +176,7 @@ class ApiHandler(AbstractLambda):
         router.add("GET", "/dishes/{id}", self._get_dish_by_id)
 
         router.add("GET", "/customers", self._get_customers)
+        router.add("GET", "/reports", self._get_reports)
 
         router.add("GET", "/reservations/waiter", self._get_waiter_reservations)
 
@@ -420,6 +424,22 @@ class ApiHandler(AbstractLambda):
         customers: list[CustomerResponse] = self._customers_service.get_customers()
         return build_response(
             [customer.model_dump(mode="json") for customer in customers],
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    def _get_reports(self, event: dict) -> LambdaResponse:
+        """Return admin reports table rows filtered by type, week period and location."""
+        _, role = self._get_actor_context(event)
+        if role != UserRole.ADMIN:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
+                "Only admins can access reports.",
+            )
+
+        request = self._validate(GetReportsRequest, self._parse_query_params(event))
+        response = self._reports_service.get_reports(request)
+        return build_response(
+            response.model_dump(by_alias=True),
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 

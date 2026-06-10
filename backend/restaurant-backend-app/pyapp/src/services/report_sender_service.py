@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import csv
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from email.message import EmailMessage
 from io import StringIO
 from typing import Any
@@ -35,9 +35,10 @@ class ReportSenderService:
         self._ses = ses_client or boto3.client("ses", region_name=cfg.aws_region)
 
     def send_weekly_report(self, target_date: date | None = None) -> dict[str, Any]:
-        """Compile current-week reports and send them as CSV attachments."""
+        """Compile previous-week reports and send them as CSV attachments."""
         report_date = target_date or datetime.now(UTC).date()
-        period_start = period_start_for(report_date)
+        previous_week_date = report_date - timedelta(days=7)
+        period_start = period_start_for(previous_week_date)
         period_end = period_end_for(period_start)
         period_start_iso = period_start.isoformat()
 
