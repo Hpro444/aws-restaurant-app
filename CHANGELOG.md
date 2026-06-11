@@ -4,6 +4,98 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-06-11
+
+### Added
+- `GET /feedback/{feedback_id}` — endpoint to retrieve all information for a single feedback record, including linked customer/waiter data (`feature/api-get-single-feedback`)
+- `GET /reports/download?fileFormat={format}` — endpoint to download the generated report in the requested file format (`feature/download_reports`)
+- Feedback flags added to the `allowed_actions` payload so clients can conditionally render edit/delete UI (`fix/feedbacks_flags_allow_actions`)
+
+### Changed
+- Refactored feedback permission logic in `ReservationManagementService` to correctly determine which operations a requester may perform on a feedback entry (`fix/allowed_actions`)
+- Deployed updated OASv3 Swagger specification reflecting all current endpoints and response shapes (`feature/deploy-swagger`)
+- Refactored report period handling to enforce range validation and correct report boundary calculation
+
+### Fixed
+- Seed data corrected to populate DynamoDB with accurate demo records (`fix/seed`)
+- README updated to reflect the current API surface
+
+## [1.9.0] - 2026-06-10
+
+### Added
+- `PATCH /feedbacks/{feedback_id}` — edit an existing cuisine or service feedback record (`feature/edit_feedback`)
+- Report sender Lambda: generates a weekly CSV export of reservation and revenue data and delivers it via Amazon SES (`feature/reports-sender`)
+- EventBridge Scheduler rule to trigger the report sender Lambda on a weekly cadence (`feature/scheduler`)
+- `GET /reports` with custom date-range parameters and dynamic delta calculation (`feature/get_reports`)
+- SQS event trigger fired on feedback edit events for downstream report recalculation (`feature/sqs_trigger_for_edit_feedbacks`)
+- Test plan document added to the repository (`tests/test_plan`)
+- End-to-end test suite (`automation-qa/`) covering all API routes against an isolated `-dev1` deployment environment (`tests/e2e`)
+
+### Fixed
+- Reservation finalization edge cases resolved (`fix/reservation_fin`)
+- Test suite warnings and compatibility issues cleaned up (`fix/tests_warnings_fix`, `fix/tests_again`)
+- Swagger schema refreshed to cover all new endpoints (`fix/update_swagger`)
+- Seeder corrected: additional seed records added and working-hours data fixed (`fix/seeder`, `fix/seeder_working_hours`)
+- Waiter avatar images converted from PNG to JPG to align with S3 asset naming (`fix/waiter_png_to_jpg`)
+
+## [1.8.0] - 2026-06-08
+
+### Added
+- `GET /dishes/{dish_id}` — endpoint to retrieve detailed information for a single dish (`feature/api-single-dish`)
+- Dietary-information filter for `GET /dishes` — clients can now filter results by dietary flags (`feature/api-filter-dishes`)
+- `GET /feedbacks/context/{reservation_id}` — returns the waiter information needed by the frontend feedback modal (`feature/api-get-feedback-context`)
+- `GET /waiters/location` — endpoint for an authenticated waiter to retrieve their assigned restaurant location (`feature/location_for_waiter`)
+- Data capture Lambda for collecting and persisting incoming event payloads (`feature/data_capture_lambda`)
+- `GET /tables?location_id={id}` — fetch tables filtered by a specific restaurant location (`feature/get_tables_by_location_id`)
+- Time utility functions extracted into a dedicated shared module (`refactor/time_functions`)
+
+### Fixed
+- Removed legacy `reservationId` alias from `LeaveFeedbackRequest`; Swagger docs updated to match (`fix/api-feedbacks-request`)
+- Waiter reservation response format corrected to match the expected schema (`fix/waiter_reservation_view_format`)
+- Date calculation bugs resolved in report and slot utilities (`fix/filter`)
+- Syndicate deployment configuration corrected (`fix/syndicate`)
+
+## [1.7.0] - 2026-06-05
+
+### Added
+- `POST /feedbacks` — create a new cuisine or service feedback linked to a reservation (`feature/api-create-feedback`)
+- Waiter reservation management — waiters can now manage visitor bookings end-to-end (`feature/create_reservation_waiter`, `feature/edit_reservation_waiter`, `feature/cancel_reservation_waiter`)
+  - `POST /bookings` (waiter context) — book a table for a visitor
+  - `PUT /bookings/{id}` (waiter context) — modify an existing reservation
+  - `DELETE /bookings/{id}` (waiter context) — cancel an existing reservation
+- `GET /bookings/tables` (waiter view) — list tables available from the waiter's perspective (`feature/available_tables_waiter`)
+- `GET /bookings/slots/valid` — return valid reservation slot start and end times for a given location and date (`feature/valid_slots`)
+- SQS event triggers and dead-letter queues (DLQs) for reservation and feedback lifecycle events (`feature/sqs_triggers_and_dqs`)
+- Token generator Lambda for internal service-to-service authentication (`feature/token_generator`)
+- Shifts system: waiter-to-slot assignments persisted in DynamoDB; shift data surfaced in availability queries (`feature/shifts`)
+
+### Changed
+- Enum values standardised to uppercase across dish states, dish types, and reservation statuses (`fix/normalize-enums`)
+- Refactored core backend flows — reservation creation, slot allocation, and waiter assignment — for improved structure and consistency (`feature/clean_up`)
+
+### Fixed
+- `GET /customers` now returns the `id` field for each customer record (`fix/api-customers-return-id`)
+
+## [1.6.0] - 2026-06-01
+
+### Added
+- `GET /customers` — admin endpoint to retrieve all customer records from the database (`feature/api-get-customers`)
+- `GET /reservations/waiter` — endpoint for waiters to list their own assigned reservations (`feature/get_reservations_waiter`)
+- Cognito user seeder: user-pool entries created during seeding; customer and waiter records now use Cognito sub IDs as primary keys (`d98c6cd`)
+- Seeded entity IDs written to `ids.json` so downstream test suites can reference stable identifiers (`3f7b37e`)
+- Admin-related DynamoDB tables added to Lambda environment configuration (`459781c`)
+
+### Changed
+- API routing refactored to use `APIGatewayRestResolver`, eliminating duplicate helper functions from `handler.py` (`fix/api-router-refactor`)
+- Cognito user pool resolution refactored to support exact-name matching and configurable prefix/suffix conventions (`50001f1`)
+- Reservation booking flow enhanced: booking date and time are auto-filled and validated against available slot records (`feature/clean_up`, `feature/fix_reservations_for_today`)
+
+### Fixed
+- Python target version corrected to 3.13 in Ruff configuration (`fix/uv-update-correct-py-version`)
+- Python runtime version pinned correctly in Lambda configuration (`fix/python_ver`, `fix/versions`)
+- CORS response headers corrected (`fix/cors`)
+- Admin email allowlist logic fixed (`fix/admin_email_logic`)
+
 ## [1.5.0] - 2026-05-28
 
 ### Added
