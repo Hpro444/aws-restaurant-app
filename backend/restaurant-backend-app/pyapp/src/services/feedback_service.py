@@ -104,8 +104,15 @@ class FeedbackService:
             )
 
         waiter_name = f"{waiter.fname} {waiter.lname}".strip()
-        latest_report = self._waiter_report_repo.find_latest_by_waiter_id(waiter.id)
-        avg_rating = latest_report.avg_service_feedback if latest_report else None
+        avg_rating = self._calculate_waiter_avg_rating(waiter.id)
+        # TODO: privremeni logger
+        logger.info(
+            "Waiter context resolved for feedback",
+            reservation_id=str(reservation.id),
+            waiter_id=str(waiter.id),
+            waiter_name=waiter_name,
+            waiter_avg_rating=avg_rating,
+        )
         return FeedbackContextResponse(
             reservation_id=str(reservation.id),
             waiter_id=str(waiter.id),
@@ -114,66 +121,80 @@ class FeedbackService:
             waiter_avg_rating=avg_rating,
         )
 
-    def get_feedback(
+    def get_feedbacks_by_reservation_id(
         self,
-        feedback_id: UUID | str,
+        reservation_id: UUID | str,
         customer_id: UUID | str,
-        type: str,
-    ) -> FeedbackResponse | list:
-        """Return one feedback by id for selected type, restricted to owner.
+    ) -> dict:
+        """Return all feedbacks (service and/or cuisine) tied to a reservation.
 
-        Returns an empty list when id is valid but feedback does not exist.
+        Only the customer who owns the reservation can access its feedbacks.
+        Returns a dict with CuisineFeedback and ServiceFeedback keys (may be None).
         """
-        feedback_uuid = coerce_uuid(feedback_id)
+        reservation_uuid = coerce_uuid(reservation_id)
         customer_uuid = coerce_uuid(customer_id)
 
         logger.info(
-            "Retrieving single feedback",
-            feedback_id=str(feedback_uuid),
+            "Retrieving feedbacks by reservation",
+            reservation_id=str(reservation_uuid),
             customer_id=str(customer_uuid),
-            feedback_type=type,
         )
 
-        if type == "cuisine":
-            feedback = self._feedback_cuisine_repo.get(feedback_uuid)
-        elif type == "service":
-            feedback = self._feedback_service_repo.get(feedback_uuid)
-        else:
+        # Validate reservation ownership
+        reservation = self._reservation_repo.get(reservation_uuid)
+        if reservation is None:
             raise ApplicationException(
-                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
-                "Invalid feedback type. Must be one of: cuisine, service",
+                HttpStatusCode.RESPONSE_RESOURCE_NOT_FOUND_CODE,
+                "Reservation not found",
             )
 
-        if feedback is None:
-            logger.info(
-                "Feedback not found for selected type",
-                feedback_id=str(feedback_uuid),
-                customer_id=str(customer_uuid),
-                feedback_type=type,
-            )
-            return []
-
-        if feedback.customer_id != customer_uuid:
+        if reservation.customer_id != customer_uuid:
             logger.warning(
-                "Unauthorized feedback access attempt",
-                feedback_id=str(feedback_uuid),
+                "Unauthorized reservation feedbacks access attempt",
+                reservation_id=str(reservation_uuid),
                 requested_by=str(customer_uuid),
-                owner_customer_id=str(feedback.customer_id),
-                feedback_type=type,
+                owner_customer_id=str(reservation.customer_id),
             )
             raise ApplicationException(
                 HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
-                "Not authorized to access this feedback.",
+                "Not authorized to access feedbacks for this reservation.",
             )
 
-        logger.info(
-            "Single feedback retrieved",
-            feedback_id=str(feedback_uuid),
-            customer_id=str(customer_uuid),
-            feedback_type=type,
+        # Fetch both types of feedback
+        cuisine_feedbacks = self._feedback_cuisine_repo.find_by_reservation_id(
+            reservation_uuid
+        )
+        service_feedbacks = self._feedback_service_repo.find_by_reservation_id(
+            reservation_uuid
         )
 
-        return self._build_feedback_response(feedback)
+        # Build response dict
+        cuisine_response = None
+        if cuisine_feedbacks:
+            cuisine_response = self._build_feedback_response(
+                cuisine_feedbacks[0]
+            ).model_dump(mode="json")
+
+        service_response = None
+        if service_feedbacks:
+            service_response = self._build_feedback_response(
+                service_feedbacks[0]
+            ).model_dump(mode="json")
+
+        response = {
+            "CuisineFeedback": cuisine_response,
+            "ServiceFeedback": service_response,
+        }
+
+        logger.info(
+            "Feedbacks retrieved by reservation",
+            reservation_id=str(reservation_uuid),
+            customer_id=str(customer_uuid),
+            has_cuisine_feedback=cuisine_response is not None,
+            has_service_feedback=service_response is not None,
+        )
+
+        return response
 
     def leave_feedback(
         self,
@@ -271,6 +292,16 @@ class FeedbackService:
                 HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
                 "Feedback can be edited only when reservation is FINISHED.",
             )
+
+    def _calculate_waiter_avg_rating(self, waiter_id: UUID) -> float | None:
+        """Calculate average service feedback rating for a waiter from all their feedbacks.
+
+        Returns None when the waiter has no feedback yet.
+        """
+        feedbacks = self._feedback_service_repo.find_all_by_waiter_id(waiter_id)
+        if not feedbacks:
+            return None
+        return sum(fb.rate for fb in feedbacks) / len(feedbacks)
 
     def get_feedbacks(
         self,

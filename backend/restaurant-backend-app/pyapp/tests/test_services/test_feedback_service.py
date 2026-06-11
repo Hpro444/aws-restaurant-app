@@ -387,6 +387,7 @@ class TestFeedbackService(TestCase):
             lname="Jast",
             image_url="https://example.com/waiter.png",
         )
+        self.feedback_service_repo.find_all_by_waiter_id.return_value = []
 
         response = self.service.get_feedback_context(
             reservation_id=self.reservation_id,
@@ -399,8 +400,8 @@ class TestFeedbackService(TestCase):
         self.assertEqual(response.waiter_image_url, "https://example.com/waiter.png")
         self.assertIsNone(response.waiter_avg_rating)
 
-    def test_get_feedback_context_includes_avg_rating_from_latest_report(self) -> None:
-        """Context should include avg rating when a waiter report exists."""
+    def test_get_feedback_context_includes_avg_rating_from_feedbacks(self) -> None:
+        """Context should include avg rating calculated from waiter's service feedbacks."""
         self.reservation_repo.get.return_value = self.reservation
         self.waiter_repo.get.return_value = SimpleNamespace(
             id=self.waiter_id,
@@ -408,17 +409,20 @@ class TestFeedbackService(TestCase):
             lname="Jast",
             image_url="https://example.com/waiter.png",
         )
-        self.waiter_report_repo.find_latest_by_waiter_id.return_value = SimpleNamespace(
-            avg_service_feedback=4.75,
-        )
+        self.feedback_service_repo.find_all_by_waiter_id.return_value = [
+            SimpleNamespace(rate=4),
+            SimpleNamespace(rate=5),
+            SimpleNamespace(rate=5),
+            SimpleNamespace(rate=4),
+        ]
 
         response = self.service.get_feedback_context(
             reservation_id=self.reservation_id,
             customer_id=self.customer_id,
         )
 
-        self.assertEqual(response.waiter_avg_rating, 4.75)
-        self.waiter_report_repo.find_latest_by_waiter_id.assert_called_once_with(
+        self.assertEqual(response.waiter_avg_rating, 4.5)
+        self.feedback_service_repo.find_all_by_waiter_id.assert_called_once_with(
             self.waiter_id
         )
 
@@ -472,99 +476,6 @@ class TestFeedbackService(TestCase):
             self.service.get_feedback_context(
                 reservation_id=self.reservation_id,
                 customer_id=self.customer_id,
-            )
-
-        self.assertEqual(exc.exception.code, 403)
-
-    def test_get_feedback_returns_cuisine_feedback_for_owner(self) -> None:
-        """Owned culinary feedback should be returned as FeedbackResponse."""
-        feedback_id = uuid4()
-        location_id = uuid4()
-        self.feedback_cuisine_repo.get.return_value = SimpleNamespace(
-            id=feedback_id,
-            reservation_id=self.reservation_id,
-            customer_id=self.customer_id,
-            user_name="Stale Name",
-            user_image_url="https://example.com/stale.png",
-            feedback="Great food",
-            rate=5,
-            date=datetime.now(UTC),
-            location_id=location_id,
-        )
-
-        response = self.service.get_feedback(
-            feedback_id=feedback_id,
-            customer_id=self.customer_id,
-            type="cuisine",
-        )
-
-        self.assertEqual(response.id, str(feedback_id))
-        self.assertEqual(response.customer_id, str(self.customer_id))
-        self.assertEqual(response.feedback, "Great food")
-        self.assertEqual(response.location_id, str(location_id))
-        self.feedback_service_repo.get.assert_not_called()
-
-    def test_get_feedback_returns_service_feedback_for_service_type(self) -> None:
-        """Service feedback lookup should use service repo when type=service."""
-        feedback_id = uuid4()
-        self.feedback_service_repo.get.return_value = SimpleNamespace(
-            id=feedback_id,
-            reservation_id=self.reservation_id,
-            customer_id=self.customer_id,
-            user_name="Stale Name",
-            user_image_url="https://example.com/stale.png",
-            feedback="Great service",
-            rate=4,
-            date=datetime.now(UTC),
-            waiter_id=self.waiter_id,
-        )
-
-        response = self.service.get_feedback(
-            feedback_id=feedback_id,
-            customer_id=self.customer_id,
-            type="service",
-        )
-
-        self.assertEqual(response.id, str(feedback_id))
-        self.assertEqual(response.waiter_id, str(self.waiter_id))
-        self.feedback_cuisine_repo.get.assert_not_called()
-        self.feedback_service_repo.get.assert_called_once_with(feedback_id)
-
-    def test_get_feedback_returns_empty_list_when_not_found(self) -> None:
-        """Unknown feedback id should return empty list for valid uuid input."""
-        feedback_id = uuid4()
-        self.feedback_service_repo.get.return_value = None
-
-        response = self.service.get_feedback(
-            feedback_id=feedback_id,
-            customer_id=self.customer_id,
-            type="service",
-        )
-
-        self.assertEqual(response, [])
-        self.feedback_cuisine_repo.get.assert_not_called()
-        self.feedback_service_repo.get.assert_called_once_with(feedback_id)
-
-    def test_get_feedback_raises_403_for_foreign_customer(self) -> None:
-        """Customers cannot access feedback belonging to another customer."""
-        feedback_id = uuid4()
-        self.feedback_cuisine_repo.get.return_value = SimpleNamespace(
-            id=feedback_id,
-            reservation_id=self.reservation_id,
-            customer_id=uuid4(),
-            user_name="Other",
-            user_image_url=None,
-            feedback="Private",
-            rate=2,
-            date=datetime.now(UTC),
-            location_id=uuid4(),
-        )
-
-        with self.assertRaises(ApplicationException) as exc:
-            self.service.get_feedback(
-                feedback_id=feedback_id,
-                customer_id=self.customer_id,
-                type="cuisine",
             )
 
         self.assertEqual(exc.exception.code, 403)
@@ -780,3 +691,135 @@ class TestFeedbackService(TestCase):
         self.assertFalse(result)
         self.feedback_service_repo.update.assert_not_called()
         self.sqs.publish.assert_not_called()
+
+    def test_get_feedbacks_by_reservation_id_returns_all_feedback_types(self) -> None:
+        """Get should return both cuisine and service feedbacks for reservation."""
+        self.reservation_repo.get.return_value = self.reservation
+        cuisine_feedback_id = uuid4()
+        service_feedback_id = uuid4()
+
+        self.feedback_cuisine_repo.find_by_reservation_id.return_value = [
+            SimpleNamespace(
+                id=cuisine_feedback_id,
+                reservation_id=self.reservation_id,
+                customer_id=self.customer_id,
+                user_name="John Doe",
+                user_image_url="https://example.com/avatar.png",
+                feedback="Excellent food",
+                rate=5,
+                date=datetime.now(UTC),
+                location_id=uuid4(),
+            )
+        ]
+        self.feedback_service_repo.find_by_reservation_id.return_value = [
+            SimpleNamespace(
+                id=service_feedback_id,
+                reservation_id=self.reservation_id,
+                customer_id=self.customer_id,
+                user_name="John Doe",
+                user_image_url="https://example.com/avatar.png",
+                feedback="Great service",
+                rate=5,
+                date=datetime.now(UTC),
+                waiter_id=self.waiter_id,
+            )
+        ]
+
+        result = self.service.get_feedbacks_by_reservation_id(
+            reservation_id=self.reservation_id,
+            customer_id=self.customer_id,
+        )
+
+        self.assertIsInstance(result, dict)
+        self.assertIn("CuisineFeedback", result)
+        self.assertIn("ServiceFeedback", result)
+        self.assertIsNotNone(result["CuisineFeedback"])
+        self.assertIsNotNone(result["ServiceFeedback"])
+        self.assertEqual(result["CuisineFeedback"]["id"], str(cuisine_feedback_id))
+        self.assertEqual(result["ServiceFeedback"]["id"], str(service_feedback_id))
+        self.feedback_cuisine_repo.find_by_reservation_id.assert_called_once_with(
+            self.reservation_id
+        )
+        self.feedback_service_repo.find_by_reservation_id.assert_called_once_with(
+            self.reservation_id
+        )
+
+    def test_get_feedbacks_by_reservation_id_returns_only_cuisine_feedback(
+        self,
+    ) -> None:
+        """Get should return only cuisine feedback when service feedback missing."""
+        self.reservation_repo.get.return_value = self.reservation
+        cuisine_feedback_id = uuid4()
+
+        self.feedback_cuisine_repo.find_by_reservation_id.return_value = [
+            SimpleNamespace(
+                id=cuisine_feedback_id,
+                reservation_id=self.reservation_id,
+                customer_id=self.customer_id,
+                user_name="John Doe",
+                user_image_url="https://example.com/avatar.png",
+                feedback="Excellent food",
+                rate=5,
+                date=datetime.now(UTC),
+                location_id=uuid4(),
+            )
+        ]
+        self.feedback_service_repo.find_by_reservation_id.return_value = []
+
+        result = self.service.get_feedbacks_by_reservation_id(
+            reservation_id=self.reservation_id,
+            customer_id=self.customer_id,
+        )
+
+        self.assertIsNotNone(result["CuisineFeedback"])
+        self.assertIsNone(result["ServiceFeedback"])
+
+    def test_get_feedbacks_by_reservation_id_returns_empty_when_no_feedbacks(
+        self,
+    ) -> None:
+        """Get should return both as None when no feedbacks exist."""
+        self.reservation_repo.get.return_value = self.reservation
+        self.feedback_cuisine_repo.find_by_reservation_id.return_value = []
+        self.feedback_service_repo.find_by_reservation_id.return_value = []
+
+        result = self.service.get_feedbacks_by_reservation_id(
+            reservation_id=self.reservation_id,
+            customer_id=self.customer_id,
+        )
+
+        self.assertIsNone(result["CuisineFeedback"])
+        self.assertIsNone(result["ServiceFeedback"])
+
+    def test_get_feedbacks_by_reservation_id_raises_404_when_reservation_missing(
+        self,
+    ) -> None:
+        """Get should raise 404 when reservation not found."""
+        self.reservation_repo.get.return_value = None
+
+        with self.assertRaises(ApplicationException) as exc:
+            self.service.get_feedbacks_by_reservation_id(
+                reservation_id=self.reservation_id,
+                customer_id=self.customer_id,
+            )
+
+        self.assertEqual(exc.exception.code, 404)
+        self.feedback_cuisine_repo.find_by_reservation_id.assert_not_called()
+        self.feedback_service_repo.find_by_reservation_id.assert_not_called()
+
+    def test_get_feedbacks_by_reservation_id_raises_403_for_foreign_customer(
+        self,
+    ) -> None:
+        """Get should raise 403 when customer doesn't own the reservation."""
+        other_customer = uuid4()
+        self.reservation.customer_id = other_customer
+        self.reservation_repo.get.return_value = self.reservation
+
+        with self.assertRaises(ApplicationException) as exc:
+            self.service.get_feedbacks_by_reservation_id(
+                reservation_id=self.reservation_id,
+                customer_id=self.customer_id,
+            )
+
+        self.assertEqual(exc.exception.code, 403)
+        self.feedback_cuisine_repo.find_by_reservation_id.assert_not_called()
+        self.feedback_service_repo.find_by_reservation_id.assert_not_called()

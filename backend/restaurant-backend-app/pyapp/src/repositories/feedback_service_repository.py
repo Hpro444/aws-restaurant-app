@@ -6,6 +6,7 @@ from datetime import date
 from uuid import UUID
 
 from commons.app_config import AppConfig
+from commons.log_helper import logger
 from domain.feedback import FeedbackService
 
 from repositories.base_repository import DynamoRepository
@@ -62,6 +63,58 @@ class FeedbackServiceRepository(DynamoRepository[FeedbackService]):
                 ":end": {"S": end_str},
             },
         )
+
+    def find_by_reservation_id(self, reservation_id: UUID) -> list[FeedbackService]:
+        """Return all service feedback entries for a given reservation.
+
+        Args:
+            reservation_id: The reservation UUID to filter by.
+
+        Returns:
+            List of FeedbackService instances for that reservation.
+
+        """
+        table_name = self._resolve_table_name()
+        items = self._paginated_query(
+            "reservation_id scan",
+            self._client.scan,
+            TableName=table_name,
+            FilterExpression="reservation_id = :reservation_id",
+            ExpressionAttributeValues={
+                ":reservation_id": {"S": str(reservation_id)},
+            },
+        )
+        logger.info(
+            "Service feedback scanned by reservation",
+            reservation_id=str(reservation_id),
+            count=len(items),
+        )
+        return items
+
+    def find_all_by_waiter_id(self, waiter_id: UUID) -> list[FeedbackService]:
+        """Return all service feedback entries for a given waiter (no date filter).
+
+        Args:
+            waiter_id: UUID of the waiter.
+
+        Returns:
+            List of FeedbackService instances for that waiter.
+
+        """
+        items = self._paginated_query(
+            "waiter_id_index query",
+            self._client.query,
+            TableName=self._resolve_table_name(),
+            IndexName=self._WAITER_ID_INDEX,
+            KeyConditionExpression="waiter_id = :wid",
+            ExpressionAttributeValues={":wid": {"S": str(waiter_id)}},
+        )
+        logger.info(
+            "Service feedback queried by waiter",
+            waiter_id=str(waiter_id),
+            count=len(items),
+        )
+        return items
 
     def find_by_location_id(self, location_id: UUID) -> list[FeedbackService]:
         """Query service feedback by location via waiter lookup."""

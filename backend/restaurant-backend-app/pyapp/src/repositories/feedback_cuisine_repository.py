@@ -57,6 +57,33 @@ class FeedbackCuisineRepository(DynamoRepository[FeedbackCuisine]):
         )
         return items
 
+    def find_by_reservation_id(self, reservation_id: UUID) -> list[FeedbackCuisine]:
+        """Return all cuisine feedback entries for a given reservation.
+
+        Args:
+            reservation_id: The reservation UUID to filter by.
+
+        Returns:
+            List of FeedbackCuisine instances for that reservation.
+
+        """
+        table_name = self._resolve_table_name()
+        items = self._paginated_query(
+            "reservation_id scan",
+            self._client.scan,
+            TableName=table_name,
+            FilterExpression="reservation_id = :reservation_id",
+            ExpressionAttributeValues={
+                ":reservation_id": {"S": str(reservation_id)},
+            },
+        )
+        logger.info(
+            "Cuisine feedback scanned by reservation",
+            reservation_id=str(reservation_id),
+            count=len(items),
+        )
+        return items
+
     def find_by_location_id_and_period(
         self,
         location_id: UUID,
