@@ -20,6 +20,12 @@ SEP = "─" * 70
 
 _MAX_BODY_CHARS = 4000
 
+# One retry on a gateway timeout absorbs isolated cold-start flakes. Only
+# idempotent methods are retried: a timed-out POST may still have executed
+# server-side, so retrying it could duplicate the side effect.
+_RETRY_STATUS = 504
+_IDEMPOTENT_METHODS = frozenset({"GET", "PUT", "DELETE", "HEAD", "OPTIONS"})
+
 
 _SENSITIVE_KEY_PARTS = ("password", "token")
 
@@ -144,10 +150,10 @@ def execute(
     if params:
         print(f"  Query  : {params}")
 
-    started = time.monotonic()
-    try:
+    def _send() -> requests.Response:
+        """Send the request once, honoring the raw-body escape hatch."""
         if raw_body is not None:
-            resp = requests.request(
+            return requests.request(
                 method,
                 url,
                 headers=headers,
@@ -155,10 +161,23 @@ def execute(
                 params=params,
                 timeout=30,
             )
-        else:
-            resp = requests.request(
-                method, url, headers=headers, json=body, params=params, timeout=30
+        return requests.request(
+            method, url, headers=headers, json=body, params=params, timeout=30
+        )
+
+    started = time.monotonic()
+    try:
+        resp = _send()
+        if (
+            resp.status_code == _RETRY_STATUS
+            and _RETRY_STATUS not in expected
+            and method.upper() in _IDEMPOTENT_METHODS
+        ):
+            print(
+                f"  {_DIM}gateway timeout (504) — retrying once "
+                f"({(time.monotonic() - started) * 1000:.0f} ms){_RESET}"
             )
+            resp = _send()
     except Exception as exc:
         elapsed_ms = (time.monotonic() - started) * 1000
         print(f"  {_RED}✗ REQUEST ERROR: {exc}{_RESET}")

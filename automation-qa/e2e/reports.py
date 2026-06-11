@@ -161,3 +161,185 @@ def run(ctx) -> None:
         params={"reportType": "staff_performance", "period": last_week_monday},
         expected=(401,),
     )
+
+    # ── POST /reports/download — report file export ───────────────────────────
+
+    last_week_monday_date = today - timedelta(days=today.weekday() + 7)
+    period_start = last_week_monday_date.isoformat()
+    period_end = (last_week_monday_date + timedelta(days=6)).isoformat()
+
+    _staff_body = {
+        "reportType": "staff_performance",
+        "periodStart": period_start,
+        "periodEnd": period_end,
+        "rows": [],
+    }
+    _sales_body = {
+        "reportType": "sales",
+        "periodStart": period_start,
+        "periodEnd": period_end,
+        "rows": [],
+    }
+
+    def _has_download_url(resp):
+        """Assert the response contains a non-empty https downloadUrl."""
+        url = resp.json().get("downloadUrl", "")
+        if not url:
+            return False, "downloadUrl is missing or empty"
+        if not url.startswith("https://"):
+            return False, f"downloadUrl is not an https URL: {url!r}"
+        return True, ""
+
+    execute(
+        ctx,
+        step="REP-10",
+        name="POST /reports/download?fileFormat=pdf — staff performance PDF",
+        method="POST",
+        path="/reports/download",
+        params={"fileFormat": "pdf"},
+        token=token_admin,
+        auth_user=ADMIN_EMAIL,
+        body=_staff_body,
+        expected=(200,),
+        response_check=_has_download_url,
+    )
+
+    execute(
+        ctx,
+        step="REP-11",
+        name="POST /reports/download?fileFormat=csv — staff performance CSV",
+        method="POST",
+        path="/reports/download",
+        params={"fileFormat": "csv"},
+        token=token_admin,
+        auth_user=ADMIN_EMAIL,
+        body=_staff_body,
+        expected=(200,),
+        response_check=_has_download_url,
+    )
+
+    execute(
+        ctx,
+        step="REP-12",
+        name="POST /reports/download?fileFormat=excel — sales Excel",
+        method="POST",
+        path="/reports/download",
+        params={"fileFormat": "excel"},
+        token=token_admin,
+        auth_user=ADMIN_EMAIL,
+        body=_sales_body,
+        expected=(200,),
+        response_check=_has_download_url,
+    )
+
+    execute(
+        ctx,
+        step="REP-13",
+        name="POST /reports/download — fileFormat=csv supplied in request body",
+        method="POST",
+        path="/reports/download",
+        token=token_admin,
+        auth_user=ADMIN_EMAIL,
+        body={**_staff_body, "fileFormat": "csv"},
+        expected=(200,),
+        response_check=_has_download_url,
+    )
+
+    execute(
+        ctx,
+        step="REP-14",
+        name="POST /reports/download — waiter role is forbidden",
+        method="POST",
+        path="/reports/download",
+        params={"fileFormat": "pdf"},
+        token=ctx.token(WAITER_EMAIL),
+        auth_user=WAITER_EMAIL,
+        body=_staff_body,
+        expected=(403,),
+    )
+
+    execute(
+        ctx,
+        step="REP-15",
+        name="POST /reports/download — customer role is forbidden",
+        method="POST",
+        path="/reports/download",
+        params={"fileFormat": "pdf"},
+        token=ctx.token(CUSTOMER_EMAIL),
+        auth_user=CUSTOMER_EMAIL,
+        body=_staff_body,
+        expected=(403,),
+    )
+
+    execute(
+        ctx,
+        step="REP-16",
+        name="POST /reports/download — missing token is rejected",
+        method="POST",
+        path="/reports/download",
+        params={"fileFormat": "pdf"},
+        body=_staff_body,
+        expected=(401,),
+    )
+
+    execute(
+        ctx,
+        step="REP-17",
+        name="POST /reports/download — missing reportType is rejected",
+        method="POST",
+        path="/reports/download",
+        params={"fileFormat": "pdf"},
+        token=token_admin,
+        auth_user=ADMIN_EMAIL,
+        body={"periodStart": period_start, "periodEnd": period_end, "rows": []},
+        expected=(422,),
+    )
+
+    execute(
+        ctx,
+        step="REP-18",
+        name="POST /reports/download — invalid reportType is rejected",
+        method="POST",
+        path="/reports/download",
+        params={"fileFormat": "pdf"},
+        token=token_admin,
+        auth_user=ADMIN_EMAIL,
+        body={
+            "reportType": "weather",
+            "periodStart": period_start,
+            "periodEnd": period_end,
+            "rows": [],
+        },
+        expected=(422,),
+    )
+
+    execute(
+        ctx,
+        step="REP-19",
+        name="POST /reports/download — periodEnd before periodStart is rejected",
+        method="POST",
+        path="/reports/download",
+        params={"fileFormat": "pdf"},
+        token=token_admin,
+        auth_user=ADMIN_EMAIL,
+        body={
+            "reportType": "staff_performance",
+            "periodStart": period_end,
+            "periodEnd": period_start,
+            "rows": [],
+        },
+        expected=(422,),
+    )
+
+    execute(
+        ctx,
+        step="REP-20",
+        name="POST /reports/download?fileFormat=xml — invalid format is rejected",
+        method="POST",
+        path="/reports/download",
+        params={"fileFormat": "xml"},
+        token=token_admin,
+        auth_user=ADMIN_EMAIL,
+        body=_staff_body,
+        expected=(422,),
+    )

@@ -23,6 +23,7 @@ automation-qa/
 │   ├── waiter_reservations.py # waiter table-filtered reservation view
 │   ├── bookings_lifecycle.py  # full booking state-machine walkthrough
 │   ├── feedbacks.py           # feedback submit, update, context, paginated list
+│   ├── sqs.py                 # SQS-triggered report recalculation (T-1 through T-12)
 │   ├── http_client.py         # request executor + result recording
 │   ├── db.py                  # DynamoDB snapshot / polling helpers
 │   ├── recorder.py            # step recording model
@@ -40,7 +41,7 @@ Suites run in `SUITE_ORDER` — later suites depend on entities created by earli
 
 ```
 auth → locations → dishes → users → customers → reports →
-bookings → orders → waiter_reservations → bookings_lifecycle → feedbacks
+bookings → orders → waiter_reservations → bookings_lifecycle → feedbacks → sqs
 ```
 
 ### Debug artifacts

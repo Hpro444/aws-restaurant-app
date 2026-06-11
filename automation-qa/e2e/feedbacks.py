@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from uuid import NAMESPACE_URL, uuid5
 
 from e2e.config import CUSTOMER_EMAIL, WAITER_EMAIL
 from e2e.db import make_check, scan_eq, wait_until
@@ -319,3 +320,126 @@ def run(ctx) -> None:
         auth_user=WAITER_EMAIL,
         expected=(403,),
     )
+
+    # ── GET /feedback/{feedback_id} — single-feedback retrieval ──────────────
+
+    culinary_feedback_id = str(uuid5(NAMESPACE_URL, f"culinary:{res_id}"))
+    service_feedback_id = str(uuid5(NAMESPACE_URL, f"service:{res_id}"))
+
+    execute(
+        ctx,
+        step="FB-15",
+        name="GET /feedback/{id}?type=cuisine — kate retrieves her culinary feedback",
+        method="GET",
+        path=f"/feedback/{culinary_feedback_id}",
+        params={"type": "cuisine"},
+        token=token_kate,
+        auth_user=CUSTOMER_EMAIL,
+        expected=(200,),
+        response_check=lambda resp: (
+            resp.json().get("rate") == 3,
+            f"expected rate=3 (after edit), got {resp.json().get('rate')}",
+        ),
+    )
+
+    execute(
+        ctx,
+        step="FB-16",
+        name="GET /feedback/{id}?type=service — kate retrieves her service feedback",
+        method="GET",
+        path=f"/feedback/{service_feedback_id}",
+        params={"type": "service"},
+        token=token_kate,
+        auth_user=CUSTOMER_EMAIL,
+        expected=(200,),
+        response_check=lambda resp: (
+            resp.json().get("rate") == 4,
+            f"expected rate=4, got {resp.json().get('rate')}",
+        ),
+    )
+
+    execute(
+        ctx,
+        step="FB-17",
+        name="GET /feedback/{id} — missing type param is rejected",
+        method="GET",
+        path=f"/feedback/{culinary_feedback_id}",
+        token=token_kate,
+        auth_user=CUSTOMER_EMAIL,
+        expected=(422,),
+    )
+
+    execute(
+        ctx,
+        step="FB-18",
+        name="GET /feedback/{id}?type=ambience — invalid type is rejected",
+        method="GET",
+        path=f"/feedback/{culinary_feedback_id}",
+        params={"type": "ambience"},
+        token=token_kate,
+        auth_user=CUSTOMER_EMAIL,
+        expected=(422,),
+    )
+
+    execute(
+        ctx,
+        step="FB-19",
+        name="GET /feedback/not-a-uuid?type=cuisine — non-UUID feedback_id is rejected",
+        method="GET",
+        path="/feedback/not-a-valid-uuid",
+        params={"type": "cuisine"},
+        token=token_kate,
+        auth_user=CUSTOMER_EMAIL,
+        expected=(422,),
+    )
+
+    execute(
+        ctx,
+        step="FB-20",
+        name="GET /feedback/{id}?type=cuisine — waiter role is forbidden",
+        method="GET",
+        path=f"/feedback/{culinary_feedback_id}",
+        params={"type": "cuisine"},
+        token=ctx.token(WAITER_EMAIL),
+        auth_user=WAITER_EMAIL,
+        expected=(403,),
+    )
+
+    execute(
+        ctx,
+        step="FB-21",
+        name="GET /feedback/{id}?type=cuisine — unknown feedback_id returns empty list",
+        method="GET",
+        path=f"/feedback/{uuid.uuid4()}",
+        params={"type": "cuisine"},
+        token=token_kate,
+        auth_user=CUSTOMER_EMAIL,
+        expected=(200,),
+        response_check=lambda resp: (
+            resp.json() == [],
+            f"expected empty list [], got {resp.json()!r}",
+        ),
+    )
+
+    token_alice = ctx.token("alice@example.com")
+    if token_alice:
+        execute(
+            ctx,
+            step="FB-22",
+            name="GET /feedback/{id}?type=cuisine — alice cannot access kate's feedback",
+            method="GET",
+            path=f"/feedback/{culinary_feedback_id}",
+            params={"type": "cuisine"},
+            token=token_alice,
+            auth_user="alice@example.com",
+            expected=(403,),
+        )
+    else:
+        skip(
+            ctx,
+            step="FB-22",
+            name="GET /feedback/{id}?type=cuisine — alice cannot access kate's feedback",
+            method="GET",
+            path=f"/feedback/{culinary_feedback_id}",
+            reason="no token for alice@example.com in tokens.json",
+        )

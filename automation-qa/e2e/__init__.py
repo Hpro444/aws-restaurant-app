@@ -19,4 +19,5 @@ SUITE_ORDER = [
     "waiter_reservations",
     "bookings_lifecycle",
     "feedbacks",
+    "sqs",
 ]
