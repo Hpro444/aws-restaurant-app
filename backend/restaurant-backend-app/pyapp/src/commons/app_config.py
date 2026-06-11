@@ -38,6 +38,10 @@ class AppConfig(BaseSettings):
     report_sender_email: str = ""
     report_recipient_email: str = ""
 
+    # Report file downloads (S3)
+    reports_bucket: str = "restaurant-reports-bucket"
+    reports_url_expiration_seconds: int = 3600
+
     # SQS
     event_queue_url: str = ""
 

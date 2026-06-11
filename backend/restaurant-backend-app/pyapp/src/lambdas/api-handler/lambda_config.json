@@ -28,7 +28,9 @@
     "ADMINS_TABLE": "${admins_table}",
     "ADMIN_EMAILS_TABLE": "${admin_emails_table}",
     "ORDERS_TABLE": "${orders_table}",
-    "EVENT_QUEUE_URL": "${event_queue_url}"
+    "EVENT_QUEUE_URL": "${event_queue_url}",
+    "REPORTS_BUCKET": "${reports_bucket}",
+    "REPORTS_URL_EXPIRATION_SECONDS": "3600"
   },
   "publish_version": true,
   "alias": "${lambdas_alias_name}",

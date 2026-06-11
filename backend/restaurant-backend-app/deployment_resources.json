@@ -36,7 +36,10 @@
             "cognito-idp:ListUserPoolClients",
             "cognito-idp:RevokeToken",
             "ses:SendEmail",
-            "ses:SendRawEmail"
+            "ses:SendRawEmail",
+            "s3:PutObject",
+            "s3:GetObject",
+            "s3:DeleteObject"
           ],
           "Effect": "Allow",
           "Resource": "*"
@@ -551,58 +554,6 @@
           "enable_proxy": true
         }
       },
-      "/dishes/{id}": {
-        "OPTIONS": {
-          "authorization_type": "NONE",
-          "integration_type": "lambda",
-          "lambda_name": "api-handler",
-          "api_key_required": false,
-          "method_request_parameters": {},
-          "integration_request_body_template": {},
-          "responses": [],
-          "integration_responses": [],
-          "default_error_pattern": true,
-          "enable_proxy": true
-        },
-        "GET": {
-          "authorization_type": "NONE",
-          "integration_type": "lambda",
-          "lambda_name": "api-handler",
-          "api_key_required": false,
-          "method_request_parameters": {},
-          "integration_request_body_template": {},
-          "responses": [],
-          "integration_responses": [],
-          "default_error_pattern": true,
-          "enable_proxy": true
-        }
-      },
-      "/locations/{id}/valid-slot-times": {
-        "OPTIONS": {
-          "authorization_type": "NONE",
-          "integration_type": "lambda",
-          "lambda_name": "api-handler",
-          "api_key_required": false,
-          "method_request_parameters": {},
-          "integration_request_body_template": {},
-          "responses": [],
-          "integration_responses": [],
-          "default_error_pattern": true,
-          "enable_proxy": true
-        },
-        "GET": {
-          "authorization_type": "NONE",
-          "integration_type": "lambda",
-          "lambda_name": "api-handler",
-          "api_key_required": false,
-          "method_request_parameters": {},
-          "integration_request_body_template": {},
-          "responses": [],
-          "integration_responses": [],
-          "default_error_pattern": true,
-          "enable_proxy": true
-        }
-      },
       "/dishes/popular": {
         "OPTIONS": {
           "authorization_type": "NONE",
@@ -747,6 +698,32 @@
           "enable_proxy": true
         },
         "GET": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
+        }
+      },
+      "/reports/download": {
+        "OPTIONS": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
+        },
+        "POST": {
           "authorization_type": "NONE",
           "integration_type": "lambda",
           "lambda_name": "api-handler",
@@ -1237,5 +1214,17 @@
       "index_document": "index.html",
       "error_document": "error.html"
     }
+  },
+  "${reports_bucket}": {
+    "resource_type": "s3_bucket",
+    "cors": [
+      {
+        "AllowedHeaders": ["*"],
+        "AllowedMethods": ["GET", "PUT", "POST"],
+        "AllowedOrigins": ["*"],
+        "MaxAgeSeconds": 3000
+      }
+    ],
+    "tags": {}
   }
 }

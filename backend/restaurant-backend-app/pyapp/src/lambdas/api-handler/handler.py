@@ -23,7 +23,7 @@ from dto.locations import LocationAddressResponse, LocationResponse
 from dto.logout import LogoutRequest, LogoutResponse
 from dto.orders import CreateOrderRequest
 from dto.refresh import RefreshRequest, RefreshResponse
-from dto.reports import GetReportsRequest
+from dto.reports import CreateReportsDownloadRequest, GetReportsRequest
 from dto.reservation_management import UpdateReservationRequest
 from dto.sign_in import SignInRequest, SignInResponse
 from dto.sign_up import SignUpRequest, SignUpResponse
@@ -178,6 +178,7 @@ class ApiHandler(AbstractLambda):
 
         router.add("GET", "/customers", self._get_customers)
         router.add("GET", "/reports", self._get_reports)
+        router.add("POST", "/reports/download", self._download_reports_from_payload)
 
         router.add("GET", "/reservations/waiter", self._get_waiter_reservations)
 
@@ -441,6 +442,29 @@ class ApiHandler(AbstractLambda):
         response = self._reports_service.get_reports(request)
         return build_response(
             response.model_dump(by_alias=True),
+            code=HttpStatusCode.RESPONSE_OK_CODE,
+        )
+
+    def _download_reports_from_payload(self, event: dict) -> LambdaResponse:
+        """Generate a report file from a frontend-supplied payload and return a presigned download URL."""
+        _, role = self._get_actor_context(event)
+        if role != UserRole.ADMIN:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
+                "Only admins can download reports.",
+            )
+
+        # fileFormat comes from the query string; the rest of the payload is in the body.
+        body = self._parse_body(event)
+        query_params = self._parse_query_params(event)
+        payload = {**body, **query_params}
+        # Support both fileFormat and legacy format key from callers.
+        if "fileFormat" not in payload and "format" in payload:
+            payload["fileFormat"] = payload["format"]
+        request = self._validate(CreateReportsDownloadRequest, payload)
+        download_url = self._reports_service.export_report_from_payload(request)
+        return build_response(
+            {"downloadUrl": download_url},
             code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 

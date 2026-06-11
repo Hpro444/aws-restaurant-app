@@ -8,7 +8,7 @@ from typing import Any
 from uuid import UUID
 
 from commons.report_utils import parse_date, period_end_for, period_start_for
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 
 class ReportType(str, Enum):
@@ -97,3 +97,43 @@ class ReportsResponse(BaseModel):
     period_start: str = Field(..., alias="periodStart")
     period_end: str = Field(..., alias="periodEnd")
     rows: list[dict[str, Any]]
+
+
+class DownloadFormat(str, Enum):
+    """Supported file formats for report downloads."""
+
+    CSV = "csv"
+    EXCEL = "excel"
+    PDF = "pdf"
+
+
+class CreateReportsDownloadRequest(BaseModel):
+    """Combined request for POST /reports/download.
+
+    The file format is supplied as a query-string parameter (``fileFormat``)
+    or legacy key (``format``);
+    the rest of the report payload is supplied in the JSON request body.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
+
+    report_type: ReportType = Field(..., alias="reportType")
+    period_start: str = Field(..., alias="periodStart")
+    period_end: str = Field(..., alias="periodEnd")
+    rows: list[dict[str, Any]] = Field(default_factory=list)
+    download_format: DownloadFormat = Field(
+        DownloadFormat.PDF,
+        alias="fileFormat",
+        validation_alias=AliasChoices("fileFormat", "format"),
+    )
+
+    @model_validator(mode="after")
+    def validate_period(self) -> "CreateReportsDownloadRequest":
+        """Validate that period dates are parseable and in the right order."""
+        start_date = parse_date(self.period_start)
+        end_date = parse_date(self.period_end)
+        if end_date < start_date:
+            raise ValueError(
+                "'periodEnd' must be greater than or equal to 'periodStart'"
+            )
+        return self

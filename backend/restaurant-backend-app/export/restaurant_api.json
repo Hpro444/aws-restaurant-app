@@ -1020,6 +1020,35 @@
               }
             }
           },
+          "/reports/download": {
+            "post": {
+              "tags": ["Reports"],
+              "summary": "Download report as file (admin only)",
+              "description": "Export report as CSV, Excel, or PDF format",
+              "security": [{ "bearerAuth": [] }],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": { "$ref": "#/components/schemas/CreateReportsDownloadRequest" }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "File generated and S3 URL provided",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/CreateReportsDownloadResponse" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
           "/orders": {
             "post": {
               "tags": ["Orders"],
@@ -1653,6 +1682,46 @@
                     "additionalProperties": true,
                     "description": "Row structure varies by reportType (staff_performance or sales)."
                   }
+                }
+              }
+            },
+            "CreateReportsDownloadRequest": {
+              "type": "object",
+              "required": ["reportType", "periodStart", "periodEnd", "fileFormat"],
+              "properties": {
+                "reportType": {
+                  "type": "string",
+                  "enum": ["staff_performance", "sales"],
+                  "description": "Type of report to download"
+                },
+                "periodStart": {
+                  "type": "string",
+                  "format": "date",
+                  "description": "Start date for report (YYYY-MM-DD)"
+                },
+                "periodEnd": {
+                  "type": "string",
+                  "format": "date",
+                  "description": "End date for report (YYYY-MM-DD)"
+                },
+                "fileFormat": {
+                  "type": "string",
+                  "enum": ["csv", "excel", "pdf"],
+                  "description": "Export format (csv, excel, or pdf). Alias 'format' is also accepted."
+                },
+                "rows": {
+                  "type": "integer",
+                  "description": "Optional: maximum number of rows to include"
+                }
+              }
+            },
+            "CreateReportsDownloadResponse": {
+              "type": "object",
+              "required": ["downloadUrl"],
+              "properties": {
+                "downloadUrl": {
+                  "type": "string",
+                  "description": "Presigned S3 URL for file download (valid for 1 hour)"
                 }
               }
             },
