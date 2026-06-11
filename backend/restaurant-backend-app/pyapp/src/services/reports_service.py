@@ -19,8 +19,16 @@ from dto.reports import (
     ReportsResponse,
     ReportType,
 )
+from repositories.feedback_cuisine_repository import FeedbackCuisineRepository
+from repositories.feedback_service_repository import FeedbackServiceRepository
 from repositories.location_report_repository import LocationReportRepository
+from repositories.location_repository import LocationRepository
+from repositories.order_repository import OrderRepository
+from repositories.reservation_repository import ReservationRepository
+from repositories.slot_repository import SlotRepository
+from repositories.table_repository import TableRepository
 from repositories.waiter_report_repository import WaiterReportRepository
+from repositories.waiter_repository import WaiterRepository
 
 _STAFF_COLUMN_LABELS: dict[str, str] = {
     "location": "Location",
@@ -58,6 +66,14 @@ class ReportsService:
         settings: AppConfig | None = None,
         waiter_report_repo: WaiterReportRepository | None = None,
         location_report_repo: LocationReportRepository | None = None,
+        feedback_service_repo: FeedbackServiceRepository | None = None,
+        feedback_cuisine_repo: FeedbackCuisineRepository | None = None,
+        reservation_repo: ReservationRepository | None = None,
+        slot_repo: SlotRepository | None = None,
+        order_repo: OrderRepository | None = None,
+        table_repo: TableRepository | None = None,
+        waiter_repo: WaiterRepository | None = None,
+        location_repo: LocationRepository | None = None,
     ) -> None:
         """Initialise repositories, creating defaults when omitted."""
         cfg = settings or AppConfig()
@@ -66,6 +82,18 @@ class ReportsService:
         self._location_report_repo = location_report_repo or LocationReportRepository(
             cfg
         )
+        self._feedback_service_repo = (
+            feedback_service_repo or FeedbackServiceRepository()
+        )
+        self._feedback_cuisine_repo = (
+            feedback_cuisine_repo or FeedbackCuisineRepository()
+        )
+        self._reservation_repo = reservation_repo or ReservationRepository(cfg)
+        self._slot_repo = slot_repo or SlotRepository(cfg)
+        self._order_repo = order_repo or OrderRepository(cfg)
+        self._table_repo = table_repo or TableRepository(cfg)
+        self._waiter_repo = waiter_repo or WaiterRepository(cfg)
+        self._location_repo = location_repo or LocationRepository(cfg)
         self._s3 = boto3.client("s3", region_name=cfg.aws_region)
         self._resolved_bucket_name: str | None = None
 
@@ -324,7 +352,17 @@ class ReportsService:
         return report_end >= period_start and report_start <= period_end
 
     def _load_waiter_reports(self, week_starts, period_start, period_end):
-        """Load waiter report rows for requested week starts limited to period overlap."""
+        """Load waiter report rows for requested week starts limited to period overlap.
+
+        First attempts to compute reports dynamically from current database state.
+        Falls back to seeded pre-computed reports if dynamic calculation fails.
+        """
+        # Try to use dynamic reports first (so updated feedbacks are reflected)
+        dynamic_reports = self._compute_dynamic_waiter_reports(period_start, period_end)
+        if dynamic_reports:
+            return dynamic_reports
+
+        # Fall back to seeded reports if dynamic calculation failed
         reports = []
         for week_start in week_starts:
             reports.extend(self._waiter_report_repo.find_by_period_start(week_start))
@@ -335,7 +373,19 @@ class ReportsService:
         ]
 
     def _load_location_reports(self, week_starts, period_start, period_end):
-        """Load location report rows for requested week starts limited to period overlap."""
+        """Load location report rows for requested week starts limited to period overlap.
+
+        First attempts to compute reports dynamically from current database state.
+        Falls back to seeded pre-computed reports if dynamic calculation fails.
+        """
+        # Try to use dynamic reports first (so updated feedbacks are reflected)
+        dynamic_reports = self._compute_dynamic_location_reports(
+            period_start, period_end
+        )
+        if dynamic_reports:
+            return dynamic_reports
+
+        # Fall back to seeded reports if dynamic calculation failed
         reports = []
         for week_start in week_starts:
             reports.extend(self._location_report_repo.find_by_period_start(week_start))
@@ -409,6 +459,242 @@ class ReportsService:
                 )
 
         return aggregated
+
+    def _compute_dynamic_waiter_reports(
+        self, period_start: datetime, period_end: datetime
+    ) -> list:
+        """Dynamically compute waiter reports from current database state.
+
+        Aggregates data whose date falls within [period_start, period_end]:
+        * orders_processed — orders linked to FINISHED reservations in period
+        * working_hours — slots in period × 1.75h each
+        * service_feedback — feedback entries in period
+
+        Returns a list of dicts compatible with _aggregate_waiter_reports format.
+        """
+        from enums.reservation_status import ReservationStatus
+
+        period_start_date = (
+            period_start.date() if isinstance(period_start, datetime) else period_start
+        )
+        period_end_date = (
+            period_end.date() if isinstance(period_end, datetime) else period_end
+        )
+
+        try:
+            # Get all reservations and filter to FINISHED in period
+            all_reservations = self._reservation_repo.scan()
+            period_finished_ids = {
+                r.id
+                for r in all_reservations
+                if r.status == ReservationStatus.FINISHED
+                and period_start_date
+                <= (
+                    r.created_at.date()
+                    if isinstance(r.created_at, datetime)
+                    else r.created_at
+                )
+                <= period_end_date
+            }
+
+            # Get all orders and filter to those with FINISHED reservations
+            all_orders = self._order_repo.scan()
+            orders_by_waiter: dict = {}
+            for order in all_orders:
+                if order.reservation_id in period_finished_ids:
+                    orders_by_waiter.setdefault(order.waiter_id, []).append(order)
+
+            # Get all service feedbacks and filter by period
+            all_feedbacks = self._feedback_service_repo.scan()
+            feedbacks_by_waiter: dict = {}
+            for fb in all_feedbacks:
+                fb_date = fb.date.date() if isinstance(fb.date, datetime) else fb.date
+                if period_start_date <= fb_date <= period_end_date:
+                    feedbacks_by_waiter.setdefault(fb.waiter_id, []).append(fb)
+
+            # Get all slots and filter by period and waiter
+            all_slots = self._slot_repo.scan()
+            slots_by_waiter: dict = {}
+            for slot in all_slots:
+                if slot.waiter_id is None:
+                    continue
+                slot_date = (
+                    slot.date.date() if isinstance(slot.date, datetime) else slot.date
+                )
+                if period_start_date <= slot_date <= period_end_date:
+                    slots_by_waiter.setdefault(slot.waiter_id, []).append(slot)
+
+            # Get all waiters and locations
+            all_waiters = self._waiter_repo.scan()
+            all_locations = self._location_repo.scan()
+            locations_by_id = {loc.id: loc for loc in all_locations}
+
+            # Build dynamic reports for each waiter
+            reports: list = []
+            for waiter in all_waiters:
+                w_orders = orders_by_waiter.get(waiter.id, [])
+                w_feedbacks = feedbacks_by_waiter.get(waiter.id, [])
+                w_slots = slots_by_waiter.get(waiter.id, [])
+
+                # Calculate aggregates
+                orders_processed = len(w_orders)
+                unique_starts = {slot.start_time for slot in w_slots}
+                working_hours = len(unique_starts) * 1.75
+
+                fb_count = len(w_feedbacks)
+                fb_sum = float(sum(f.rate for f in w_feedbacks if f.rate is not None))
+                avg_fb = round(fb_sum / fb_count, 2) if fb_count else None
+                min_fb = min(
+                    (f.rate for f in w_feedbacks if f.rate is not None), default=None
+                )
+
+                location = locations_by_id.get(waiter.location_id)
+                location_name = location.name if location else ""
+
+                # Create a dict-like object that mimics WaiterReport for aggregation
+                report = type(
+                    "DynamicWaiterReport",
+                    (),
+                    {
+                        "waiter_id": waiter.id,
+                        "location_id": waiter.location_id,
+                        "location_name": location_name,
+                        "waiter_first_name": waiter.fname,
+                        "waiter_last_name": waiter.lname,
+                        "waiter_email": waiter.email,
+                        "report_period_start": period_start_date.isoformat(),
+                        "report_period_end": period_end_date.isoformat(),
+                        "working_hours": working_hours,
+                        "orders_processed": orders_processed,
+                        "service_feedback_count": fb_count,
+                        "service_feedback_sum": fb_sum,
+                        "avg_service_feedback": avg_fb,
+                        "min_service_feedback": min_fb,
+                    },
+                )()
+
+                reports.append(report)
+
+            return reports
+
+        except Exception as e:
+            logger.warning(
+                "Failed to compute dynamic waiter reports, falling back to seeded data",
+                error=str(e),
+            )
+            return []
+
+    def _compute_dynamic_location_reports(
+        self, period_start: datetime, period_end: datetime
+    ) -> list:
+        """Dynamically compute location reports from current database state.
+
+        Aggregates cuisine feedback by location for the given period.
+
+        Returns a list of dicts compatible with _aggregate_location_reports format.
+        """
+        from enums.reservation_status import ReservationStatus
+
+        period_start_date = (
+            period_start.date() if isinstance(period_start, datetime) else period_start
+        )
+        period_end_date = (
+            period_end.date() if isinstance(period_end, datetime) else period_end
+        )
+
+        try:
+            # Get all reservations and filter to FINISHED in period
+            all_reservations = self._reservation_repo.scan()
+            period_finished_ids = {
+                r.id
+                for r in all_reservations
+                if r.status == ReservationStatus.FINISHED
+                and period_start_date
+                <= (
+                    r.created_at.date()
+                    if isinstance(r.created_at, datetime)
+                    else r.created_at
+                )
+                <= period_end_date
+            }
+
+            # Get all orders and filter by period
+            all_orders = self._order_repo.scan()
+            orders_by_location: dict = {}
+            for order in all_orders:
+                if order.reservation_id in period_finished_ids:
+                    # Get table info to find location
+                    table = (
+                        self._table_repo.get(order.table_id)
+                        if hasattr(order, "table_id")
+                        else None
+                    )
+                    if table:
+                        location_id = table.location_id
+                        orders_by_location.setdefault(location_id, []).append(order)
+
+            # Get all cuisine feedbacks and filter by period
+            all_feedbacks = self._feedback_cuisine_repo.scan()
+            feedbacks_by_location: dict = {}
+            for fb in all_feedbacks:
+                fb_date = fb.date.date() if isinstance(fb.date, datetime) else fb.date
+                if period_start_date <= fb_date <= period_end_date:
+                    feedbacks_by_location.setdefault(fb.location_id, []).append(fb)
+
+            # Get all locations
+            all_locations = self._location_repo.scan()
+
+            # Build dynamic reports for each location
+            reports: list = []
+            for location in all_locations:
+                l_orders = orders_by_location.get(location.id, [])
+                l_feedbacks = feedbacks_by_location.get(location.id, [])
+
+                # Calculate aggregates
+                orders_processed = len(l_orders)
+
+                fb_count = len(l_feedbacks)
+                fb_sum = float(sum(f.rate for f in l_feedbacks if f.rate is not None))
+                avg_fb = round(fb_sum / fb_count, 2) if fb_count else None
+                min_fb = min(
+                    (f.rate for f in l_feedbacks if f.rate is not None), default=None
+                )
+
+                # Revenue calculation (sum of order totals)
+                revenue = sum(
+                    o.total_amount
+                    for o in l_orders
+                    if hasattr(o, "total_amount") and o.total_amount
+                )
+
+                # Create a dict-like object that mimics LocationReport for aggregation
+                report = type(
+                    "DynamicLocationReport",
+                    (),
+                    {
+                        "location_id": location.id,
+                        "location_name": location.name,
+                        "report_period_start": period_start_date.isoformat(),
+                        "report_period_end": period_end_date.isoformat(),
+                        "orders_processed": orders_processed,
+                        "cuisine_feedback_count": fb_count,
+                        "cuisine_feedback_sum": fb_sum,
+                        "avg_cuisine_feedback": avg_fb,
+                        "min_cuisine_feedback": min_fb,
+                        "revenue": revenue,
+                    },
+                )()
+
+                reports.append(report)
+
+            return reports
+
+        except Exception as e:
+            logger.warning(
+                "Failed to compute dynamic location reports, falling back to seeded data",
+                error=str(e),
+            )
+            return []
 
     @staticmethod
     def _safe_average(total: float, count: int) -> float | None:
