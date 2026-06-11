@@ -8,7 +8,9 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import boto3
+from botocore.exceptions import ClientError
 from commons.app_config import AppConfig
+from commons.log_helper import logger
 from commons.report_utils import parse_date, pct_delta, period_start_for
 from dto.reports import (
     CreateReportsDownloadRequest,
@@ -65,6 +67,7 @@ class ReportsService:
             cfg
         )
         self._s3 = boto3.client("s3", region_name=cfg.aws_region)
+        self._resolved_bucket_name: str | None = None
 
     def get_reports(self, request: GetReportsRequest) -> ReportsResponse:
         """Return report rows for requested type, period range, and optional location."""
@@ -418,6 +421,45 @@ class ReportsService:
     # Report file export
     # ------------------------------------------------------------------
 
+    def _resolve_bucket_name(self) -> str:
+        """Return the actual S3 bucket name, resolving it by alias on first call.
+
+        Deployed bucket names carry the syndicate resources prefix/suffix
+        (e.g. ``tm3-restaurant-reports-bucket-dev1``) while the configured
+        alias is the bare name, so the bucket is located by listing buckets
+        and matching on the alias as a substring — the same pattern
+        DynamoRepository uses for table names. The result is cached for the
+        Lambda container lifetime; falls back to the raw alias when no
+        matching bucket is found.
+
+        Returns:
+            The fully-qualified bucket name as deployed.
+
+        """
+        if self._resolved_bucket_name:
+            return self._resolved_bucket_name
+
+        alias = self._settings.reports_bucket
+        logger.info("Resolving S3 bucket name", alias=alias)
+
+        try:
+            response = self._s3.list_buckets()
+        except ClientError as exc:
+            logger.error("list_buckets failed", error=str(exc))
+            self._resolved_bucket_name = alias
+            return alias
+
+        for bucket in response.get("Buckets", []):
+            name = bucket.get("Name", "")
+            if alias in name:
+                self._resolved_bucket_name = name
+                logger.info("Resolved bucket name", alias=alias, bucket=name)
+                return name
+
+        logger.info("No bucket found, falling back to alias", alias=alias)
+        self._resolved_bucket_name = alias
+        return alias
+
     def export_report_from_payload(self, request: CreateReportsDownloadRequest) -> str:
         """Build a report file from pre-computed rows and return a presigned download URL.
 
@@ -478,9 +520,10 @@ class ReportsService:
 
         ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         object_key = f"generated-reports/{ts}-{uuid4()}-{filename}"
+        bucket_name = self._resolve_bucket_name()
 
         self._s3.put_object(
-            Bucket=self._settings.reports_bucket,
+            Bucket=bucket_name,
             Key=object_key,
             Body=content,
             ContentType=content_type,
@@ -490,7 +533,7 @@ class ReportsService:
         return self._s3.generate_presigned_url(
             "get_object",
             Params={
-                "Bucket": self._settings.reports_bucket,
+                "Bucket": bucket_name,
                 "Key": object_key,
                 "ResponseContentType": content_type,
                 "ResponseContentDisposition": f'attachment; filename="{filename}"',

@@ -20,6 +20,8 @@ TRACKED_TABLE_ALIASES = [
     "orders",
     "feedback_cuisine",
     "feedback_service",
+    "waiter_report",
+    "location_report",
 ]
 
 # Fixed actors, mirroring test_sqs_endpoints.py: max is the Airport table-1

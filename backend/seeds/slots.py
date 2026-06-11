@@ -249,9 +249,9 @@ def _write_chunk_with_retries(
 def seed(dynamodb, tables: dict, context: dict) -> None:
     """Seed 90-minute slots from today - days_past through today + days_ahead.
 
-    Uses a ThreadPoolExecutor with 7 workers, one worker per day.
-    Each worker opens its own DynamoDB connection, writes the day's slots,
-    then closes it. On error the connection is replaced before retrying.
+    Uses a ThreadPoolExecutor with THREAD_WORKERS workers, one worker per day.
+    Each worker writes slots in small chunks with per-chunk jittered retries so
+    concurrent writers do not saturate DynamoDB provisioned throughput.
     Requires context['tables'], context['locations'],
     context['aws_credentials'], and context['aws_region'].
     """

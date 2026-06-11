@@ -8,7 +8,11 @@ from pyapp.tests import ImportFromSourceContext
 with ImportFromSourceContext():
     from domain.location_report import LocationReport
     from domain.waiter_report import WaiterReport
-    from dto.reports import GetReportsRequest, ReportType
+    from dto.reports import (
+        CreateReportsDownloadRequest,
+        GetReportsRequest,
+        ReportType,
+    )
     from services.reports_service import ReportsService
 
 
@@ -329,3 +333,73 @@ class TestReportsService(TestCase):
         self.assertEqual(len(response.rows), 1)
         self.assertEqual(response.rows[0]["waiterOrdersProcessed"], 60)
         self.assertEqual(response.rows[0]["deltaWaiterOrdersProcessedPct"], "+100%")
+
+
+class _FakeS3Client:
+    """Minimal stand-in for the boto3 S3 client used by report exports."""
+
+    def __init__(self, bucket_names):
+        """Remember the bucket names list_buckets should report."""
+        self.bucket_names = bucket_names
+        self.list_buckets_calls = 0
+        self.put_calls = []
+
+    def list_buckets(self):
+        """Return the configured bucket names in boto3 response shape."""
+        self.list_buckets_calls += 1
+        return {"Buckets": [{"Name": name} for name in self.bucket_names]}
+
+    def put_object(self, **kwargs):
+        """Record the upload request instead of talking to S3."""
+        self.put_calls.append(kwargs)
+
+    def generate_presigned_url(self, operation, Params, ExpiresIn):
+        """Return a deterministic URL embedding the bucket and key."""
+        return f"https://example.com/{Params['Bucket']}/{Params['Key']}"
+
+
+class TestReportExportDownload(TestCase):
+    """Bucket-name resolution and file upload behavior of export_report_from_payload."""
+
+    @staticmethod
+    def _make_service(bucket_names):
+        """Build a ReportsService whose S3 client is a _FakeS3Client."""
+        service = ReportsService(
+            waiter_report_repo=_WaiterReportRepo([]),
+            location_report_repo=_LocationReportRepo([]),
+        )
+        service._s3 = _FakeS3Client(bucket_names)
+        return service
+
+    @staticmethod
+    def _make_request(file_format="csv"):
+        """Build a minimal valid download request."""
+        return CreateReportsDownloadRequest(
+            reportType="staff_performance",
+            periodStart="2026-06-01",
+            periodEnd="2026-06-07",
+            rows=[],
+            fileFormat=file_format,
+        )
+
+    def test_export_uploads_to_deployed_bucket_with_prefix_and_suffix(self):
+        """The deployed (prefixed/suffixed) bucket is resolved from the bare alias."""
+        deployed = "tm3-restaurant-reports-bucket-dev1"
+        service = self._make_service(["tm3-other-bucket-dev1", deployed])
+
+        url = service.export_report_from_payload(self._make_request())
+
+        self.assertEqual(len(service._s3.put_calls), 1)
+        self.assertEqual(service._s3.put_calls[0]["Bucket"], deployed)
+        self.assertIn(deployed, url)
+
+    def test_bucket_resolution_falls_back_to_alias_and_is_cached(self):
+        """Without a matching bucket the raw alias is used; resolution runs once."""
+        service = self._make_service(["unrelated-bucket"])
+
+        service.export_report_from_payload(self._make_request())
+        service.export_report_from_payload(self._make_request())
+
+        buckets = [call["Bucket"] for call in service._s3.put_calls]
+        self.assertEqual(buckets, ["restaurant-reports-bucket"] * 2)
+        self.assertEqual(service._s3.list_buckets_calls, 1)

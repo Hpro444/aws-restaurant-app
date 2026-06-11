@@ -39,7 +39,8 @@
             "ses:SendRawEmail",
             "s3:PutObject",
             "s3:GetObject",
-            "s3:DeleteObject"
+            "s3:DeleteObject",
+            "s3:ListAllMyBuckets"
           ],
           "Effect": "Allow",
           "Resource": "*"
@@ -529,6 +530,58 @@
         }
       },
       "/dishes": {
+        "OPTIONS": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
+        },
+        "GET": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
+        }
+      },
+      "/dishes/{id}": {
+        "OPTIONS": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
+        },
+        "GET": {
+          "authorization_type": "NONE",
+          "integration_type": "lambda",
+          "lambda_name": "api-handler",
+          "api_key_required": false,
+          "method_request_parameters": {},
+          "integration_request_body_template": {},
+          "responses": [],
+          "integration_responses": [],
+          "default_error_pattern": true,
+          "enable_proxy": true
+        }
+      },
+      "/locations/{id}/valid-slot-times": {
         "OPTIONS": {
           "authorization_type": "NONE",
           "integration_type": "lambda",
@@ -1195,7 +1248,7 @@
           "Condition": {
             "IpAddress": {
               "aws:SourceIp": [
-                "x.x.x.x/32"
+                "192.168.1.14/32"
               ]
             }
           }
