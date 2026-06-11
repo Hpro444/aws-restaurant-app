@@ -92,6 +92,8 @@ class AbstractLambda(ABC):
             if request_origin in _config.cors_origins
             else _config.cors_origins[0]
         )
+        if "headers" not in response:
+            response["headers"] = {}
         response["headers"]["Access-Control-Allow-Origin"] = allowed_origin
         response["headers"]["Access-Control-Allow-Headers"] = (
             "Authorization, Content-Type"

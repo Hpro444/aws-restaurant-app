@@ -96,8 +96,15 @@ def _first_day_slot(slots_list: list, waiter_id, target_date, slot_index: int = 
 def _resolve_status(
     slot, intended: ReservationStatus, now: datetime
 ) -> ReservationStatus:
-    """Return IN_PROGRESS when the slot has already started and status is RESERVED."""
+    """Normalize seeded status against the slot start time.
+
+    RESERVED becomes IN_PROGRESS once the slot has started.
+    FINISHED is downgraded to IN_PROGRESS until the slot start is in the past,
+    so future showcase/report reservations are never marked as already finished.
+    """
     if intended == ReservationStatus.RESERVED and slot.start_time <= now:
+        return ReservationStatus.IN_PROGRESS
+    if intended == ReservationStatus.FINISHED and slot.start_time >= now:
         return ReservationStatus.IN_PROGRESS
     return intended
 
@@ -480,11 +487,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         if slot is None:
             continue
 
-        status = (
-            _resolve_status(slot, intended_status, now)
-            if intended_status == ReservationStatus.RESERVED
-            else intended_status
-        )
+        status = _resolve_status(slot, intended_status, now)
         reservations.append(
             Reservation(
                 id=seed_id("reservation", f"{slot.id}:{label}"),

@@ -35,10 +35,7 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
 
     entries: list[FeedbackService] = []
     for index, reservation in enumerate(reservations):
-        if reservation.status not in {
-            ReservationStatus.IN_PROGRESS,
-            ReservationStatus.FINISHED,
-        }:
+        if reservation.status != ReservationStatus.FINISHED:
             continue
 
         if reservation.waiter_id is None:

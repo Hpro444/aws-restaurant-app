@@ -224,3 +224,10 @@ tokens.json
 /automation-qa/pipeline*.log
 
 /backend/test_output.txt
+
+/backend/restaurant-backend-app/swagger_src/restaurant-api-ui/swagger_ui_config.json
+/swagger_ui_restaurant-api-ui.zip
+/swagger_ui_restaurant-api-ui_config.json
+/swagger_ui_config.json
+swagger_ui.zip
+swagger_ui_config.json
