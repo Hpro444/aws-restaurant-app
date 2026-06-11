@@ -481,15 +481,14 @@ class ReservationManagementService:
             role == UserRole.WAITER and reservation.waiter_id == actor_id
         )
         is_action_actor = is_owner or is_assigned_waiter
+        feedback_status_eligible = reservation.status in {
+            ReservationStatus.IN_PROGRESS,
+            ReservationStatus.FINISHED,
+        }
         can_leave_feedback = (
-            reservation.status
-            in {
-                ReservationStatus.IN_PROGRESS,
-                ReservationStatus.FINISHED,
-            }
-            and not feedback_exists
+            is_owner and feedback_status_eligible and not feedback_exists
         )
-        can_edit_feedback = feedback_exists
+        can_edit_feedback = is_owner and feedback_status_eligible and feedback_exists
 
         if not is_action_actor:
             return (
