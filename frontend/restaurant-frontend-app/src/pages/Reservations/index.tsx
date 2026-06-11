@@ -34,6 +34,9 @@ const ReservationsPage = () => {
   const reservationAction = routeState?.reservationAction;
 
   const [reservations, setReservations] = useState<ReservationResponse[]>([]);
+  const [feedbackMode, setFeedbackMode] = useState<"create" | "update">(
+    "create",
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedReservation, setSelectedReservation] =
@@ -184,12 +187,21 @@ const ReservationsPage = () => {
 
   const handleLeaveFeedback = (reservationId: string) => {
     setFeedbackReservationId(reservationId);
+    setFeedbackMode("create");
+    setIsFeedbackModalOpen(true);
+  };
+
+  const handleUpdateFeedback = (reservationId: string) => {
+    setFeedbackReservationId(reservationId);
+
+    setFeedbackMode("update");
     setIsFeedbackModalOpen(true);
   };
 
   const handleCloseFeedbackModal = () => {
     setIsFeedbackModalOpen(false);
     setFeedbackReservationId(null);
+    setFeedbackMode("create");
   };
 
   const handleCancelReservation = async (reservationId: string) => {
@@ -279,6 +291,7 @@ const ReservationsPage = () => {
                   onEdit={handleEditReservation}
                   onCancel={handleCancelReservation}
                   onFeedback={handleLeaveFeedback}
+                  onFeedbackUpdate={handleUpdateFeedback}
                 />
               </div>
             ))}
@@ -302,10 +315,10 @@ const ReservationsPage = () => {
           onHide={handleCloseFeedbackModal}
           reservationId={feedbackReservationId}
           accessToken={accessToken}
+          mode={feedbackMode}
         />
       )}
     </>
-  );
-};
+  );};
 
 export default ReservationsPage;

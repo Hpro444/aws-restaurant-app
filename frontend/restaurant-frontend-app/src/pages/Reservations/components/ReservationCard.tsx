@@ -10,6 +10,7 @@ interface ReservationCardProps {
   onEdit?: (reservation: ReservationResponse) => void;
   onCancel?: (reservationId: string) => void;
   onFeedback?: (reservationId: string) => void;
+  onFeedbackUpdate?: (reservationId: string) => void;
   showCustomerId?: boolean;
 }
 
@@ -18,6 +19,7 @@ const ReservationCard = ({
   onEdit,
   onCancel,
   onFeedback,
+  onFeedbackUpdate,
   showCustomerId = false,
 }: ReservationCardProps) => {
   const {
@@ -29,7 +31,12 @@ const ReservationCard = ({
     time_to,
     guests_number,
     customer_id,
-    allowed_actions: { can_edit, can_cancel },
+    allowed_actions: {
+      can_edit,
+      can_cancel,
+      can_leave_feedback,
+      can_update_feedback,
+    },
   } = reservation;
 
   return (
@@ -68,7 +75,15 @@ const ReservationCard = ({
         </div>
       </div>
       <div className="flex justify-end gap-4">
-        {onFeedback && status === "In Progress" && (
+        {can_update_feedback && (
+          <button
+            className="cursor-pointer rounded-lg border border-[#00AD0C] py-2 px-9 bg-white text-[#00AD0C]"
+            onClick={() => onFeedbackUpdate?.(reservation_id)}
+          >
+            Update Feedback
+          </button>
+        )}
+        {can_leave_feedback && (
           <button
             className="cursor-pointer rounded-lg border border-[#00AD0C] py-2 px-9 bg-white text-[#00AD0C]"
             onClick={() => onFeedback?.(reservation_id)}

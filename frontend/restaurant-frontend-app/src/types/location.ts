@@ -49,6 +49,8 @@ export type FeedbackResponse = {
 export interface AllowedActions {
   can_edit: boolean;
   can_cancel: boolean;
+  can_leave_feedback: boolean;
+  can_update_feedback: boolean;
 }
 
 export interface ReservationResponse {

@@ -11,7 +11,6 @@ import ReservationCard from "../Reservations/components/ReservationCard";
 import EditReservationModal from "../Reservations/components/EditReservationModal";
 import {
   cancelReservation,
-  type ReservationResponse,
   updateReservation,
   type UpdateReservationPayload,
 } from "../Reservations/reservations.services";
@@ -24,6 +23,7 @@ import {
   toApiTimeFrom,
 } from "./waiterReservations.services";
 import NewReservationModal from "./components/NewReservationModal";
+import type { ReservationResponse } from "../../types/location";
 
 const WaiterReservations = () => {
   const { accessToken, user } = useAuth();
@@ -113,7 +113,6 @@ const WaiterReservations = () => {
         if (!isMounted) return;
 
         setReservations(data);
-        console.log(data);
         setSelectedDate(today);
         setSelectedTime(
           new Date(

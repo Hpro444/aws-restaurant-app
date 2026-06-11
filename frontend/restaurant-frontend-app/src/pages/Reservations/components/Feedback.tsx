@@ -6,7 +6,8 @@ import { Rating } from "primereact/rating";
 import { Skeleton } from "primereact/skeleton";
 import {
   fetchWaiterContext,
-  handleSubmit,
+  submitFeedback,
+  updateFeedback,
   type FeedbackFormState,
   type FeedbackTab,
   type WaiterData,
@@ -17,6 +18,7 @@ interface FeedbackModalProps {
   onHide: () => void;
   reservationId: string | null;
   accessToken: string | null;
+  mode: "create" | "update";
 }
 
 const FeedbackModal: FC<FeedbackModalProps> = ({
@@ -24,6 +26,7 @@ const FeedbackModal: FC<FeedbackModalProps> = ({
   onHide,
   reservationId,
   accessToken,
+  mode,
 }) => {
   const [form, setForm] = useState<FeedbackFormState>({
     selectedTab: "Service",
@@ -217,17 +220,25 @@ const FeedbackModal: FC<FeedbackModalProps> = ({
         </div>
 
         <Button
-          label={isSubmitting ? "Submitting..." : "Submit Feedback"}
-          onClick={() =>
-            void handleSubmit(
+          label={
+            isSubmitting
+              ? "Submitting..."
+              : mode === "update"
+                ? "Update Feedback"
+                : "Submit Feedback"
+          }
+          onClick={() => {
+            if (isSubmitting) return;
+
+            void (mode === "update" ? updateFeedback : submitFeedback)(
               setSubmitError,
               reservationId,
               accessToken,
               form,
               setIsSubmitting,
               onHide,
-            )
-          }
+            );
+          }}
           disabled={isSubmitting || form.rating < 1}
           className="w-full bg-[#898989] hover:bg-[#757575] cursor-pointer text-white py-3 px-4 rounded-lg font-medium transition-colors"
         />
