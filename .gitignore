@@ -222,3 +222,5 @@ tokens.json
 /automation-qa/logs/
 /automation-qa/test_output.pdf
 /automation-qa/pipeline*.log
+
+/backend/test_output.txt

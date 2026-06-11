@@ -2,6 +2,7 @@
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
+from random import random
 from time import sleep
 
 import boto3
@@ -38,7 +39,13 @@ _SHIFT_WAITERS_BY_LOCATION = {
     },
 }
 
-_MAX_DAY_WRITE_RETRIES = 8
+_MAX_CHUNK_WRITE_RETRIES = 12
+_WRITE_CHUNK_SIZE = 10
+_THROTTLE_ERROR_CODES = {
+    "ProvisionedThroughputExceededException",
+    "ThrottlingException",
+    "RequestLimitExceeded",
+}
 
 
 def _build_waiter_assignment(context: dict) -> dict:
@@ -157,50 +164,86 @@ def _seed_day(
         shift_assignment,
     )
 
-    session = boto3.session.Session(region_name=aws_region, **credentials)
-    dyn_resource = session.resource(
-        "dynamodb", region_name=aws_region, config=DYNAMO_RETRY_CONFIG
-    )
-    dyn_table = dyn_resource.Table(table_name)
+    items = [slot.model_dump(mode="json") for slot in day_slots]
+    chunks = [
+        items[i : i + _WRITE_CHUNK_SIZE]
+        for i in range(0, len(items), _WRITE_CHUNK_SIZE)
+    ]
 
-    last_error: ClientError | None = None
-    for attempt in range(1, _MAX_DAY_WRITE_RETRIES + 1):
-        try:
-            with dyn_table.batch_writer() as batch:
-                for s in day_slots:
-                    batch.put_item(Item=s.model_dump(mode="json"))
-            break
-        except ClientError as exc:
-            last_error = exc
-            code = exc.response.get("Error", {}).get("Code", "Unknown")
-            message = exc.response.get("Error", {}).get("Message", str(exc))
-            if attempt == _MAX_DAY_WRITE_RETRIES:
-                dyn_resource.meta.client.close()
-                raise RuntimeError(
-                    "Failed to seed slots for "
-                    f"day_offset={day_offset} after {_MAX_DAY_WRITE_RETRIES} attempts "
-                    f"(AWS {code}: {message})"
-                ) from exc
-            pbar.write(
-                "  ! Retrying slot batch for "
-                f"day_offset={day_offset} (attempt {attempt}/{_MAX_DAY_WRITE_RETRIES}, "
-                f"AWS {code})"
-            )
-            dyn_resource.meta.client.close()
-            session = boto3.session.Session(region_name=aws_region, **credentials)
-            dyn_resource = session.resource(
-                "dynamodb", region_name=aws_region, config=DYNAMO_RETRY_CONFIG
-            )
-            dyn_table = dyn_resource.Table(table_name)
-            sleep(min(8, 2 ** (attempt - 1)))
+    for chunk_index, chunk in enumerate(chunks, start=1):
+        _write_chunk_with_retries(
+            chunk,
+            day_offset,
+            chunk_index,
+            len(chunks),
+            aws_region,
+            credentials,
+            table_name,
+            pbar,
+        )
 
-    if last_error is not None:
-        # Defensive guard; loop either breaks on success or raises on final failure.
-        raise RuntimeError("Unexpected slot seeding retry state") from last_error
-
-    dyn_resource.meta.client.close()
     pbar.update(1)
     return day_slots
+
+
+def _write_chunk_with_retries(
+    chunk_items: list[dict],
+    day_offset: int,
+    chunk_index: int,
+    total_chunks: int,
+    aws_region: str,
+    credentials: dict,
+    table_name: str,
+    pbar: tqdm,
+) -> None:
+    """Write one chunk of slot items with jittered retries for throttle spikes."""
+    last_exc: ClientError | None = None
+
+    for attempt in range(1, _MAX_CHUNK_WRITE_RETRIES + 1):
+        session = boto3.session.Session(region_name=aws_region, **credentials)
+        dyn_resource = session.resource(
+            "dynamodb", region_name=aws_region, config=DYNAMO_RETRY_CONFIG
+        )
+        dyn_table = dyn_resource.Table(table_name)
+
+        try:
+            with dyn_table.batch_writer() as batch:
+                for item in chunk_items:
+                    batch.put_item(Item=item)
+            dyn_resource.meta.client.close()
+            return
+        except ClientError as exc:
+            dyn_resource.meta.client.close()
+            last_exc = exc
+            code = exc.response.get("Error", {}).get("Code", "Unknown")
+            message = exc.response.get("Error", {}).get("Message", str(exc))
+
+            if code not in _THROTTLE_ERROR_CODES:
+                raise RuntimeError(
+                    "Failed to seed slots for "
+                    f"day_offset={day_offset}, chunk={chunk_index}/{total_chunks} "
+                    f"(AWS {code}: {message})"
+                ) from exc
+
+            if attempt == _MAX_CHUNK_WRITE_RETRIES:
+                raise RuntimeError(
+                    "Failed to seed slots for "
+                    f"day_offset={day_offset}, chunk={chunk_index}/{total_chunks} "
+                    f"after {_MAX_CHUNK_WRITE_RETRIES} attempts "
+                    f"(AWS {code}: {message})"
+                ) from exc
+
+            pbar.write(
+                "  ! Retrying slot chunk for "
+                f"day_offset={day_offset}, chunk={chunk_index}/{total_chunks} "
+                f"(attempt {attempt}/{_MAX_CHUNK_WRITE_RETRIES}, AWS {code})"
+            )
+            # Exponential backoff with jitter helps smooth concurrent worker bursts.
+            backoff_seconds = min(20.0, (2 ** (attempt - 1)) * 0.15 + random() * 0.35)
+            sleep(backoff_seconds)
+
+    if last_exc is not None:
+        raise RuntimeError("Unexpected slot chunk retry state") from last_exc
 
 
 def seed(dynamodb, tables: dict, context: dict) -> None:
@@ -247,6 +290,11 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         f"  ✓ Seeded {len(all_slots)} slots dynamically based on restaurant hours "
         f"(today - {slot_seed_days_past} days to today + {slot_seed_days_ahead} days)"
     )
+    today_date = datetime.now(timezone.utc).date()
+    context["slot_seed_start_date"] = (
+        today_date - timedelta(days=slot_seed_days_past)
+    ).isoformat()
+    context["slot_seed_days_past"] = slot_seed_days_past
     today_date = datetime.now(timezone.utc).date()
     context["slot_seed_start_date"] = (
         today_date - timedelta(days=slot_seed_days_past)

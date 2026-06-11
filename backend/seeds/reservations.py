@@ -1,12 +1,72 @@
 """Seed module for reservations."""
 
 from datetime import UTC, datetime, time
+from random import random
+from time import sleep
 
+from botocore.exceptions import ClientError
 from domain.reservation import Reservation  # type: ignore[import-not-found]
 from enums.reservation_status import ReservationStatus  # type: ignore[import-not-found]
 from enums.slot_status import SlotStatus  # type: ignore[import-not-found]
 
 from seeds.utils import seed_id, to_item
+
+_WRITE_CHUNK_SIZE = 10
+_MAX_CHUNK_WRITE_RETRIES = 12
+_THROTTLE_ERROR_CODES = {
+    "ProvisionedThroughputExceededException",
+    "ThrottlingException",
+    "RequestLimitExceeded",
+}
+
+
+def _write_items_with_retries(table, items: list[dict], entity_label: str) -> None:
+    """Write items in chunks with jittered retries on DynamoDB throttling.
+
+    Uses deterministic IDs, so retries are idempotent even if a previous attempt
+    partially succeeded.
+    """
+    chunks = [
+        items[i : i + _WRITE_CHUNK_SIZE]
+        for i in range(0, len(items), _WRITE_CHUNK_SIZE)
+    ]
+
+    for chunk_index, chunk in enumerate(chunks, start=1):
+        for attempt in range(1, _MAX_CHUNK_WRITE_RETRIES + 1):
+            try:
+                with table.batch_writer() as batch:
+                    for item in chunk:
+                        batch.put_item(Item=item)
+                break
+            except ClientError as exc:
+                code = exc.response.get("Error", {}).get("Code", "Unknown")
+                message = exc.response.get("Error", {}).get("Message", str(exc))
+
+                if code not in _THROTTLE_ERROR_CODES:
+                    raise RuntimeError(
+                        "Failed to seed "
+                        f"{entity_label} chunk={chunk_index}/{len(chunks)} "
+                        f"(AWS {code}: {message})"
+                    ) from exc
+
+                if attempt == _MAX_CHUNK_WRITE_RETRIES:
+                    raise RuntimeError(
+                        "Failed to seed "
+                        f"{entity_label} chunk={chunk_index}/{len(chunks)} "
+                        f"after {_MAX_CHUNK_WRITE_RETRIES} attempts "
+                        f"(AWS {code}: {message})"
+                    ) from exc
+
+                print(
+                    "  ! Retrying "
+                    f"{entity_label} chunk {chunk_index}/{len(chunks)} "
+                    f"(attempt {attempt}/{_MAX_CHUNK_WRITE_RETRIES}, AWS {code})"
+                )
+                # Keep workers fully parallel while smoothing write spikes.
+                backoff_seconds = min(
+                    20.0, (2 ** (attempt - 1)) * 0.15 + random() * 0.35
+                )
+                sleep(backoff_seconds)
 
 
 def _first_day_slot(slots_list: list, waiter_id, target_date, slot_index: int = 0):
@@ -455,9 +515,12 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         reservations + past_reservations + current_week_finished + lea_extra
     )
 
-    with reservations_table.batch_writer() as batch:
-        for reservation in all_reservations:
-            batch.put_item(Item=to_item(reservation))
+    reservation_items = [to_item(reservation) for reservation in all_reservations]
+    _write_items_with_retries(
+        reservations_table,
+        reservation_items,
+        entity_label="reservations",
+    )
 
     # Flip slots referenced by all non-cancelled reservations to RESERVED so
     # availability checks see seeded bookings as occupied.
@@ -472,10 +535,16 @@ def seed(dynamodb, tables: dict, context: dict) -> None:
         slots_by_id[slot_id] for slot_id in reserved_slot_ids if slot_id in slots_by_id
     ]
 
-    with slots_table.batch_writer() as batch:
-        for slot in occupied_slots:
-            slot.status = SlotStatus.RESERVED
-            batch.put_item(Item=to_item(slot))
+    occupied_slot_items = []
+    for slot in occupied_slots:
+        slot.status = SlotStatus.RESERVED
+        occupied_slot_items.append(to_item(slot))
+
+    _write_items_with_retries(
+        slots_table,
+        occupied_slot_items,
+        entity_label="occupied slots",
+    )
 
     finished_count = sum(
         1 for r in all_reservations if r.status == ReservationStatus.FINISHED

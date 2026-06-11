@@ -2,13 +2,50 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
+import csv
+import io
+from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
+import boto3
 from commons.app_config import AppConfig
 from commons.report_utils import parse_date, pct_delta, period_start_for
-from dto.reports import GetReportsRequest, ReportsResponse, ReportType
+from dto.reports import (
+    CreateReportsDownloadRequest,
+    DownloadFormat,
+    GetReportsRequest,
+    ReportsResponse,
+    ReportType,
+)
 from repositories.location_report_repository import LocationReportRepository
 from repositories.waiter_report_repository import WaiterReportRepository
+
+_STAFF_COLUMN_LABELS: dict[str, str] = {
+    "location": "Location",
+    "waiter": "Waiter",
+    "waiterEmail": "Waiter Email",
+    "reportPeriodStart": "Period Start",
+    "reportPeriodEnd": "Period End",
+    "waiterWorkingHours": "Working Hours",
+    "waiterOrdersProcessed": "Orders Processed",
+    "deltaWaiterOrdersProcessedPct": "Delta Orders %",
+    "averageServiceFeedback": "Avg Service Rating",
+    "minimumServiceFeedback": "Min Service Rating",
+    "deltaAverageServiceFeedbackPct": "Delta Rating %",
+}
+
+_SALES_COLUMN_LABELS: dict[str, str] = {
+    "location": "Location",
+    "reportPeriodStart": "Period Start",
+    "reportPeriodEnd": "Period End",
+    "ordersProcessed": "Orders Processed",
+    "deltaOrdersProcessedPct": "Delta Orders %",
+    "averageCuisineFeedback": "Avg Cuisine Rating",
+    "minimumCuisineFeedback": "Min Cuisine Rating",
+    "deltaAverageCuisineFeedbackPct": "Delta Cuisine Rating %",
+    "revenue": "Revenue",
+    "deltaRevenuePct": "Delta Revenue %",
+}
 
 
 class ReportsService:
@@ -22,10 +59,12 @@ class ReportsService:
     ) -> None:
         """Initialise repositories, creating defaults when omitted."""
         cfg = settings or AppConfig()
+        self._settings = cfg
         self._waiter_report_repo = waiter_report_repo or WaiterReportRepository(cfg)
         self._location_report_repo = location_report_repo or LocationReportRepository(
             cfg
         )
+        self._s3 = boto3.client("s3", region_name=cfg.aws_region)
 
     def get_reports(self, request: GetReportsRequest) -> ReportsResponse:
         """Return report rows for requested type, period range, and optional location."""
@@ -374,3 +413,154 @@ class ReportsService:
         if count <= 0:
             return None
         return round(total / count, 2)
+
+    # ------------------------------------------------------------------
+    # Report file export
+    # ------------------------------------------------------------------
+
+    def export_report_from_payload(self, request: CreateReportsDownloadRequest) -> str:
+        """Build a report file from pre-computed rows and return a presigned download URL.
+
+        Args:
+            request: Validated request with report metadata, rows, and desired format.
+
+        Returns:
+            A temporary presigned URL for downloading the generated file.
+
+        """
+        label_map = (
+            _STAFF_COLUMN_LABELS
+            if request.report_type == ReportType.STAFF_PERFORMANCE
+            else _SALES_COLUMN_LABELS
+        )
+        source_keys = list(label_map.keys())
+        header_labels = [label_map[k] for k in source_keys]
+        table_rows = [
+            [self._to_text(row.get(k, "")) for k in source_keys] for row in request.rows
+        ]
+
+        filename_base = (
+            f"report_{request.report_type.value}"
+            f"_{request.period_start}_{request.period_end}"
+        )
+
+        fmt = request.download_format
+        if fmt == DownloadFormat.CSV:
+            buf = io.StringIO()
+            writer = csv.writer(buf)
+            writer.writerow(header_labels)
+            writer.writerows(table_rows)
+            content: bytes = buf.getvalue().encode("utf-8")
+            content_type = "text/csv"
+            filename = f"{filename_base}.csv"
+
+        elif fmt == DownloadFormat.EXCEL:
+            from openpyxl import Workbook  # noqa: PLC0415
+
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Report"
+            ws.append(header_labels)
+            for row in table_rows:
+                ws.append(row)
+            buf_bytes = io.BytesIO()
+            wb.save(buf_bytes)
+            content = buf_bytes.getvalue()
+            content_type = (
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            filename = f"{filename_base}.xlsx"
+
+        else:  # PDF
+            content = self._build_pdf(header_labels, table_rows)
+            content_type = "application/pdf"
+            filename = f"{filename_base}.pdf"
+
+        ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        object_key = f"generated-reports/{ts}-{uuid4()}-{filename}"
+
+        self._s3.put_object(
+            Bucket=self._settings.reports_bucket,
+            Key=object_key,
+            Body=content,
+            ContentType=content_type,
+            ContentDisposition=f'attachment; filename="{filename}"',
+        )
+
+        return self._s3.generate_presigned_url(
+            "get_object",
+            Params={
+                "Bucket": self._settings.reports_bucket,
+                "Key": object_key,
+                "ResponseContentType": content_type,
+                "ResponseContentDisposition": f'attachment; filename="{filename}"',
+            },
+            ExpiresIn=self._settings.reports_url_expiration_seconds,
+        )
+
+    @staticmethod
+    def _build_pdf(headers: list[str], rows: list[list[str]]) -> bytes:
+        """Render report rows as a PDF table using fpdf2."""
+        from fpdf import FPDF  # noqa: PLC0415
+
+        pdf = FPDF(orientation="L", unit="mm", format="A4")
+        pdf.set_auto_page_break(auto=True, margin=10)
+        pdf.add_page()
+
+        usable_width = 277.0  # A4 landscape minus default margins
+        row_h = 7
+
+        def _fit_text(value: str, width: float) -> str:
+            """Trim text so it always fits inside a single PDF cell."""
+            if width <= 0:
+                return ""
+            if pdf.get_string_width(value) <= width:
+                return value
+            ellipsis = "..."
+            if pdf.get_string_width(ellipsis) > width:
+                return ""
+            trimmed = value
+            while trimmed and pdf.get_string_width(trimmed + ellipsis) > width:
+                trimmed = trimmed[:-1]
+            return (trimmed + ellipsis) if trimmed else ellipsis
+
+        # Compute natural column widths from headers + row values.
+        pdf.set_font("Helvetica", "", 7)
+        padding = 2.0
+        min_col_w = 14.0
+        col_widths: list[float] = []
+        for idx, header in enumerate(headers):
+            max_w = pdf.get_string_width(str(header)) + padding
+            for row in rows:
+                if idx < len(row):
+                    max_w = max(max_w, pdf.get_string_width(str(row[idx])) + padding)
+            col_widths.append(max(max_w, min_col_w))
+
+        total_w = sum(col_widths)
+        if total_w > usable_width and total_w > 0:
+            scale = usable_width / total_w
+            col_widths = [w * scale for w in col_widths]
+
+        pdf.set_font("Helvetica", "B", 8)
+        for idx, col in enumerate(headers):
+            cell_w = col_widths[idx]
+            cell_text = _fit_text(str(col), cell_w - 1.0)
+            pdf.cell(cell_w, row_h, cell_text, border=1, align="C")
+        pdf.ln()
+
+        pdf.set_font("Helvetica", "", 7)
+        for row in rows:
+            for idx, val in enumerate(row):
+                cell_w = col_widths[idx]
+                cell_text = _fit_text(str(val), cell_w - 1.0)
+                pdf.cell(cell_w, row_h, cell_text, border=1)
+            pdf.ln()
+
+        return bytes(pdf.output())
+
+    @staticmethod
+    def _to_text(value: object) -> str:
+        """Convert any cell value to a string, returning blank for None."""
+        if value is None:
+            return ""
+        return str(value)
