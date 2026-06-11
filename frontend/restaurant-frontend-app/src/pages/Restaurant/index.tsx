@@ -139,8 +139,7 @@ const RestaurantPage = () => {
     fetchFeedbacks();
   }, [id, activeTab, sortBy, currentPage, pageSize]);
 
-  // const locationName = locationData?.name || "Green & Tasty";
-  const locationAddress = locationData?.address || "Neka lokacija";
+  const locationAddress = locationData?.address;
   const locationRating = locationData?.rating || 4.73;
   const locationDescription = locationData?.description || "";
 
