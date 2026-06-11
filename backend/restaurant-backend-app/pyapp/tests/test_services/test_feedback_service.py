@@ -476,6 +476,99 @@ class TestFeedbackService(TestCase):
 
         self.assertEqual(exc.exception.code, 403)
 
+    def test_get_feedback_returns_cuisine_feedback_for_owner(self) -> None:
+        """Owned culinary feedback should be returned as FeedbackResponse."""
+        feedback_id = uuid4()
+        location_id = uuid4()
+        self.feedback_cuisine_repo.get.return_value = SimpleNamespace(
+            id=feedback_id,
+            reservation_id=self.reservation_id,
+            customer_id=self.customer_id,
+            user_name="Stale Name",
+            user_image_url="https://example.com/stale.png",
+            feedback="Great food",
+            rate=5,
+            date=datetime.now(UTC),
+            location_id=location_id,
+        )
+
+        response = self.service.get_feedback(
+            feedback_id=feedback_id,
+            customer_id=self.customer_id,
+            type="cuisine",
+        )
+
+        self.assertEqual(response.id, str(feedback_id))
+        self.assertEqual(response.customer_id, str(self.customer_id))
+        self.assertEqual(response.feedback, "Great food")
+        self.assertEqual(response.location_id, str(location_id))
+        self.feedback_service_repo.get.assert_not_called()
+
+    def test_get_feedback_returns_service_feedback_for_service_type(self) -> None:
+        """Service feedback lookup should use service repo when type=service."""
+        feedback_id = uuid4()
+        self.feedback_service_repo.get.return_value = SimpleNamespace(
+            id=feedback_id,
+            reservation_id=self.reservation_id,
+            customer_id=self.customer_id,
+            user_name="Stale Name",
+            user_image_url="https://example.com/stale.png",
+            feedback="Great service",
+            rate=4,
+            date=datetime.now(UTC),
+            waiter_id=self.waiter_id,
+        )
+
+        response = self.service.get_feedback(
+            feedback_id=feedback_id,
+            customer_id=self.customer_id,
+            type="service",
+        )
+
+        self.assertEqual(response.id, str(feedback_id))
+        self.assertEqual(response.waiter_id, str(self.waiter_id))
+        self.feedback_cuisine_repo.get.assert_not_called()
+        self.feedback_service_repo.get.assert_called_once_with(feedback_id)
+
+    def test_get_feedback_returns_empty_list_when_not_found(self) -> None:
+        """Unknown feedback id should return empty list for valid uuid input."""
+        feedback_id = uuid4()
+        self.feedback_service_repo.get.return_value = None
+
+        response = self.service.get_feedback(
+            feedback_id=feedback_id,
+            customer_id=self.customer_id,
+            type="service",
+        )
+
+        self.assertEqual(response, [])
+        self.feedback_cuisine_repo.get.assert_not_called()
+        self.feedback_service_repo.get.assert_called_once_with(feedback_id)
+
+    def test_get_feedback_raises_403_for_foreign_customer(self) -> None:
+        """Customers cannot access feedback belonging to another customer."""
+        feedback_id = uuid4()
+        self.feedback_cuisine_repo.get.return_value = SimpleNamespace(
+            id=feedback_id,
+            reservation_id=self.reservation_id,
+            customer_id=uuid4(),
+            user_name="Other",
+            user_image_url=None,
+            feedback="Private",
+            rate=2,
+            date=datetime.now(UTC),
+            location_id=uuid4(),
+        )
+
+        with self.assertRaises(ApplicationException) as exc:
+            self.service.get_feedback(
+                feedback_id=feedback_id,
+                customer_id=self.customer_id,
+                type="cuisine",
+            )
+
+        self.assertEqual(exc.exception.code, 403)
+
     def test_update_service_feedback_updates_rate_and_comment(self) -> None:
         """Editing service feedback should update only editable fields."""
         self.reservation_repo.get.return_value = self.reservation

@@ -147,6 +147,7 @@ class ApiHandler(AbstractLambda):
             self._get_speciality_dishes_by_location,
         )
         router.add("GET", "/locations/{id}/feedbacks", self._get_feedbacks_by_location)
+        router.add("GET", "/feedback/{feedback_id}", self._get_feedback_by_id)
         router.add("GET", "/locations/{id}/tables", self._get_tables_by_location_id)
         router.add(
             "GET",
@@ -1272,6 +1273,59 @@ class ApiHandler(AbstractLambda):
         return build_response(
             LeaveFeedbackResponse(message="Feedback has been created.").model_dump(),
             code=HttpStatusCode.RESPONSE_CREATED_CODE,
+        )
+
+    def _get_feedback_by_id(self, event: dict) -> LambdaResponse:
+        """Handle GET /feedback/{feedback_id}?type=cuisine|service for customer-owned feedback details."""
+        user_id, role = self._get_actor_context(event)
+        if role != UserRole.CUSTOMER:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
+                "Only customers can access feedback details.",
+            )
+
+        feedback_id = str(
+            self._require_uuid(
+                self._extract_path_param(event, "feedback_id", fallback_position=1),
+                field="feedback_id",
+            )
+        )
+
+        params = self._parse_query_params(event)
+        feedback_type = params.get("type")
+
+        if feedback_type is None:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                ValidationErrorResponse(
+                    errors=[FieldError(field="type", message="This field is required")]
+                ).model_dump(),
+            )
+
+        if feedback_type not in {"cuisine", "service"}:
+            raise_error_response(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                ValidationErrorResponse(
+                    errors=[
+                        FieldError(
+                            field="type", message="Must be one of: cuisine, service"
+                        )
+                    ]
+                ).model_dump(),
+            )
+
+        response = self._feedback_service.get_feedback(
+            feedback_id=feedback_id,
+            customer_id=user_id,
+            type=feedback_type,
+        )
+
+        if isinstance(response, list):
+            return build_response(response, code=HttpStatusCode.RESPONSE_OK_CODE)
+
+        return build_response(
+            response.model_dump(mode="json"),
+            code=HttpStatusCode.RESPONSE_OK_CODE,
         )
 
     def _update_feedback(self, event: dict) -> LambdaResponse:

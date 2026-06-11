@@ -922,6 +922,46 @@
               }
             }
           },
+          "/feedback/{feedback_id}": {
+            "get": {
+              "tags": ["Feedback"],
+              "summary": "Get feedback by ID (customer only)",
+              "security": [{ "bearerAuth": [] }],
+              "parameters": [
+                {
+                  "name": "feedback_id",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string", "format": "uuid" },
+                  "description": "Feedback identifier"
+                },
+                {
+                  "name": "type",
+                  "in": "query",
+                  "required": true,
+                  "schema": {
+                    "type": "string",
+                    "enum": ["cuisine", "service"]
+                  },
+                  "description": "Feedback type: cuisine or service"
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Feedback details",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/FeedbackResponse" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "404": { "$ref": "#/components/responses/NotFoundError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
           "/reports": {
             "get": {
               "tags": ["Reports"],

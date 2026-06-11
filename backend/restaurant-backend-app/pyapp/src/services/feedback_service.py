@@ -114,6 +114,67 @@ class FeedbackService:
             waiter_avg_rating=avg_rating,
         )
 
+    def get_feedback(
+        self,
+        feedback_id: UUID | str,
+        customer_id: UUID | str,
+        type: str,
+    ) -> FeedbackResponse | list:
+        """Return one feedback by id for selected type, restricted to owner.
+
+        Returns an empty list when id is valid but feedback does not exist.
+        """
+        feedback_uuid = coerce_uuid(feedback_id)
+        customer_uuid = coerce_uuid(customer_id)
+
+        logger.info(
+            "Retrieving single feedback",
+            feedback_id=str(feedback_uuid),
+            customer_id=str(customer_uuid),
+            feedback_type=type,
+        )
+
+        if type == "cuisine":
+            feedback = self._feedback_cuisine_repo.get(feedback_uuid)
+        elif type == "service":
+            feedback = self._feedback_service_repo.get(feedback_uuid)
+        else:
+            raise ApplicationException(
+                HttpStatusCode.RESPONSE_UNPROCESSABLE_ENTITY,
+                "Invalid feedback type. Must be one of: cuisine, service",
+            )
+
+        if feedback is None:
+            logger.info(
+                "Feedback not found for selected type",
+                feedback_id=str(feedback_uuid),
+                customer_id=str(customer_uuid),
+                feedback_type=type,
+            )
+            return []
+
+        if feedback.customer_id != customer_uuid:
+            logger.warning(
+                "Unauthorized feedback access attempt",
+                feedback_id=str(feedback_uuid),
+                requested_by=str(customer_uuid),
+                owner_customer_id=str(feedback.customer_id),
+                feedback_type=type,
+            )
+            raise ApplicationException(
+                HttpStatusCode.RESPONSE_FORBIDDEN_CODE,
+                "Not authorized to access this feedback.",
+            )
+
+        logger.info(
+            "Single feedback retrieved",
+            feedback_id=str(feedback_uuid),
+            customer_id=str(customer_uuid),
+            feedback_type=type,
+        )
+
+        return self._build_feedback_response(feedback)
+
     def leave_feedback(
         self,
         request: LeaveFeedbackRequest,
