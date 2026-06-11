@@ -1,9 +1,7 @@
 import { useMemo, useState } from "react";
-import type {
-  ReservationResponse,
-  UpdateReservationPayload,
-} from "../reservations.services";
+import type { UpdateReservationPayload } from "../reservations.services";
 import { formatDate, formatTime } from "../../../utils/reservationHelpers";
+import type { ReservationResponse } from "../../../types/location";
 
 type EditReservationModalProps = {
   reservation: ReservationResponse;

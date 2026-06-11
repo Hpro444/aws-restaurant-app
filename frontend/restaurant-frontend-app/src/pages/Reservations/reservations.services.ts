@@ -1,4 +1,5 @@
 import getApiBaseUrl from "../../config/GetApiBaseUrl";
+import type { ReservationResponse } from "../../types/location";
 
 export type ReservationStatus =
   | "RESERVED"
@@ -16,31 +17,12 @@ export type BackendValidationErrorE = {
   message?: string;
 };
 
-export interface AllowedActions {
-  can_edit: boolean;
-  can_cancel: boolean;
-}
-
 type BackendAllowedActions = {
   canEdit: boolean;
   canCancel: boolean;
+  canLeaveFeedback: boolean;
+  canUpdateFeedback: boolean;
 };
-
-export interface ReservationResponse {
-  reservation_id: string;
-  status: string;
-  customer_id?: string;
-  waiter_id?: string;
-  location_id?: string;
-  location_address?: string;
-  table_number?: number;
-  date: string;
-  time_from: string;
-  time_to: string;
-  guests_number: number;
-  allowed_actions: AllowedActions;
-  cutoff_reason?: string;
-}
 
 type BackendReservation = {
   reservationId: string;
@@ -105,6 +87,8 @@ const mapReservation = (item: BackendReservation): ReservationResponse => ({
   allowed_actions: {
     can_edit: item.allowedActions?.canEdit ?? false,
     can_cancel: item.allowedActions?.canCancel ?? false,
+    can_leave_feedback: item.allowedActions?.canLeaveFeedback ?? false,
+    can_update_feedback: item.allowedActions?.canUpdateFeedback ?? false,
   },
   cutoff_reason: item.cutoffReason ?? undefined,
 });
@@ -201,15 +185,52 @@ export const updateReservation = async (
 };
 
 export const mapTabToType = (tab: FeedbackTab): FeedbackType =>
-    tab === "Service" ? "service" : "culinary";
+  tab === "Service" ? "service" : "culinary";
 
-export const handleSubmit = async (
+const getFeedbackErrorMessage = (status: number, payload: unknown): string => {
+  const maybe = payload as Record<string, unknown> | null;
+
+  if (status === 422 && Array.isArray(maybe?.errors)) {
+    const messages = (maybe.errors as BackendValidationError[])
+      .map((e) => e.message)
+      .filter((m): m is string => Boolean(m));
+
+    if (messages.length > 0) {
+      return messages.join(", ");
+    }
+  }
+
+  const directMessage =
+    (typeof maybe?.message === "string" && maybe.message) ||
+    (typeof maybe?.error === "string" && maybe.error);
+
+  if (directMessage) return directMessage;
+
+  switch (status) {
+    case 401:
+      return "Unauthorized. Please log in again.";
+    case 403:
+      return "Forbidden. You are not allowed to leave feedback.";
+    case 404:
+      return "Reservation was not found.";
+    case 409:
+      return "Feedback already exists for this reservation.";
+    case 422:
+      return "Validation failed. Please check provided values.";
+    default:
+      return "Failed to submit feedback.";
+  }
+};
+
+const sendFeedback = async (
+  method: "POST" | "PUT",
   setSubmitError: React.Dispatch<React.SetStateAction<string | null>>,
   reservationId: string | null,
   accessToken: string | null,
   form: FeedbackFormState,
   setIsSubmitting: React.Dispatch<React.SetStateAction<boolean>>,
   onHide: () => void,
+  successErrorMessage: string,
 ): Promise<void> => {
   if (!reservationId) {
     setSubmitError("Reservation id is required.");
@@ -217,7 +238,11 @@ export const handleSubmit = async (
   }
 
   if (!accessToken) {
-    setSubmitError("Please log in to submit feedback.");
+    setSubmitError(
+      method === "POST"
+        ? "Please log in to submit feedback."
+        : "Please log in to update feedback.",
+    );
     return;
   }
 
@@ -231,7 +256,7 @@ export const handleSubmit = async (
     setSubmitError(null);
 
     const response = await fetch(`${getApiBaseUrl()}/feedbacks`, {
-      method: "POST",
+      method,
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
@@ -252,12 +277,50 @@ export const handleSubmit = async (
 
     onHide();
   } catch (err) {
-    setSubmitError(
-      err instanceof Error ? err.message : "Failed to submit feedback.",
-    );
+    setSubmitError(err instanceof Error ? err.message : successErrorMessage);
   } finally {
     setIsSubmitting(false);
   }
+};
+
+export const submitFeedback = async (
+  setSubmitError: React.Dispatch<React.SetStateAction<string | null>>,
+  reservationId: string | null,
+  accessToken: string | null,
+  form: FeedbackFormState,
+  setIsSubmitting: React.Dispatch<React.SetStateAction<boolean>>,
+  onHide: () => void,
+): Promise<void> => {
+  return sendFeedback(
+    "POST",
+    setSubmitError,
+    reservationId,
+    accessToken,
+    form,
+    setIsSubmitting,
+    onHide,
+    "Failed to submit feedback.",
+  );
+};
+
+export const updateFeedback = async (
+  setSubmitError: React.Dispatch<React.SetStateAction<string | null>>,
+  reservationId: string | null,
+  accessToken: string | null,
+  form: FeedbackFormState,
+  setIsSubmitting: React.Dispatch<React.SetStateAction<boolean>>,
+  onHide: () => void,
+): Promise<void> => {
+  return sendFeedback(
+    "PUT",
+    setSubmitError,
+    reservationId,
+    accessToken,
+    form,
+    setIsSubmitting,
+    onHide,
+    "Failed to update feedback.",
+  );
 };
 
 export const fetchWaiterContext = async (
@@ -332,44 +395,6 @@ export const getWaiterContextErrorMessage = (
       return "Feedback context was not found for this reservation.";
     default:
       return "Failed to load waiter info.";
-  }
-};
-
-export const getFeedbackErrorMessage = (
-  status: number,
-  payload: unknown,
-): string => {
-  const maybe = payload as Record<string, unknown> | null;
-
-  if (status === 422 && Array.isArray(maybe?.errors)) {
-    const messages = (maybe.errors as BackendValidationError[])
-      .map((e) => e.message)
-      .filter((m): m is string => Boolean(m));
-
-    if (messages.length > 0) {
-      return messages.join(", ");
-    }
-  }
-
-  const directMessage =
-    (typeof maybe?.message === "string" && maybe.message) ||
-    (typeof maybe?.error === "string" && maybe.error);
-
-  if (directMessage) return directMessage;
-
-  switch (status) {
-    case 401:
-      return "Unauthorized. Please log in again.";
-    case 403:
-      return "Forbidden. You are not allowed to leave feedback.";
-    case 404:
-      return "Reservation was not found.";
-    case 409:
-      return "Feedback already exists for this reservation.";
-    case 422:
-      return "Validation failed. Please check provided values.";
-    default:
-      return "Failed to submit feedback.";
   }
 };
 

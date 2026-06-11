@@ -1,4 +1,4 @@
-import { type ReservationResponse } from "../../Reservations/reservations.services";
+import type { ReservationResponse } from "../../../types/location";
 import { formatDate, formatTime } from "../../../utils/reservationHelpers";
 
 interface ReservationCardProps {

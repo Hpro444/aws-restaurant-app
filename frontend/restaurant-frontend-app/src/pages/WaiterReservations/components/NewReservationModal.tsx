@@ -299,22 +299,12 @@ export default function NewReservationModal({
       };
 
       if (form.customerType === "existing") {
-        console.log({
-          ...basePayload,
-          existingCustomer: true,
-          customerId: form.selectedCustomer!.customerId,
-        });
         await createWaiterReservation(accessToken, {
           ...basePayload,
           existingCustomer: true,
           customerId: form.selectedCustomer!.customerId,
         });
       } else {
-        console.log({
-          ...basePayload,
-          existingCustomer: false,
-          clientName: trimmedName,
-        });
         await createWaiterReservation(accessToken, {
           ...basePayload,
           existingCustomer: false,

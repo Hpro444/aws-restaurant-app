@@ -1,6 +1,6 @@
 import type { Nullable } from "primereact/ts-helpers";
 import getApiBaseUrl from "../../config/GetApiBaseUrl";
-import { type ReservationResponse } from "../Reservations/reservations.services";
+import type { ReservationResponse } from "../../types/location";
 
 export interface WaiterReservationApiItem {
   reservationId: string;
@@ -197,6 +197,8 @@ const mapApiReservation = (
   allowed_actions: {
     can_edit: true,
     can_cancel: true,
+    can_leave_feedback: false,
+    can_update_feedback: false,
   },
 });
 
