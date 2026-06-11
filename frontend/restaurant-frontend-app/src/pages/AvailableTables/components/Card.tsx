@@ -112,13 +112,6 @@ const Card = ({ table, date, initialGuests = 1, locationId }: CardProps) => {
           date={date}
           onClose={handleCloseMakeReservation}
           onSelectSlot={setSelectedSlot}
-          // onReservationResult={(result) => {
-          //   if (result.ok) {
-          //     console.log("Reservation created:", result.data);
-          //   } else {
-          //     console.error("Reservation failed:", result.message);
-          //   }
-          // }}
         />
       )}
     </>

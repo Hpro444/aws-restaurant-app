@@ -7,18 +7,34 @@ import { Calendar } from "primereact/calendar";
 import { useEffect, useState } from "react";
 import DownloadButton from "./components/DownloadButton";
 import ReportTable from "./components/Table";
-import { getLocationSelectOptions } from "../AvailableTables/availableTables.services";
+import {
+  getLocationSelectOptions,
+  toLocalApiDate,
+} from "../AvailableTables/availableTables.services";
 import type { LocationSelectOption } from "../../types/location";
+import {
+  fetchDashboardReport,
+  type BackendReportRow,
+  type DashboardReportType,
+} from "./dashboard.services";
 
 const DashboardPage = () => {
   const { user, accessToken } = useAuth();
+
   const [dates, setDates] = useState<(Date | null)[] | null>(null);
-  const [reportType, setReportType] = useState("");
+  const [reportType, setReportType] = useState<DashboardReportType | "">("");
   const [location, setLocation] = useState("");
   const [locationOptions, setLocationOptions] = useState<
     LocationSelectOption[]
   >([]);
   const [locationsError, setLocationsError] = useState<string | null>(null);
+
+  const [reportRows, setReportRows] = useState<BackendReportRow[]>([]);
+  const [currentReportType, setCurrentReportType] = useState<
+    DashboardReportType | ""
+  >("");
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [isLoadingReport, setIsLoadingReport] = useState(false);
 
   useEffect(() => {
     const loadLocations = async () => {
@@ -36,6 +52,73 @@ const DashboardPage = () => {
     loadLocations();
   }, [accessToken]);
 
+  const handleGenerateReport = async () => {
+    if (!accessToken) {
+      setReportError("You are not authenticated.");
+      return;
+    }
+
+    if (!reportType) {
+      setReportError("Please select report type.");
+      return;
+    }
+
+    if (!location) {
+      setReportError("Please select location.");
+      return;
+    }
+
+    if (
+      !Array.isArray(dates) ||
+      dates.length < 2 ||
+      !(dates[0] instanceof Date) ||
+      !(dates[1] instanceof Date)
+    ) {
+      setReportError("Please select report period (start and end date).");
+      return;
+    }
+
+    try {
+      setReportError(null);
+      setIsLoadingReport(true);
+
+      const periodStart = toLocalApiDate(dates[0]);
+      const periodEnd = toLocalApiDate(dates[1]);
+      console.log({
+        reportType,
+        periodStart,
+        periodEnd,
+        locationId: location,
+        accessToken,
+      });
+
+      const data = await fetchDashboardReport({
+        reportType,
+        periodStart,
+        periodEnd,
+        locationId: location,
+        accessToken,
+      });
+      console.log({
+        reportType,
+        periodStart,
+        periodEnd,
+        locationId: location,
+        accessToken,
+      });
+
+      setCurrentReportType(reportType);
+      setReportRows(data.rows);
+    } catch (err) {
+      setReportRows([]);
+      setReportError(
+        err instanceof Error ? err.message : "Failed to fetch report",
+      );
+    } finally {
+      setIsLoadingReport(false);
+    }
+  };
+
   return (
     <>
       <Header />
@@ -43,12 +126,12 @@ const DashboardPage = () => {
       <div
         className="bg-cover bg-center"
         style={{
-          backgroundImage: `url(${subheading})`,
+          backgroundImage: "url(" + subheading + ")",
         }}
       >
         <div className="max-w-[1440px] mx-auto px-10 py-[18px] flex justify-between items-center font-poppins">
           <h2 className="font-medium text-2xl leading-10 tracking-normal align-middle text-white">
-            {user && `Hello, ${user.username} (${user.role})`}
+            {user ? "Hello, " + user.username + " (" + user.role + ")" : ""}
           </h2>
           <div>
             <img src={logoWhite} alt="Logo" />
@@ -60,7 +143,9 @@ const DashboardPage = () => {
         <div className="flex gap-4 font-poppins">
           <select
             value={reportType}
-            onChange={(e) => setReportType(e.target.value)}
+            onChange={(e) =>
+              setReportType(e.target.value as DashboardReportType)
+            }
             name="reportType"
             className={
               "cursor-pointer border border-[#dadada] px-6 py-4 rounded-lg flex-1 max-w-[328px]" +
@@ -80,7 +165,9 @@ const DashboardPage = () => {
 
           <Calendar
             value={dates}
-            onChange={(e) => setDates(e.value ?? null)}
+            onChange={(e) =>
+              setDates((e.value as (Date | null)[] | null) ?? null)
+            }
             selectionMode="range"
             readOnlyInput
             hideOnRangeSelection
@@ -114,8 +201,16 @@ const DashboardPage = () => {
             ))}
           </select>
 
-          <button className="cursor-pointer rounded-lg bg-[var(--color-brand)] text-white py-2 flex-1 max-w-[328px]">
-            Generate Report
+          <button
+            type="button"
+            onClick={handleGenerateReport}
+            disabled={isLoadingReport}
+            className={
+              "cursor-pointer rounded-lg bg-[var(--color-brand)] text-white py-2 flex-1 max-w-[328px] " +
+              (isLoadingReport ? "opacity-70 cursor-not-allowed" : "")
+            }
+          >
+            {isLoadingReport ? "Generating..." : "Generate Report"}
           </button>
         </div>
 
@@ -128,7 +223,15 @@ const DashboardPage = () => {
             <p className="text-[#B70B0B] font-medium">{locationsError}</p>
           ) : null}
 
-          <ReportTable />
+          {reportError ? (
+            <p className="text-[#B70B0B] font-medium">{reportError}</p>
+          ) : null}
+
+          <ReportTable
+            rows={reportRows}
+            isLoading={isLoadingReport}
+            reportType={currentReportType}
+          />
 
           <DownloadButton className="self-end" />
         </div>
