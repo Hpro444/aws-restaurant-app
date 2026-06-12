@@ -22,6 +22,7 @@ const ReservationCard = ({
   onFeedbackUpdate,
   showCustomerId = false,
 }: ReservationCardProps) => {
+  // console.log(reservation);
   const {
     reservation_id,
     status,
@@ -35,7 +36,7 @@ const ReservationCard = ({
       can_edit,
       can_cancel,
       can_leave_feedback,
-      can_update_feedback,
+      can_edit_feedback,
     },
   } = reservation;
 
@@ -75,7 +76,7 @@ const ReservationCard = ({
         </div>
       </div>
       <div className="flex justify-end gap-4">
-        {can_update_feedback && (
+        {can_edit_feedback && (
           <button
             className="cursor-pointer rounded-lg border border-[#00AD0C] py-2 px-9 bg-white text-[#00AD0C]"
             onClick={() => onFeedbackUpdate?.(reservation_id)}

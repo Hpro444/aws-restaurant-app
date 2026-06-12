@@ -40,7 +40,7 @@ const DateButton = ({ value, onChange }: DateButtonProps) => {
             readOnlyInput
           />
           <span
-            className={`pi pi-chevron-down text-lg transition-transform text-[#232323] transform ${isPanelOpen ? "rotate-180" : ""}`}
+            className={`pi pi-chevron-down text-lg transition-transform text-[#232323] transform pointer-events-none ${isPanelOpen ? "rotate-180" : ""}`}
           />
         </div>
       </div>

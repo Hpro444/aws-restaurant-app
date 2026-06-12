@@ -59,17 +59,28 @@ export const formatDate = (dateString: string): string => {
   }
 };
 
-export const formatTime = (utcTimeStr: string): string => {
-  const date = new Date(utcTimeStr);
+export const formatTime = (value: string): string => {
+  const trimmed = value?.trim();
+  if (!trimmed) return value;
 
-  if (Number.isNaN(date.getTime())) {
-    return utcTimeStr;
+  const timeOnly = /^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/.exec(trimmed);
+  if (timeOnly) {
+    return `${timeOnly[1]}:${timeOnly[2]}`;
   }
 
-  return new Intl.DateTimeFormat("sr-RS", {
+  const normalized = trimmed.includes("T")
+    ? trimmed
+    : trimmed.replace(" ", "T");
+
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
-    timeZone: "Europe/Belgrade",
+    timeZone: "UTC",
   }).format(date);
 };

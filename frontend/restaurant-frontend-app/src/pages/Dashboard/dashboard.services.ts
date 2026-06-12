@@ -103,3 +103,59 @@ export const fetchDashboardReport = async (
 
   return data;
 };
+
+export type ReportFileFormat = "pdf" | "excel" | "csv";
+
+export interface DownloadReportParams {
+  fileFormat: ReportFileFormat;
+  report: BackendReportResponse;
+  accessToken?: string;
+}
+
+export const downloadDashboardReport = async (
+  params: DownloadReportParams,
+): Promise<string> => {
+  const query = new URLSearchParams({
+    fileFormat: params.fileFormat,
+  });
+
+  const response = await fetch(
+    `${getApiBaseUrl()}/reports/download?${query.toString()}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(params.accessToken
+          ? { Authorization: `Bearer ${params.accessToken}` }
+          : {}),
+      },
+      body: JSON.stringify(params.report),
+    },
+  );
+
+  const payload: unknown = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(
+      getErrorMessage(
+        payload,
+        `Failed to download report (${response.status})`,
+      ),
+    );
+  }
+
+  const url =
+    typeof payload === "string"
+      ? payload
+      : typeof payload === "object" &&
+          payload !== null &&
+          "downloadUrl" in payload &&
+          typeof (payload as Record<string, unknown>).downloadUrl === "string"
+        ? (payload as Record<string, string>).downloadUrl
+        : null;
+  if (!url || !url.trim().startsWith("http")) {
+    throw new Error("Download URL not found in response.");
+  }
+
+  return url.trim();
+};

@@ -13,9 +13,12 @@ import {
 } from "../AvailableTables/availableTables.services";
 import type { LocationSelectOption } from "../../types/location";
 import {
+  downloadDashboardReport,
   fetchDashboardReport,
+  type BackendReportResponse,
   type BackendReportRow,
   type DashboardReportType,
+  type ReportFileFormat,
 } from "./dashboard.services";
 
 const DashboardPage = () => {
@@ -30,11 +33,14 @@ const DashboardPage = () => {
   const [locationsError, setLocationsError] = useState<string | null>(null);
 
   const [reportRows, setReportRows] = useState<BackendReportRow[]>([]);
+  const [reportPayload, setReportPayload] =
+    useState<BackendReportResponse | null>(null);
   const [currentReportType, setCurrentReportType] = useState<
     DashboardReportType | ""
   >("");
   const [reportError, setReportError] = useState<string | null>(null);
   const [isLoadingReport, setIsLoadingReport] = useState(false);
+  const [isDownloadingReport, setIsDownloadingReport] = useState(false);
 
   useEffect(() => {
     const loadLocations = async () => {
@@ -84,13 +90,6 @@ const DashboardPage = () => {
 
       const periodStart = toLocalApiDate(dates[0]);
       const periodEnd = toLocalApiDate(dates[1]);
-      console.log({
-        reportType,
-        periodStart,
-        periodEnd,
-        locationId: location,
-        accessToken,
-      });
 
       const data = await fetchDashboardReport({
         reportType,
@@ -99,23 +98,49 @@ const DashboardPage = () => {
         locationId: location,
         accessToken,
       });
-      console.log({
-        reportType,
-        periodStart,
-        periodEnd,
-        locationId: location,
-        accessToken,
-      });
 
       setCurrentReportType(reportType);
+      setReportPayload(data);
       setReportRows(data.rows);
     } catch (err) {
+      setReportPayload(null);
       setReportRows([]);
       setReportError(
         err instanceof Error ? err.message : "Failed to fetch report",
       );
     } finally {
       setIsLoadingReport(false);
+    }
+  };
+
+  const handleDownloadReport = async (fileFormat: ReportFileFormat) => {
+    if (!accessToken) {
+      setReportError("You are not authenticated.");
+      return;
+    }
+
+    if (!reportPayload) {
+      setReportError("Generate a report before downloading.");
+      return;
+    }
+
+    try {
+      setReportError(null);
+      setIsDownloadingReport(true);
+
+      const downloadUrl = await downloadDashboardReport({
+        fileFormat,
+        report: reportPayload,
+        accessToken,
+      });
+
+      window.location.assign(downloadUrl);
+    } catch (err) {
+      setReportError(
+        err instanceof Error ? err.message : "Failed to download report",
+      );
+    } finally {
+      setIsDownloadingReport(false);
     }
   };
 
@@ -171,6 +196,7 @@ const DashboardPage = () => {
             selectionMode="range"
             readOnlyInput
             hideOnRangeSelection
+            maxDate={new Date()}
             inputClassName="border border-[#dadada] px-6 rounded-lg"
             panelClassName="border border-[#dadada] rounded-lg bg-white shadow-lg"
             className="w-full max-w-[328px] flex-1"
@@ -233,7 +259,12 @@ const DashboardPage = () => {
             reportType={currentReportType}
           />
 
-          <DownloadButton className="self-end" />
+          <DownloadButton
+            className="self-end"
+            onSelectFormat={handleDownloadReport}
+            disabled={!reportPayload || isLoadingReport}
+            isLoading={isDownloadingReport}
+          />
         </div>
       </Layout>
     </>
