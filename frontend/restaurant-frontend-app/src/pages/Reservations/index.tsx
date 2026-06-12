@@ -247,6 +247,7 @@ const ReservationsPage = () => {
       navigate("/reservations", { replace: true, state: null });
     }
   };
+  console.log(reservations);
 
   return (
     <>
@@ -316,9 +317,13 @@ const ReservationsPage = () => {
           reservationId={feedbackReservationId}
           accessToken={accessToken}
           mode={feedbackMode}
+          onSubmitted={() => {
+            void fetchReservations();
+          }}
         />
       )}
     </>
-  );};
+  );
+};
 
 export default ReservationsPage;

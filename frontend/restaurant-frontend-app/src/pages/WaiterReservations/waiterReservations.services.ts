@@ -198,7 +198,7 @@ const mapApiReservation = (
     can_edit: true,
     can_cancel: true,
     can_leave_feedback: false,
-    can_update_feedback: false,
+    can_edit_feedback: false,
   },
 });
 

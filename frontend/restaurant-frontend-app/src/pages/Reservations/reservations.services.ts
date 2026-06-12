@@ -21,7 +21,7 @@ type BackendAllowedActions = {
   canEdit: boolean;
   canCancel: boolean;
   canLeaveFeedback: boolean;
-  canUpdateFeedback: boolean;
+  canEditFeedback: boolean;
 };
 
 type BackendReservation = {
@@ -44,8 +44,75 @@ type BackendReservationsResponse = {
   reservations: BackendReservation[];
 };
 
+export interface FeedbackDetailsResponse {
+  id: string;
+  customer_id: string;
+  feedback: string;
+  rate: number;
+  date: string;
+  user_name: string;
+  user_image_url: string;
+  location_id: string;
+  waiter_id: string | null;
+}
+
+type FeedbackByReservationPayload = {
+  CuisineFeedback?: FeedbackDetailsResponse | null;
+  ServiceFeedback?: FeedbackDetailsResponse | null;
+};
+
+const isFeedbackDetails = (
+  value: unknown,
+): value is FeedbackDetailsResponse => {
+  if (!value || typeof value !== "object") return false;
+  const obj = value as Record<string, unknown>;
+  return (
+    typeof obj.id === "string" &&
+    typeof obj.feedback === "string" &&
+    typeof obj.rate === "number"
+  );
+};
+
+export const fetchFeedbackByType = async (
+  feedbackId: string,
+  type: FeedbackType,
+  accessToken: string,
+  signal?: AbortSignal,
+): Promise<FeedbackDetailsResponse | null> => {
+  const response = await fetch(
+    `${getApiBaseUrl()}/feedback/${encodeURIComponent(feedbackId)}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      signal,
+    },
+  );
+
+  const payload: unknown = await response.json().catch(() => null);
+
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error(getFetchFeedbackErrorMessage(response.status, payload));
+  }
+
+  // Case 1: backend already returns a single feedback object
+  if (isFeedbackDetails(payload)) {
+    return payload;
+  }
+
+  // Case 2: backend returns both feedbacks in one object
+  const wrapped = payload as FeedbackByReservationPayload;
+  const selected =
+    type === "service" ? wrapped.ServiceFeedback : wrapped.CuisineFeedback;
+
+  return isFeedbackDetails(selected) ? selected : null;
+};
+
 export type FeedbackTab = "Service" | "Culinary Experience";
-export type FeedbackType = "service" | "culinary";
+export type FeedbackType = "service" | "cuisine";
 
 export interface WaiterData {
   name: string;
@@ -88,10 +155,32 @@ const mapReservation = (item: BackendReservation): ReservationResponse => ({
     can_edit: item.allowedActions?.canEdit ?? false,
     can_cancel: item.allowedActions?.canCancel ?? false,
     can_leave_feedback: item.allowedActions?.canLeaveFeedback ?? false,
-    can_update_feedback: item.allowedActions?.canUpdateFeedback ?? false,
+    can_edit_feedback: item.allowedActions?.canEditFeedback ?? false,
   },
   cutoff_reason: item.cutoffReason ?? undefined,
 });
+
+const getFetchFeedbackErrorMessage = (
+  status: number,
+  payload: unknown,
+): string => {
+  const maybe = payload as Record<string, unknown> | null;
+
+  const directMessage =
+    (typeof maybe?.message === "string" && maybe.message) ||
+    (typeof maybe?.error === "string" && maybe.error);
+
+  if (directMessage) return directMessage;
+
+  switch (status) {
+    case 401:
+      return "Unauthorized. Please log in again.";
+    case 403:
+      return "Forbidden. You are not allowed to access feedback.";
+    default:
+      return "Failed to load feedback.";
+  }
+};
 
 export const getReservations = async (
   accessToken: string,
@@ -185,7 +274,7 @@ export const updateReservation = async (
 };
 
 export const mapTabToType = (tab: FeedbackTab): FeedbackType =>
-  tab === "Service" ? "service" : "culinary";
+  tab === "Service" ? "service" : "cuisine";
 
 const getFeedbackErrorMessage = (status: number, payload: unknown): string => {
   const maybe = payload as Record<string, unknown> | null;
@@ -349,6 +438,7 @@ export const fetchWaiterContext = async (
     );
 
     const payload: unknown = await response.json().catch(() => null);
+    console.log(payload);
 
     if (!response.ok) {
       throw new Error(getWaiterContextErrorMessage(response.status, payload));

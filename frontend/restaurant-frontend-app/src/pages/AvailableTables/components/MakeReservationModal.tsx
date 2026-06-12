@@ -78,6 +78,7 @@ const MakeReservationModal = ({
         },
         accessToken,
       );
+      console.log(response);
 
       setSuccessReservation(response);
       onReservationResult({ ok: true, data: response });
