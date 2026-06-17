@@ -1,0 +1,1775 @@
+{
+        "openapi": "3.0.3",
+        "info": {
+          "title": "Restaurant App API",
+          "version": "1.1.0",
+          "description": "OpenAPI documentation synchronized with ApiHandler routes and DTO contracts."
+        },
+        "servers": [
+          {
+            "url": "https://{apiId}.execute-api.{region}.amazonaws.com/api",
+            "description": "AWS API Gateway",
+            "variables": {
+              "apiId": { "default": "your-api-id" },
+              "region": { "default": "eu-west-3" }
+            }
+          }
+        ],
+        "tags": [
+          { "name": "Auth" },
+          { "name": "Users" },
+          { "name": "Locations" },
+          { "name": "Bookings" },
+          { "name": "Dishes" },
+          { "name": "Feedback" },
+          { "name": "Customers" },
+          { "name": "Reservations" },
+          { "name": "Reports" },
+          { "name": "Orders" }
+        ],
+        "paths": {
+          "/auth/sign-up": {
+            "post": {
+              "tags": ["Auth"],
+              "summary": "Register a new user",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": { "$ref": "#/components/schemas/SignUpRequest" }
+                  }
+                }
+              },
+              "responses": {
+                "201": {
+                  "description": "User created",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/SignUpResponse" }
+                    }
+                  }
+                },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/auth/sign-in": {
+            "post": {
+              "tags": ["Auth"],
+              "summary": "Authenticate user",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": { "$ref": "#/components/schemas/SignInRequest" }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Authenticated",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/SignInResponse" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "423": {
+                  "description": "User locked due to failed attempts",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/ErrorBody" }
+                    }
+                  }
+                },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/auth/refresh": {
+            "post": {
+              "tags": ["Auth"],
+              "summary": "Refresh access token",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": { "$ref": "#/components/schemas/RefreshRequest" }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Token refreshed",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/RefreshResponse" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/auth/logout": {
+            "post": {
+              "tags": ["Auth"],
+              "summary": "Revoke refresh token",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": { "$ref": "#/components/schemas/LogoutRequest" }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Logged out",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/LogoutResponse" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/users/profile": {
+            "get": {
+              "tags": ["Users"],
+              "summary": "Get current user profile",
+              "security": [{ "bearerAuth": [] }],
+              "responses": {
+                "200": {
+                  "description": "Profile",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/ProfileResponse" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "404": { "$ref": "#/components/responses/NotFoundError" }
+              }
+            },
+            "put": {
+              "tags": ["Users"],
+              "summary": "Update current user profile",
+              "security": [{ "bearerAuth": [] }],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": { "$ref": "#/components/schemas/UpdateProfileRequest" }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Profile updated",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/ProfileResponse" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "404": { "$ref": "#/components/responses/NotFoundError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/users/waiter/location": {
+            "get": {
+              "tags": ["Users"],
+              "summary": "Get authenticated waiter's location",
+              "security": [{ "bearerAuth": [] }],
+              "responses": {
+                "200": {
+                  "description": "Waiter location",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/LocationAddressResponse" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "404": { "$ref": "#/components/responses/NotFoundError" }
+              }
+            }
+          },
+          "/customers": {
+            "get": {
+              "tags": ["Customers"],
+              "summary": "List all customers (waiter only)",
+              "security": [{ "bearerAuth": [] }],
+              "responses": {
+                "200": {
+                  "description": "Customers list",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "array",
+                        "items": { "$ref": "#/components/schemas/CustomerResponse" }
+                      }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" }
+              }
+            }
+          },
+          "/locations": {
+            "get": {
+              "tags": ["Locations"],
+              "summary": "List all locations",
+              "responses": {
+                "200": {
+                  "description": "Locations list",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "array",
+                        "items": { "$ref": "#/components/schemas/LocationResponse" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/locations/select-options": {
+            "get": {
+              "tags": ["Locations"],
+              "summary": "List compact location options",
+              "responses": {
+                "200": {
+                  "description": "Location options",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "array",
+                        "items": { "$ref": "#/components/schemas/LocationAddressResponse" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/locations/{id}": {
+            "get": {
+              "tags": ["Locations"],
+              "summary": "Get location by ID",
+              "parameters": [
+                {
+                  "name": "id",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string", "format": "uuid" }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Location",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/LocationResponse" }
+                    }
+                  }
+                },
+                "404": { "$ref": "#/components/responses/NotFoundError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/locations/{id}/valid-slot-times": {
+            "get": {
+              "tags": ["Locations"],
+              "summary": "Get valid slot start/end times for a location",
+              "parameters": [
+                {
+                  "name": "id",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string", "format": "uuid" }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Available slot boundaries",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "required": ["start_times", "end_times"],
+                        "properties": {
+                          "start_times": {
+                            "type": "array",
+                            "items": { "type": "string", "example": "10:00" }
+                          },
+                          "end_times": {
+                            "type": "array",
+                            "items": { "type": "string", "example": "11:30" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "404": { "$ref": "#/components/responses/NotFoundError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/bookings/tables": {
+            "get": {
+              "tags": ["Bookings"],
+              "summary": "Find available tables",
+              "parameters": [
+                {
+                  "name": "location_id",
+                  "in": "query",
+                  "required": true,
+                  "schema": { "type": "string", "format": "uuid" }
+                },
+                {
+                  "name": "date",
+                  "in": "query",
+                  "required": true,
+                  "schema": { "type": "string", "format": "date" },
+                  "example": "2026-05-30"
+                },
+                {
+                  "name": "guests_number",
+                  "in": "query",
+                  "required": true,
+                  "schema": { "type": "integer", "minimum": 1, "maximum": 10 }
+                },
+                {
+                  "name": "from_time",
+                  "in": "query",
+                  "required": false,
+                  "schema": {
+                    "type": "string",
+                    "format": "date-time",
+                    "example": "2026-05-27T11:45:00Z"
+                  },
+                  "description": "Optional UTC ISO datetime. Must use Z/+00:00 and match the date parameter."
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Available tables",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/AvailableTablesResponse" }
+                    }
+                  }
+                },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/bookings/waiter/tables": {
+            "get": {
+              "tags": ["Bookings"],
+              "summary": "Find available tables (waiter view)",
+              "security": [{ "bearerAuth": [] }],
+              "parameters": [
+                {
+                  "name": "location_id",
+                  "in": "query",
+                  "required": true,
+                  "schema": { "type": "string", "format": "uuid" }
+                },
+                {
+                  "name": "date",
+                  "in": "query",
+                  "required": false,
+                  "schema": { "type": "string", "format": "date" },
+                  "description": "Optional booking date in YYYY-MM-DD. Defaults to today (UTC)."
+                },
+                {
+                  "name": "guests_number",
+                  "in": "query",
+                  "required": true,
+                  "schema": { "type": "integer", "minimum": 1, "maximum": 10 }
+                },
+                {
+                  "name": "from_time",
+                  "in": "query",
+                  "required": true,
+                  "schema": {
+                    "type": "string",
+                    "format": "date-time",
+                    "example": "2026-05-27T11:45:00Z"
+                  },
+                  "description": "UTC ISO datetime. Must be on the same date as 'date'."
+                },
+                {
+                  "name": "to_time",
+                  "in": "query",
+                  "required": true,
+                  "schema": {
+                    "type": "string",
+                    "format": "date-time",
+                    "example": "2026-05-27T13:15:00Z"
+                  },
+                  "description": "UTC ISO datetime. Must be later than from_time and on the same date."
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Available tables",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/AvailableTablesResponse" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/bookings/waiter/{id}": {
+            "put": {
+              "tags": ["Bookings"],
+              "summary": "Update booking as waiter",
+              "security": [{ "bearerAuth": [] }],
+              "parameters": [
+                {
+                  "name": "id",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string", "format": "uuid" },
+                  "description": "Reservation identifier"
+                }
+              ],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": { "$ref": "#/components/schemas/UpdateReservationRequest" }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Reservation updated",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/ReservationView" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "404": { "$ref": "#/components/responses/NotFoundError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/bookings/client": {
+            "post": {
+              "tags": ["Bookings"],
+              "summary": "Create booking (customer only)",
+              "security": [{ "bearerAuth": [] }],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": { "$ref": "#/components/schemas/CreateBookingRequest" }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Booking created",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/CreateBookingResponse" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "404": { "$ref": "#/components/responses/NotFoundError" },
+                "409": { "$ref": "#/components/responses/ConflictError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            },
+            "get": {
+              "tags": ["Bookings"],
+              "summary": "List dashboard bookings",
+              "security": [{ "bearerAuth": [] }],
+              "responses": {
+                "200": {
+                  "description": "Reservations list",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/ReservationListResponse" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" }
+              }
+            }
+          },
+          "/bookings/client/{reservation_id}": {
+            "get": {
+              "tags": ["Bookings"],
+              "summary": "Get booking by ID",
+              "security": [{ "bearerAuth": [] }],
+              "parameters": [
+                {
+                  "name": "reservation_id",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string", "format": "uuid" },
+                  "description": "Reservation identifier"
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Reservation",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/ReservationView" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "404": { "$ref": "#/components/responses/NotFoundError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            },
+            "put": {
+              "tags": ["Bookings"],
+              "summary": "Update booking",
+              "security": [{ "bearerAuth": [] }],
+              "parameters": [
+                {
+                  "name": "reservation_id",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string", "format": "uuid" }
+                }
+              ],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": { "$ref": "#/components/schemas/UpdateReservationRequest" }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Reservation updated",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/ReservationView" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "404": { "$ref": "#/components/responses/NotFoundError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/bookings/client/{reservation_id}/cancel": {
+            "delete": {
+              "tags": ["Bookings"],
+              "summary": "Cancel booking",
+              "security": [{ "bearerAuth": [] }],
+              "parameters": [
+                {
+                  "name": "reservation_id",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string", "format": "uuid" }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Reservation cancelled",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/ReservationView" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "404": { "$ref": "#/components/responses/NotFoundError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/dishes": {
+            "get": {
+              "tags": ["Dishes"],
+              "summary": "Get dishes with optional filters",
+              "parameters": [
+                {
+                  "name": "dishType",
+                  "in": "query",
+                  "required": false,
+                  "schema": {
+                    "type": "string",
+                    "enum": ["APPETIZER", "DESSERT", "MAIN_COURSE", "DRINK"]
+                  }
+                },
+                {
+                  "name": "sort",
+                  "in": "query",
+                  "required": false,
+                  "schema": {
+                    "type": "string",
+                    "enum": [
+                      "popularity,asc",
+                      "popularity,desc",
+                      "price,asc",
+                      "price,desc"
+                    ]
+                  }
+                },
+                {
+                  "name": "dietary_filter",
+                  "in": "query",
+                  "required": false,
+                  "schema": {
+                    "type": "string",
+                    "enum": [
+                      "VEGETARIAN",
+                      "VEGAN",
+                      "GLUTEN_FREE",
+                      "DAIRY_FREE"
+                    ]
+                  },
+                  "description": "Optional dietary filter matched against dish description tags."
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Dishes list",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "array",
+                        "items": { "$ref": "#/components/schemas/DishPreviewResponse" }
+                      }
+                    }
+                  }
+                },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/dishes/popular": {
+            "get": {
+              "tags": ["Dishes"],
+              "summary": "Get all popular dishes",
+              "responses": {
+                "200": {
+                  "description": "Popular dishes",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "array",
+                        "items": { "$ref": "#/components/schemas/DishPreviewResponse" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/dishes/{id}": {
+            "get": {
+              "tags": ["Dishes"],
+              "summary": "Get dish details by ID",
+              "parameters": [
+                {
+                  "name": "id",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string", "format": "uuid" }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Dish details",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/DishExtendedResponse" }
+                    }
+                  }
+                },
+                "404": { "$ref": "#/components/responses/NotFoundError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/locations/{id}/speciality-dishes": {
+            "get": {
+              "tags": ["Dishes"],
+              "summary": "Get speciality dishes by location",
+              "parameters": [
+                {
+                  "name": "id",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string", "format": "uuid" }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Speciality dishes",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "array",
+                        "items": { "$ref": "#/components/schemas/DishPreviewResponse" }
+                      }
+                    }
+                  }
+                },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/locations/{id}/tables": {
+            "get": {
+              "tags": ["Locations"],
+              "summary": "Get tables for a location (waiter only)",
+              "security": [{ "bearerAuth": [] }],
+              "parameters": [
+                {
+                  "name": "id",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string", "format": "uuid" }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Tables list",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "array",
+                        "items": { "$ref": "#/components/schemas/TableDTO" }
+                      }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/locations/{id}/feedbacks": {
+            "get": {
+              "tags": ["Feedback"],
+              "summary": "Get location feedbacks with pagination and sorting",
+              "parameters": [
+                {
+                  "name": "id",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string", "format": "uuid" }
+                },
+                {
+                  "name": "type",
+                  "in": "query",
+                  "required": true,
+                  "schema": { "type": "string", "enum": ["cuisine", "service"] }
+                },
+                {
+                  "name": "sort",
+                  "in": "query",
+                  "required": false,
+                  "schema": { "type": "string", "example": "date,desc" },
+                  "description": "Sort by date or rate using asc/desc, e.g. date,desc."
+                },
+                {
+                  "name": "page",
+                  "in": "query",
+                  "required": false,
+                  "schema": { "type": "integer", "minimum": 0, "default": 0 }
+                },
+                {
+                  "name": "size",
+                  "in": "query",
+                  "required": false,
+                  "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Feedback page",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/PageFeedbackResponse" }
+                    }
+                  }
+                },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/feedbacks": {
+            "post": {
+              "tags": ["Feedback"],
+              "summary": "Leave feedback (customer only)",
+              "security": [{ "bearerAuth": [] }],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": { "$ref": "#/components/schemas/LeaveFeedbackRequest" }
+                  }
+                }
+              },
+              "responses": {
+                "201": {
+                  "description": "Feedback created",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/LeaveFeedbackResponse" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "404": { "$ref": "#/components/responses/NotFoundError" },
+                "409": { "$ref": "#/components/responses/ConflictError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            },
+            "put": {
+              "tags": ["Feedback"],
+              "summary": "Update feedback (customer only)",
+              "security": [{ "bearerAuth": [] }],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": { "$ref": "#/components/schemas/UpdateFeedbackRequest" }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Feedback updated or unchanged",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/UpdateFeedbackResponse" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "404": { "$ref": "#/components/responses/NotFoundError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/feedbacks/context/{reservation_id}": {
+            "get": {
+              "tags": ["Feedback"],
+              "summary": "Get feedback modal context (customer only)",
+              "security": [{ "bearerAuth": [] }],
+              "parameters": [
+                {
+                  "name": "reservation_id",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string", "format": "uuid" }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Feedback modal context",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/FeedbackContextResponse" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "404": { "$ref": "#/components/responses/NotFoundError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/feedback/{feedback_id}": {
+            "get": {
+              "tags": ["Feedback"],
+              "summary": "Get feedback by ID (customer only)",
+              "security": [{ "bearerAuth": [] }],
+              "parameters": [
+                {
+                  "name": "feedback_id",
+                  "in": "path",
+                  "required": true,
+                  "schema": { "type": "string", "format": "uuid" },
+                  "description": "Feedback identifier"
+                },
+                {
+                  "name": "type",
+                  "in": "query",
+                  "required": true,
+                  "schema": {
+                    "type": "string",
+                    "enum": ["cuisine", "service"]
+                  },
+                  "description": "Feedback type: cuisine or service"
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Feedback details",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/FeedbackResponse" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "404": { "$ref": "#/components/responses/NotFoundError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/reports": {
+            "get": {
+              "tags": ["Reports"],
+              "summary": "Get admin reports",
+              "security": [{ "bearerAuth": [] }],
+              "parameters": [
+                {
+                  "name": "reportType",
+                  "in": "query",
+                  "required": false,
+                  "schema": {
+                    "type": "string",
+                    "enum": ["staff_performance", "sales"],
+                    "default": "staff_performance"
+                  },
+                  "description": "Report category. Accepts aliases like staff/staffperformance/location as well."
+                },
+                {
+                  "name": "period",
+                  "in": "query",
+                  "required": false,
+                  "schema": { "type": "string" },
+                  "description": "Single date or range string (e.g. '2026-06-01 - 2026-06-07')."
+                },
+                {
+                  "name": "periodStart",
+                  "in": "query",
+                  "required": false,
+                  "schema": { "type": "string", "format": "date" }
+                },
+                {
+                  "name": "periodEnd",
+                  "in": "query",
+                  "required": false,
+                  "schema": { "type": "string", "format": "date" }
+                },
+                {
+                  "name": "locationId",
+                  "in": "query",
+                  "required": false,
+                  "schema": { "type": "string", "format": "uuid" }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Report table payload",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/ReportsResponse" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/reports/download": {
+            "post": {
+              "tags": ["Reports"],
+              "summary": "Download report as file (admin only)",
+              "description": "Export report as CSV, Excel, or PDF format",
+              "security": [{ "bearerAuth": [] }],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": { "$ref": "#/components/schemas/CreateReportsDownloadRequest" }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "File generated and S3 URL provided",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/CreateReportsDownloadResponse" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/orders": {
+            "post": {
+              "tags": ["Orders"],
+              "summary": "Create order for reservation (waiter only)",
+              "security": [{ "bearerAuth": [] }],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": { "$ref": "#/components/schemas/CreateOrderRequest" }
+                  }
+                }
+              },
+              "responses": {
+                "201": {
+                  "description": "Order created",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/CreateOrderResponse" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "404": { "$ref": "#/components/responses/NotFoundError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          },
+          "/reservations/waiter": {
+            "get": {
+              "tags": ["Reservations"],
+              "summary": "Get waiter reservations for a table and time",
+              "security": [{ "bearerAuth": [] }],
+              "parameters": [
+                {
+                  "name": "date",
+                  "in": "query",
+                  "required": true,
+                  "schema": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+                },
+                {
+                  "name": "time_from",
+                  "in": "query",
+                  "required": true,
+                  "schema": { "type": "string", "pattern": "^\\d{2}:\\d{2}$" }
+                },
+                {
+                  "name": "table_name",
+                  "in": "query",
+                  "required": true,
+                  "schema": { "type": "string", "minLength": 1 }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Waiter reservations",
+                  "content": {
+                    "application/json": {
+                      "schema": { "$ref": "#/components/schemas/WaiterReservationListResponse" }
+                    }
+                  }
+                },
+                "401": { "$ref": "#/components/responses/UnauthorizedError" },
+                "403": { "$ref": "#/components/responses/ForbiddenError" },
+                "422": { "$ref": "#/components/responses/ValidationError" }
+              }
+            }
+          }
+        },
+        "components": {
+          "securitySchemes": {
+            "bearerAuth": {
+              "type": "http",
+              "scheme": "bearer",
+              "bearerFormat": "JWT",
+              "x-amazon-apigateway-authorizer": {
+                "type": "cognito_user_pools",
+                "x-syndicate-cognito-userpool-names": [
+                  "${restaurant-userpool}"
+                ]
+              }
+            }
+          },
+          "responses": {
+            "UnauthorizedError": {
+              "description": "Unauthorized",
+              "content": {
+                "application/json": {
+                  "schema": { "$ref": "#/components/schemas/ErrorBody" }
+                }
+              }
+            },
+            "ForbiddenError": {
+              "description": "Forbidden",
+              "content": {
+                "application/json": {
+                  "schema": { "$ref": "#/components/schemas/ErrorBody" }
+                }
+              }
+            },
+            "NotFoundError": {
+              "description": "Not found",
+              "content": {
+                "application/json": {
+                  "schema": { "$ref": "#/components/schemas/ErrorBody" }
+                }
+              }
+            },
+            "ConflictError": {
+              "description": "Conflict",
+              "content": {
+                "application/json": {
+                  "schema": { "$ref": "#/components/schemas/ErrorBody" }
+                }
+              }
+            },
+            "ValidationError": {
+              "description": "Validation error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "oneOf": [
+                      { "$ref": "#/components/schemas/ValidationErrorResponse" },
+                      {
+                        "type": "array",
+                        "items": { "$ref": "#/components/schemas/FieldError" }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "schemas": {
+            "ErrorBody": {
+              "description": "Backend can return either message objects, validation arrays, or generic objects.",
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": ["message"],
+                  "properties": {
+                    "message": { "type": "string" }
+                  },
+                  "additionalProperties": true
+                },
+                {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/FieldError" }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              ]
+            },
+            "FieldError": {
+              "type": "object",
+              "required": ["field", "message"],
+              "properties": {
+                "field": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            },
+            "ValidationErrorResponse": {
+              "type": "object",
+              "required": ["errors"],
+              "properties": {
+                "errors": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/FieldError" }
+                }
+              }
+            },
+            "SignUpRequest": {
+              "type": "object",
+              "required": ["firstName", "lastName", "email", "password"],
+              "properties": {
+                "firstName": { "type": "string", "minLength": 1, "maxLength": 100 },
+                "lastName": { "type": "string", "minLength": 1, "maxLength": 100 },
+                "email": { "type": "string", "format": "email" },
+                "password": {
+                  "type": "string",
+                  "format": "password",
+                  "description": "8-16 chars, includes uppercase, lowercase, digit, and special char"
+                }
+              }
+            },
+            "SignUpResponse": {
+              "type": "object",
+              "required": ["message"],
+              "properties": {
+                "message": { "type": "string" }
+              }
+            },
+            "SignInRequest": {
+              "type": "object",
+              "required": ["email", "password"],
+              "properties": {
+                "email": { "type": "string", "format": "email" },
+                "password": { "type": "string", "format": "password" }
+              }
+            },
+            "SignInResponse": {
+              "type": "object",
+              "required": ["access_token", "refresh_token", "username", "role"],
+              "properties": {
+                "access_token": { "type": "string" },
+                "refresh_token": { "type": "string" },
+                "username": { "type": "string" },
+                "role": {
+                  "type": "string",
+                  "enum": ["Admin", "Customer", "Waiter", "Visitor"]
+                }
+              }
+            },
+            "RefreshRequest": {
+              "type": "object",
+              "required": ["refresh_token"],
+              "properties": {
+                "refresh_token": { "type": "string", "minLength": 1 }
+              }
+            },
+            "RefreshResponse": {
+              "type": "object",
+              "required": ["access_token"],
+              "properties": {
+                "access_token": { "type": "string" }
+              }
+            },
+            "LogoutRequest": {
+              "type": "object",
+              "required": ["refresh_token"],
+              "properties": {
+                "refresh_token": { "type": "string", "minLength": 1 }
+              }
+            },
+            "LogoutResponse": {
+              "type": "object",
+              "required": ["message"],
+              "properties": {
+                "message": { "type": "string" }
+              }
+            },
+            "ProfileResponse": {
+              "type": "object",
+              "required": ["first_name", "last_name", "image_url", "email", "role"],
+              "properties": {
+                "first_name": { "type": "string" },
+                "last_name": { "type": "string" },
+                "image_url": { "type": "string" },
+                "email": { "type": "string", "format": "email" },
+                "role": { "type": "string" }
+              }
+            },
+            "CustomerResponse": {
+              "type": "object",
+              "required": ["id", "user_name", "email"],
+              "properties": {
+                "id": { "type": "string", "format": "uuid" },
+                "user_name": { "type": "string" },
+                "email": { "type": "string", "format": "email" }
+              }
+            },
+            "UpdateProfileRequest": {
+              "type": "object",
+              "required": ["first_name", "last_name", "image_url"],
+              "properties": {
+                "first_name": { "type": "string", "minLength": 1, "maxLength": 100 },
+                "last_name": { "type": "string", "minLength": 1, "maxLength": 100 },
+                "image_url": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2048,
+                  "pattern": "^https?://"
+                }
+              }
+            },
+            "LocationResponse": {
+              "type": "object",
+              "required": ["id", "address", "description", "total_capacity", "average_occupancy", "image_url", "rating"],
+              "properties": {
+                "id": { "type": "string" },
+                "address": { "type": "string" },
+                "description": { "type": "string" },
+                "total_capacity": { "type": "integer" },
+                "average_occupancy": { "type": "integer" },
+                "image_url": { "type": "string" },
+                "rating": { "type": "number", "format": "float" }
+              }
+            },
+            "LocationAddressResponse": {
+              "type": "object",
+              "required": ["location_id", "location_address"],
+              "properties": {
+                "location_id": { "type": "string" },
+                "location_address": { "type": "string" }
+              }
+            },
+            "SlotResponse": {
+              "type": "object",
+              "required": ["slot_id", "start_time", "end_time"],
+              "properties": {
+                "slot_id": { "type": "string" },
+                "start_time": { "type": "string" },
+                "end_time": { "type": "string" }
+              }
+            },
+            "TableAvailabilityResponse": {
+              "type": "object",
+              "required": ["table_id", "table_number", "capacity", "available_slots"],
+              "properties": {
+                "table_id": { "type": "string" },
+                "table_number": { "type": "integer" },
+                "capacity": { "type": "integer" },
+                "location_address": { "type": "string", "nullable": true },
+                "available_slots": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/SlotResponse" }
+                }
+              }
+            },
+            "AvailableTablesResponse": {
+              "type": "object",
+              "required": ["tables"],
+              "properties": {
+                "tables": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/TableAvailabilityResponse" }
+                }
+              }
+            },
+            "CreateBookingRequest": {
+              "type": "object",
+              "required": ["locationId", "tableNumber", "date", "guestsNumber", "timeFrom", "timeTo"],
+              "properties": {
+                "locationId": { "type": "string", "format": "uuid" },
+                "tableNumber": { "type": "integer", "minimum": 1 },
+                "date": { "type": "string", "format": "date" },
+                "guestsNumber": { "type": "integer", "minimum": 1, "maximum": 10 },
+                "timeFrom": {
+                  "type": "string",
+                  "format": "date-time",
+                  "example": "2026-05-27T11:45:00Z"
+                },
+                "timeTo": {
+                  "type": "string",
+                  "format": "date-time",
+                  "example": "2026-05-27T13:15:00Z"
+                }
+              }
+            },
+            "CreateBookingResponse": {
+              "type": "object",
+              "required": ["reservationId", "status", "locationId", "location_address", "tableNumber", "date", "timeFrom", "timeTo", "guestsNumber"],
+              "properties": {
+                "reservationId": { "type": "string", "format": "uuid" },
+                "status": {
+                  "type": "string",
+                  "enum": ["RESERVED", "IN_PROGRESS", "CANCELLED", "FINISHED"]
+                },
+                "locationId": { "type": "string", "format": "uuid" },
+                "location_address": { "type": "string" },
+                "tableNumber": { "type": "integer" },
+                "date": { "type": "string", "format": "date" },
+                "timeFrom": { "type": "string", "format": "date-time" },
+                "timeTo": { "type": "string", "format": "date-time" },
+                "guestsNumber": { "type": "integer" }
+              }
+            },
+            "AllowedActions": {
+              "type": "object",
+              "required": ["canEdit", "canCancel"],
+              "properties": {
+                "canEdit": { "type": "boolean" },
+                "canCancel": { "type": "boolean" }
+              }
+            },
+            "ReservationView": {
+              "type": "object",
+              "required": ["reservationId", "status", "date", "timeFrom", "timeTo", "guestsNumber", "allowedActions"],
+              "properties": {
+                "reservationId": { "type": "string", "format": "uuid" },
+                "status": {
+                  "type": "string",
+                  "enum": ["RESERVED", "IN_PROGRESS", "CANCELLED", "FINISHED"]
+                },
+                "customerId": { "type": "string", "nullable": true },
+                "waiterId": { "type": "string", "nullable": true },
+                "locationId": { "type": "string", "nullable": true },
+                "location_address": { "type": "string", "nullable": true },
+                "tableNumber": { "type": "integer", "nullable": true },
+                "date": { "type": "string", "format": "date" },
+                "timeFrom": { "type": "string", "format": "date-time" },
+                "timeTo": { "type": "string", "format": "date-time" },
+                "guestsNumber": { "type": "integer" },
+                "allowedActions": { "$ref": "#/components/schemas/AllowedActions" },
+                "cutoffReason": { "type": "string", "nullable": true }
+              }
+            },
+            "ReservationListResponse": {
+              "type": "object",
+              "required": ["reservations"],
+              "properties": {
+                "reservations": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/ReservationView" }
+                }
+              }
+            },
+            "UpdateReservationRequest": {
+              "type": "object",
+              "description": "At least one of guestsNumber or status must be present.",
+              "properties": {
+                "guestsNumber": { "type": "integer", "minimum": 1, "maximum": 10 },
+                "status": {
+                  "type": "string",
+                  "enum": ["RESERVED", "IN_PROGRESS", "CANCELLED", "FINISHED"]
+                }
+              },
+              "anyOf": [{ "required": ["guestsNumber"] }, { "required": ["status"] }]
+            },
+            "DishPreviewResponse": {
+              "type": "object",
+              "required": ["id", "name", "description", "image_url", "price", "weight_gram", "state"],
+              "properties": {
+                "id": { "type": "string", "format": "uuid" },
+                "name": { "type": "string" },
+                "description": { "type": "string" },
+                "image_url": { "type": "string" },
+                "price": { "type": "number", "format": "float" },
+                "weight_gram": { "type": "integer" },
+                "state": {
+                  "type": "string",
+                  "enum": ["Available", "On stop"]
+                }
+              }
+            },
+            "DishExtendedResponse": {
+              "type": "object",
+              "required": [
+                "id",
+                "name",
+                "description",
+                "image_url",
+                "dish_type",
+                "price",
+                "state",
+                "calories",
+                "carbohydrates",
+                "fats",
+                "proteins",
+                "vitamins",
+                "weight_gram"
+              ],
+              "properties": {
+                "id": { "type": "string", "format": "uuid" },
+                "name": { "type": "string" },
+                "description": { "type": "string" },
+                "image_url": { "type": "string" },
+                "dish_type": {
+                  "type": "string",
+                  "enum": ["APPETIZER", "DESSERT", "MAIN_COURSE"]
+                },
+                "price": { "type": "number", "format": "float" },
+                "state": {
+                  "type": "string",
+                  "enum": ["Available", "On stop"]
+                },
+                "calories": { "type": "string" },
+                "carbohydrates": { "type": "string" },
+                "fats": { "type": "string" },
+                "proteins": { "type": "string" },
+                "vitamins": { "type": "string" },
+                "weight_gram": { "type": "integer" }
+              }
+            },
+            "LeaveFeedbackRequest": {
+              "type": "object",
+              "required": ["reservation_id", "type", "rating"],
+              "properties": {
+                "reservation_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": {
+                  "type": "string",
+                  "enum": ["service", "culinary", "cuisine"],
+                  "description": "cuisine is accepted and normalized to culinary."
+                },
+                "rating": { "type": "integer", "minimum": 1, "maximum": 5 },
+                "comment": { "type": "string", "nullable": true }
+              }
+            },
+            "LeaveFeedbackResponse": {
+              "type": "object",
+              "required": ["message"],
+              "properties": {
+                "message": { "type": "string" }
+              }
+            },
+            "UpdateFeedbackRequest": {
+              "type": "object",
+              "required": ["reservation_id", "type"],
+              "properties": {
+                "reservation_id": { "type": "string", "format": "uuid" },
+                "type": {
+                  "type": "string",
+                  "enum": ["service", "culinary", "cuisine"],
+                  "description": "cuisine is accepted and normalized to culinary."
+                },
+                "rating": { "type": "integer", "minimum": 1, "maximum": 5, "nullable": true },
+                "comment": { "type": "string", "nullable": true }
+              }
+            },
+            "UpdateFeedbackResponse": {
+              "type": "object",
+              "required": ["message"],
+              "properties": {
+                "message": { "type": "string" }
+              }
+            },
+            "TableDTO": {
+              "type": "object",
+              "required": ["table_number"],
+              "properties": {
+                "table_number": { "type": "integer" }
+              }
+            },
+            "FeedbackContextResponse": {
+              "type": "object",
+              "required": ["reservation_id"],
+              "properties": {
+                "reservation_id": { "type": "string", "format": "uuid" },
+                "waiter_id": { "type": "string", "format": "uuid", "nullable": true },
+                "waiter_name": { "type": "string", "nullable": true },
+                "waiter_image_url": { "type": "string", "nullable": true }
+              }
+            },
+            "FeedbackResponse": {
+              "type": "object",
+              "required": ["id", "feedback", "date"],
+              "properties": {
+                "id": { "type": "string" },
+                "customer_id": { "type": "string", "nullable": true },
+                "feedback": { "type": "string" },
+                "rate": { "type": "integer", "nullable": true },
+                "date": { "type": "string", "format": "date-time" },
+                "user_name": { "type": "string", "nullable": true },
+                "user_image_url": { "type": "string", "nullable": true },
+                "location_id": { "type": "string", "nullable": true },
+                "waiter_id": { "type": "string", "nullable": true }
+              }
+            },
+            "FeedbackPageable": {
+              "type": "object",
+              "required": ["offset", "sort", "paged", "pageSize", "pageNumber", "unpaged"],
+              "properties": {
+                "offset": { "type": "integer" },
+                "sort": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "paged": { "type": "boolean" },
+                "pageSize": { "type": "integer" },
+                "pageNumber": { "type": "integer" },
+                "unpaged": { "type": "boolean" }
+              }
+            },
+            "PageFeedbackResponse": {
+              "type": "object",
+              "required": ["totalPages", "totalElements", "size", "content", "number", "sort", "first", "last", "numberOfElements", "pageable", "empty"],
+              "properties": {
+                "totalPages": { "type": "integer" },
+                "totalElements": { "type": "integer" },
+                "size": { "type": "integer" },
+                "content": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/FeedbackResponse" }
+                },
+                "number": { "type": "integer" },
+                "sort": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "first": { "type": "boolean" },
+                "last": { "type": "boolean" },
+                "numberOfElements": { "type": "integer" },
+                "pageable": { "$ref": "#/components/schemas/FeedbackPageable" },
+                "empty": { "type": "boolean" }
+              }
+            },
+            "WaiterReservationView": {
+              "type": "object",
+              "required": ["reservationId", "date", "timeFrom", "timeTo", "guestsNumber"],
+              "properties": {
+                "reservationId": { "type": "string" },
+                "customerId": { "type": "string", "nullable": true },
+                "location_address": { "type": "string", "nullable": true },
+                "tableNumber": { "type": "integer", "nullable": true },
+                "date": { "type": "string", "format": "date" },
+                "timeFrom": { "type": "string" },
+                "timeTo": { "type": "string" },
+                "guestsNumber": { "type": "integer" }
+              }
+            },
+            "WaiterReservationListResponse": {
+              "type": "object",
+              "required": ["reservations"],
+              "properties": {
+                "reservations": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/WaiterReservationView" }
+                }
+              }
+            },
+            "ReportsResponse": {
+              "type": "object",
+              "required": ["reportType", "periodStart", "periodEnd", "rows"],
+              "properties": {
+                "reportType": {
+                  "type": "string",
+                  "enum": ["staff_performance", "sales"]
+                },
+                "periodStart": { "type": "string", "format": "date" },
+                "periodEnd": { "type": "string", "format": "date" },
+                "rows": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "description": "Row structure varies by reportType (staff_performance or sales)."
+                  }
+                }
+              }
+            },
+            "CreateReportsDownloadRequest": {
+              "type": "object",
+              "required": ["reportType", "periodStart", "periodEnd", "fileFormat"],
+              "properties": {
+                "reportType": {
+                  "type": "string",
+                  "enum": ["staff_performance", "sales"],
+                  "description": "Type of report to download"
+                },
+                "periodStart": {
+                  "type": "string",
+                  "format": "date",
+                  "description": "Start date for report (YYYY-MM-DD)"
+                },
+                "periodEnd": {
+                  "type": "string",
+                  "format": "date",
+                  "description": "End date for report (YYYY-MM-DD)"
+                },
+                "fileFormat": {
+                  "type": "string",
+                  "enum": ["csv", "excel", "pdf"],
+                  "description": "Export format (csv, excel, or pdf). Alias 'format' is also accepted."
+                },
+                "rows": {
+                  "type": "integer",
+                  "description": "Optional: maximum number of rows to include"
+                }
+              }
+            },
+            "CreateReportsDownloadResponse": {
+              "type": "object",
+              "required": ["downloadUrl"],
+              "properties": {
+                "downloadUrl": {
+                  "type": "string",
+                  "description": "Presigned S3 URL for file download (valid for 1 hour)"
+                }
+              }
+            },
+            "OrderItemRequest": {
+              "type": "object",
+              "required": ["dishId", "quantity"],
+              "properties": {
+                "dishId": { "type": "string", "format": "uuid" },
+                "quantity": { "type": "integer", "minimum": 1 }
+              }
+            },
+            "CreateOrderRequest": {
+              "type": "object",
+              "required": ["reservationId", "items"],
+              "properties": {
+                "reservationId": { "type": "string", "format": "uuid" },
+                "items": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": { "$ref": "#/components/schemas/OrderItemRequest" }
+                }
+              }
+            },
+            "CreateOrderResponse": {
+              "type": "object",
+              "required": ["orderId", "reservationId"],
+              "properties": {
+                "orderId": { "type": "string", "format": "uuid" },
+                "reservationId": { "type": "string", "format": "uuid" }
+              }
+            },
+            "ReservationEventType": {
+              "type": "string",
+              "enum": ["CREATED", "UPDATED", "COMPLETED", "CANCELLED"]
+            },
+            "ReservationEventMessage": {
+              "type": "object",
+              "required": ["eventType", "reservation", "timestamp"],
+              "properties": {
+                "eventType": { "$ref": "#/components/schemas/ReservationEventType" },
+                "reservation": { "$ref": "#/components/schemas/ReservationView" },
+                "timestamp": {
+                  "type": "string",
+                  "format": "date-time",
+                  "example": "2026-06-01T12:00:00Z"
+                }
+              }
+            }
+          }
+        }
+      }

@@ -1,0 +1,55 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = "==3.13.*"
+dependencies = [
+    "aws-lambda-powertools==3.29.0",
+    "aws-syndicate",
+    "pip==26.1.1",
+    "pre-commit==4.6.0",
+    "pydantic[email]==2.13.4",
+    "pydantic-settings==2.0.0",
+    "pyjwt==2.12.1",
+    "structlog==25.5.0",
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit",
+    "pydantic[email]==2.13.4",
+    "pydantic-settings==2.0.0",
+    "argon2-cffi==23.1.0",
+    "boto3==1.38.12",
+    "ruff==0.15.15",
+    "pytest==9.0.3",
+    "structlog==25.5.0",
+    "pytest-cov>=7.1.0",
+    "requests>=2.32.0",
+    "fpdf2>=2.8.0",
+]
+
+
+[tool.pytest.ini_options]
+testpaths = ["restaurant-backend-app/pyapp/tests"]
+pythonpath = ["restaurant-backend-app"]
+filterwarnings = [
+    'ignore:datetime\.datetime\.utcnow\(\) is deprecated and scheduled for removal in a future version\..*:DeprecationWarning:botocore\.auth',
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+exclude = [".venv", "__pycache__"]
+
+[tool.ruff.format]
+line-ending = "auto"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "D"]
+ignore = ["E501"]  # line length not enforced
+
+[tool.ruff.lint.per-file-ignores]
+"quick_seed.py" = ["E402"]
+"backend/quick_seed.py" = ["E402"]
