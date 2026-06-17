@@ -1,0 +1,81 @@
+@import url("https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-lexend: "Lexend", sans-serif;
+  --font-poppins: "Poppins", sans-serif;
+}
+
+:root {
+  --color-bg-page: var(--color-neutral-100);
+  --color-text-primary: var(--color-neutral-900);
+  --color-text-muted: var(--color-neutral-400);
+  --color-text-strong: var(--color-neutral-900);
+  --color-border-default: var(--color-neutral-200);
+  --color-brand: var(--color-green-200);
+  --color-surface: #ffffff;
+  --color-black: #000000;
+  --color-link: var(--color-blue-400);
+  --color-neutral-0: #ffffff;
+  --color-neutral-100: #f7f7f7;
+  --color-neutral-200: #dadada;
+  --color-neutral-400: #898989;
+  --color-neutral-600: #575757;
+  --color-neutral-900: #232323;
+  --color-green-100: #e9ffea;
+  --color-green-200: #00ad0c;
+  --color-green-300: #008209;
+  --color-green-400: #006907;
+  --color-blue-100: #dee9ff;
+  --color-blue-400: #0e53e9;
+  --color-orange-100: #fff2d4;
+  --color-orange-400: #ffae00;
+  --color-red-100: #fce9ed;
+  --color-red-400: #b70b0b;
+}
+
+/* Edge/IE old reveal + clear buttons */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
+
+/* Chromium/Safari internal decoration container */
+input[type="password"]::-webkit-credentials-auto-fill-button,
+input[type="password"]::-webkit-textfield-decoration-container {
+  display: none !important;
+}
+
+/* Optional: remove iOS/Safari contact/credentials icon if it appears */
+input[type="password"]::-webkit-contacts-auto-fill-button {
+  visibility: hidden;
+  display: none !important;
+  pointer-events: none;
+}
+
+@keyframes feedback-skeleton-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.feedback-skeleton.p-skeleton {
+  background: #d1d5db;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+.feedback-skeleton.p-skeleton::after {
+  background: linear-gradient(
+    90deg,
+    rgba(209, 213, 219, 0) 0%,
+    rgba(255, 255, 255, 0.92) 50%,
+    rgba(209, 213, 219, 0) 100%
+  );
+  animation: feedback-skeleton-shimmer 1s infinite;
+}
