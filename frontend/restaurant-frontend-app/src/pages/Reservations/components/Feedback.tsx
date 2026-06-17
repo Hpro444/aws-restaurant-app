@@ -10,6 +10,8 @@ import {
   submitFeedback,
   updateFeedback,
   type FeedbackDetailsResponse,
+  fetchFeedbackByReservationId,
+  typeToTab,
   type FeedbackFormState,
   type FeedbackTab,
   type WaiterData,
@@ -49,6 +51,7 @@ const FeedbackModal: FC<FeedbackModalProps> = ({
     cuisine: FeedbackDetailsResponse | null;
   }>({ service: null, cuisine: null });
   const [isFeedbackLoading, setIsFeedbackLoading] = useState(false);
+  const [, setFeedbackError] = useState<string | null>(null);
 
   const tabs: FeedbackTab[] = ["Service", "Culinary Experience"];
 
@@ -89,7 +92,6 @@ const FeedbackModal: FC<FeedbackModalProps> = ({
 
         setCachedFeedback({ service: serviceFb, cuisine: cuisineFb });
 
-        // Pre-populate form with Service feedback (default tab), or Cuisine if Service not available
         const initialFeedback = serviceFb || cuisineFb;
         if (initialFeedback) {
           setForm((prev) => ({
@@ -122,6 +124,84 @@ const FeedbackModal: FC<FeedbackModalProps> = ({
   }, [visible, reservationId, accessToken]);
 
   useEffect(() => {
+    if (!visible || !reservationId || !accessToken || mode !== "update") {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const fetchExistingFeedback = async () => {
+      try {
+        setIsFeedbackLoading(true);
+        setFeedbackError(null);
+        const feedbackData = await fetchFeedbackByReservationId(
+          reservationId,
+          accessToken,
+          controller,
+        );
+
+        setForm({
+          selectedTab: typeToTab(feedbackData.type),
+          rating: feedbackData.rate,
+          comments: feedbackData.feedback,
+        });
+      } catch (err) {
+        if ((err as Error).name === "AbortError") return;
+        setFeedbackError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load existing feedback",
+        );
+      } finally {
+        setIsFeedbackLoading(false);
+      }
+    };
+
+    void fetchExistingFeedback();
+
+    return () => controller.abort();
+  }, [visible, reservationId, accessToken, mode]);
+
+  useEffect(() => {
+    if (!visible || !reservationId || !accessToken || mode !== "update") {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const fetchExistingFeedback = async () => {
+      try {
+        setIsFeedbackLoading(true);
+        setFeedbackError(null);
+        const feedbackData = await fetchFeedbackByReservationId(
+          reservationId,
+          accessToken,
+          controller,
+        );
+
+        setForm({
+          selectedTab: typeToTab(feedbackData.type),
+          rating: feedbackData.rate,
+          comments: feedbackData.feedback,
+        });
+      } catch (err) {
+        if ((err as Error).name === "AbortError") return;
+        setFeedbackError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load existing feedback",
+        );
+      } finally {
+        setIsFeedbackLoading(false);
+      }
+    };
+
+    void fetchExistingFeedback();
+
+    return () => controller.abort();
+  }, [visible, reservationId, accessToken, mode]);
+
+  useEffect(() => {
     if (!visible || !reservationId || !accessToken) {
       return;
     }
@@ -143,7 +223,7 @@ const FeedbackModal: FC<FeedbackModalProps> = ({
   const headerContent = (
     <div className="flex items-center justify-between w-full">
       <h2 className="text-[24px] font-semibold text-gray-800 m-0">
-        Give Feedback
+        {mode === "update" ? "Update Feedback" : "Give Feedback"}
       </h2>
       <Button
         icon="pi pi-times"
@@ -176,9 +256,7 @@ const FeedbackModal: FC<FeedbackModalProps> = ({
     >
       <div
         className={
-          shouldShowWaiterSection
-            ? "flex flex-col gap-10"
-            : "flex flex-col gap-6"
+          `flex flex-col` + shouldShowWaiterSection ? " gap-10" : " gap-6"
         }
       >
         <p className="text-sm text-[#232323] ">
@@ -207,6 +285,12 @@ const FeedbackModal: FC<FeedbackModalProps> = ({
             </button>
           ))}
         </div>
+      </div>
+      ) : (
+      <div className="flex flex-col gap-10">
+        <p className="text-sm text-[#232323]">
+          Please rate your experience below
+        </p>
 
         {shouldShowWaiterSection ? (
           <div className="min-h-[88px]">
@@ -302,19 +386,84 @@ const FeedbackModal: FC<FeedbackModalProps> = ({
             />
             <span className="text-sm text-gray-500">{form.rating}/5 stars</span>
           </div>
-        </div>
 
-        <div>
-          <InputTextarea
-            value={form.comments}
-            onChange={(e) => updateForm("comments", e.target.value)}
-            placeholder="Add your comments"
-            rows={4}
-            className="w-full p-4 border border-[#dadada] rounded-lg resize-none text-sm placeholder-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500"
+          <div>
+            <div className="flex items-center justify-between">
+              <Rating
+                value={form.rating}
+                onChange={(e) => updateForm("rating", Number(e.value) || 0)}
+                stars={5}
+                cancel={false}
+                className="gap-4"
+                pt={{
+                  item: {
+                    className:
+                      "w-[30px] h-[30px] flex items-center justify-center",
+                  },
+                  onIcon: {
+                    style: {
+                      fontSize: "30px",
+                      width: "30px",
+                      height: "30px",
+                      lineHeight: "30px",
+                    },
+                    className: "text-yellow-400",
+                  },
+                  offIcon: {
+                    style: {
+                      fontSize: "30px",
+                      width: "30px",
+                      height: "30px",
+                      lineHeight: "30px",
+                    },
+                    className: "text-gray-300",
+                  },
+                }}
+              />
+              <span className="text-sm text-gray-500">
+                {form.rating}/5 stars
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <InputTextarea
+              value={form.comments}
+              onChange={(e) => updateForm("comments", e.target.value)}
+              placeholder="Add your comments"
+              rows={4}
+              className="w-full p-4 border border-[#dadada] rounded-lg resize-none text-sm placeholder-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500"
+            />
+            {submitError ? (
+              <p className="mt-2 text-sm text-red-500">{submitError}</p>
+            ) : null}
+          </div>
+
+          <Button
+            label={
+              isSubmitting
+                ? mode === "update"
+                  ? "Updating..."
+                  : "Submitting..."
+                : mode === "update"
+                  ? "Update Feedback"
+                  : "Submit Feedback"
+            }
+            onClick={() => {
+              if (isSubmitting) return;
+
+              void (mode === "update" ? updateFeedback : submitFeedback)(
+                setSubmitError,
+                reservationId,
+                accessToken,
+                form,
+                setIsSubmitting,
+                onHide,
+              );
+            }}
+            disabled={isSubmitting || form.rating < 1}
+            className="w-full bg-[#898989] hover:bg-[#757575] cursor-pointer text-white py-3 px-4 rounded-lg font-medium transition-colors"
           />
-          {submitError ? (
-            <p className="mt-2 text-sm text-red-500">{submitError}</p>
-          ) : null}
         </div>
 
         <Button

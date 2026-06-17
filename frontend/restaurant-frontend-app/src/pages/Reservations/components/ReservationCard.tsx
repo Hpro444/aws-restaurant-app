@@ -22,7 +22,7 @@ const ReservationCard = ({
   onFeedbackUpdate,
   showCustomerId = false,
 }: ReservationCardProps) => {
-  // console.log(reservation);
+  console.log(reservation);
   const {
     reservation_id,
     status,
