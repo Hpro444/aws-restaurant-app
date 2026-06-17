@@ -551,3 +551,69 @@ export const cancelReservation = async (
 
   return mapReservation(data as BackendReservation);
 };
+
+export interface FeedbackData {
+  id: string;
+  feedback: string;
+  rate: number;
+  type: FeedbackType;
+}
+
+export const fetchFeedbackByReservationId = async (
+  reservationId: string,
+  accessToken: string,
+  controller: AbortController,
+): Promise<FeedbackData> => {
+  try {
+    const response = await fetch(
+      `${getApiBaseUrl()}/feedbacks/reservation/${encodeURIComponent(reservationId)}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        signal: controller.signal,
+      },
+    );
+
+    const payload: unknown = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(getFeedbackFetchErrorMessage(response.status, payload));
+    }
+
+    const data = payload as FeedbackData;
+    return data;
+  } catch (err) {
+    if ((err as Error).name === "AbortError") throw err;
+    throw err instanceof Error ? err : new Error("Failed to fetch feedback");
+  }
+};
+
+const getFeedbackFetchErrorMessage = (
+  status: number,
+  payload: unknown,
+): string => {
+  const maybe = payload as Record<string, unknown> | null;
+
+  const directMessage =
+    (typeof maybe?.message === "string" && maybe.message) ||
+    (typeof maybe?.error === "string" && maybe.error);
+
+  if (directMessage) return directMessage;
+
+  switch (status) {
+    case 401:
+      return "Unauthorized. Please log in again.";
+    case 403:
+      return "Forbidden. You are not allowed to access this feedback.";
+    case 404:
+      return "Feedback not found for this reservation.";
+    default:
+      return "Failed to fetch feedback.";
+  }
+};
+
+export const typeToTab = (type: FeedbackType): FeedbackTab =>
+  type === "service" ? "Service" : "Culinary Experience";
